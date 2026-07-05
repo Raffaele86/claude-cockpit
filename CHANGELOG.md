@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.8.1
+- Settings and Markdown reader are now floating windows: draggable by their title bar and non-blocking — keep using the cockpit while they're open
+- Right-click context menu in the desktop app (copy selection, cut/paste in fields, select all) — e.g. copy just a portion of text from the Markdown reader
+
 ## 0.8.0
 - Settings panel (⚙️ in the top bar): notifications, Telegram gateway, alternative provider (GLM), quick actions editor, engine hosts, UI language — no more hand-editing JSON files
 - Telegram gateway hot-reload: saving settings restarts the bot immediately, no engine restart needed

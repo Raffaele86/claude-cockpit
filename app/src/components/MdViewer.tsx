@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { marked } from 'marked';
 import { t } from '../strings';
+import { useDragWin } from './useDragWin';
 
 export interface ViewerState {
   path: string;
@@ -39,6 +40,7 @@ export function mdToPlain(md: string): string {
 
 export function MdViewer({ viewer, onClose }: { viewer: ViewerState; onClose: () => void }) {
   const [copied, setCopied] = useState<string | null>(null);
+  const { ref, style, onBarMouseDown } = useDragWin();
   const name = viewer.path.split('/').filter(Boolean).at(-1) ?? viewer.path;
 
   async function copy(kind: string, text: string) {
@@ -52,32 +54,30 @@ export function MdViewer({ viewer, onClose }: { viewer: ViewerState; onClose: ()
   }
 
   return (
-    <div className="md-viewer-backdrop" onClick={onClose}>
-      <div className="md-viewer" onClick={(e) => e.stopPropagation()}>
-        <div className="md-viewer-bar">
-          <span className="md-viewer-title" title={viewer.path}>
-            📖 {name}
-          </span>
-          {viewer.content !== undefined && (
-            <>
-              <button title={t('copyTextTitle')} onClick={() => copy('txt', mdToPlain(viewer.content!))}>
-                {copied === 'txt' ? '✓' : t('copyText')}
-              </button>
-              <button title={t('copyMdTitle')} onClick={() => copy('md', viewer.content!)}>
-                {copied === 'md' ? '✓' : t('copyMd')}
-              </button>
-            </>
-          )}
-          <button onClick={() => copy('path', viewer.path)}>{copied === 'path' ? '✓' : t('copyPath')}</button>
-          <button onClick={onClose}>✕</button>
-        </div>
-        <div className="md-viewer-body">
-          {viewer.error && <div className="md-viewer-error">{t('cannotOpen')(viewer.error)}</div>}
-          {viewer.content !== undefined && (
-            <div className="md" dangerouslySetInnerHTML={{ __html: marked.parse(viewer.content) as string }} />
-          )}
-          {viewer.content === undefined && !viewer.error && <div className="md-viewer-loading">{t('loading')}</div>}
-        </div>
+    <div className="md-viewer float-win" ref={ref} style={style}>
+      <div className="md-viewer-bar" onMouseDown={onBarMouseDown}>
+        <span className="md-viewer-title" title={viewer.path}>
+          📖 {name}
+        </span>
+        {viewer.content !== undefined && (
+          <>
+            <button title={t('copyTextTitle')} onClick={() => copy('txt', mdToPlain(viewer.content!))}>
+              {copied === 'txt' ? '✓' : t('copyText')}
+            </button>
+            <button title={t('copyMdTitle')} onClick={() => copy('md', viewer.content!)}>
+              {copied === 'md' ? '✓' : t('copyMd')}
+            </button>
+          </>
+        )}
+        <button onClick={() => copy('path', viewer.path)}>{copied === 'path' ? '✓' : t('copyPath')}</button>
+        <button onClick={onClose}>✕</button>
+      </div>
+      <div className="md-viewer-body">
+        {viewer.error && <div className="md-viewer-error">{t('cannotOpen')(viewer.error)}</div>}
+        {viewer.content !== undefined && (
+          <div className="md" dangerouslySetInnerHTML={{ __html: marked.parse(viewer.content) as string }} />
+        )}
+        {viewer.content === undefined && !viewer.error && <div className="md-viewer-loading">{t('loading')}</div>}
       </div>
     </div>
   );

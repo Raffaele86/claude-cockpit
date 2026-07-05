@@ -1117,14 +1117,18 @@ body {
 }
 
 /* ---- v0.4.1: lettore Markdown ---- */
-.md-viewer-backdrop {
+/* v0.8.1: finestra flottante — non blocca l'app sotto, trascinabile dalla barra del titolo */
+.float-win {
   position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.55);
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   z-index: 50;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+}
+.float-win .md-viewer-bar {
+  cursor: move;
+  user-select: none;
 }
 .md-viewer {
   width: min(900px, 95vw);
@@ -1189,6 +1193,10 @@ body {
     height: 100dvh;
     max-height: none;
     border-radius: 0;
+    /* full-screen: annulla il posizionamento drag del desktop */
+    left: 0 !important;
+    top: 0 !important;
+    transform: none !important;
   }
 }
 

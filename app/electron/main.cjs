@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, session, Menu, Notification } = require('electron');
 const { spawn, execFileSync } = require('node:child_process');
 const { existsSync, readFileSync, writeFileSync } = require('node:fs');
 const { homedir } = require('node:os');
@@ -125,6 +125,16 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
     },
+  });
+
+  // Menù contestuale tasto destro (Electron non lo ha di default): copia della selezione,
+  // taglia/incolla nei campi editabili — es. copiare porzioni di testo dal lettore Markdown.
+  win.webContents.on('context-menu', (_e, params) => {
+    const items = [];
+    if (params.selectionText) items.push({ role: 'copy' });
+    if (params.isEditable) items.push({ role: 'cut' }, { role: 'paste' });
+    if (params.selectionText || params.isEditable) items.push({ type: 'separator' }, { role: 'selectAll' });
+    if (items.length) Menu.buildFromTemplate(items).popup({ window: win });
   });
 
   // Log della console del renderer su stdout del main (debug + verifica smoke).

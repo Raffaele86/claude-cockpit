@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CockpitSettings, QuickActionEntry } from '../protocol';
 import { t } from '../strings';
+import { useDragWin } from './useDragWin';
 
 export interface SettingsSnapshot {
   data: CockpitSettings;
@@ -34,6 +35,7 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
   const [lang, setLang] = useState(() => localStorage.getItem('cockpit-lang') ?? '');
   const [savedFlash, setSavedFlash] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const { ref, style, onBarMouseDown } = useDragWin();
 
   useEffect(() => {
     if (!snapshot || loaded) return;
@@ -63,9 +65,8 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
   }
 
   return (
-    <div className="md-viewer-backdrop" onClick={onClose}>
-      <div className="md-viewer settings-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="md-viewer-bar">
+    <div className="md-viewer settings-modal float-win" ref={ref} style={style}>
+      <div className="md-viewer-bar" onMouseDown={onBarMouseDown}>
           <span className="md-viewer-title">⚙️ {t('settingsTitle')}</span>
           {snapshot?.restartRequired && <span className="settings-warn">{t('restartRequired')}</span>}
           <button onClick={save}>{savedFlash ? t('saved') : t('save')}</button>
@@ -211,7 +212,6 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
             </>
           )}
         </div>
-      </div>
     </div>
   );
 }
