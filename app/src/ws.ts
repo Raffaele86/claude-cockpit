@@ -2,8 +2,15 @@ import type { ClientMsg, ServerMsg } from './protocol';
 
 export type ConnState = 'connecting' | 'authed' | 'disconnected';
 
-// Da browser (UI servita dall'engine via Tailscale/LAN) il WS punta allo stesso host; in Electron (file://) resta localhost.
-const ENGINE_URL = location.protocol.startsWith('http') && location.hostname ? `ws://${location.hostname}:8130` : 'ws://127.0.0.1:8130';
+// Da browser il WS è same-origin: regge sia l'accesso diretto (http://IP:8130) sia un reverse
+// proxy TLS davanti all'engine (es. `tailscale serve` → https://nome.ts.net → wss sulla 443).
+// In Electron (file://) resta localhost.
+const ENGINE_URL =
+  location.protocol === 'https:'
+    ? `wss://${location.host}`
+    : location.protocol === 'http:' && location.host
+      ? `ws://${location.host}`
+      : 'ws://127.0.0.1:8130';
 const MAX_BACKOFF_MS = 8000;
 
 /** Client WS con auth automatica e riconnessione a backoff esponenziale. */

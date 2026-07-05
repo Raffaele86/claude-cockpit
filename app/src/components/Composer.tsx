@@ -8,6 +8,7 @@ type SpeechRec = {
   interimResults: boolean;
   onresult: ((e: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
   onend: (() => void) | null;
+  onerror: ((e: { error?: string }) => void) | null;
   start: () => void;
   stop: () => void;
 };
@@ -31,6 +32,7 @@ export function Composer({ disabled, busy, queued, slashCommands, onSend, onInte
   const [text, setText] = useState('');
   const [images, setImages] = useState<ImageAttachment[]>([]);
   const [listening, setListening] = useState(false);
+  const [micMsg, setMicMsg] = useState<string | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
   const recRef = useRef<SpeechRec | null>(null);
 
@@ -48,11 +50,21 @@ export function Composer({ disabled, busy, queued, slashCommands, onSend, onInte
   }, [insertRef]);
 
   function toggleMic() {
+    setMicMsg(null);
     if (listening) {
       recRef.current?.stop();
       return;
     }
-    if (!SpeechRecCtor) return;
+    // Chrome blocca microfono/Web Speech sulle origini http non sicure (es. http://IP:8130):
+    // fallirebbe in silenzio — meglio dirlo subito.
+    if (!window.isSecureContext) {
+      setMicMsg(t('micNeedsHttps'));
+      return;
+    }
+    if (!SpeechRecCtor) {
+      setMicMsg(t('micUnsupported'));
+      return;
+    }
     const rec = new SpeechRecCtor();
     rec.lang = LOCALE;
     rec.continuous = true;
@@ -63,6 +75,11 @@ export function Composer({ disabled, busy, queued, slashCommands, onSend, onInte
         if (e.results[i].isFinal) chunk += e.results[i][0].transcript;
       }
       if (chunk) setText((t) => (t ? t + ' ' : '') + chunk.trim());
+    };
+    rec.onerror = (e) => {
+      setListening(false);
+      const code = (e as { error?: string }).error ?? '';
+      setMicMsg(code === 'not-allowed' || code === 'service-not-allowed' ? t('micDenied') : t('micError')(code));
     };
     rec.onend = () => setListening(false);
     recRef.current = rec;
@@ -129,6 +146,12 @@ export function Composer({ disabled, busy, queued, slashCommands, onSend, onInte
               /{c}
             </button>
           ))}
+        </div>
+      )}
+      {micMsg && (
+        <div className="mic-msg">
+          {micMsg}
+          <button onClick={() => setMicMsg(null)}>✕</button>
         </div>
       )}
       {(images.length > 0 || queued > 0) && (

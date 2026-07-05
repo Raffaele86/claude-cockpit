@@ -1725,3 +1725,24 @@ body {
   color: var(--text-dim);
   opacity: 0.8;
 }
+
+/* v0.9.1: avviso dettatura (mic non disponibile/negato) */
+.mic-msg {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 16px 0;
+  padding: 6px 10px;
+  border: 1px solid var(--amber);
+  border-radius: 8px;
+  background: rgba(217, 169, 74, 0.08);
+  color: var(--amber);
+  font-size: 12px;
+}
+.mic-msg button {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--amber);
+  cursor: pointer;
+}

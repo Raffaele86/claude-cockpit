@@ -168,6 +168,11 @@ const IT = {
   mcpConfirmRemove: 'rimuovere?',
   mcpEmpty: 'Nessun server MCP configurato in Claude Code.',
   mcpRestartNote: 'La sessione si riavvia per caricare la modifica (la chat resta).',
+  // Dettatura
+  micNeedsHttps: 'Il microfono richiede HTTPS: apri il Cockpit da un indirizzo https:// (es. tailscale serve — vedi README).',
+  micUnsupported: 'Dettatura non supportata da questo browser.',
+  micDenied: 'Permesso microfono negato: consentilo nelle impostazioni del sito.',
+  micError: (code: string) => `Dettatura non riuscita${code ? ` (${code})` : ''}. Riprova.`,
 };
 
 const EN: typeof IT = {
@@ -335,6 +340,11 @@ const EN: typeof IT = {
   mcpConfirmRemove: 'remove?',
   mcpEmpty: 'No MCP servers configured in Claude Code.',
   mcpRestartNote: 'The session restarts to load the change (the chat is kept).',
+  // Dictation
+  micNeedsHttps: 'The microphone requires HTTPS: open Cockpit from an https:// address (e.g. tailscale serve — see README).',
+  micUnsupported: 'Dictation is not supported by this browser.',
+  micDenied: 'Microphone permission denied: allow it in the site settings.',
+  micError: (code: string) => `Dictation failed${code ? ` (${code})` : ''}. Try again.`,
 };
 
 export const t = <K extends keyof typeof IT>(k: K): (typeof IT)[K] => (LANG === 'it' ? IT : EN)[k];

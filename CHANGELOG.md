@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.9.1
+- Same-origin WebSocket: the UI works behind a TLS reverse proxy (e.g. `tailscale serve` → `https://…ts.net` with `wss://`), enabling the microphone on mobile (browsers require a secure context for dictation)
+- Dictation errors are now visible: insecure-context / unsupported-browser / permission-denied messages instead of a silent red button
+
 ## 0.9.0
 - MCP management from the side panel: connect your own servers (HTTP/SSE/stdio, headers, env vars, user or project scope — wraps `claude mcp add`) and remove them; the session restarts keeping the conversation
 - The MCP panel is always visible (even with zero servers) so new users can add one
