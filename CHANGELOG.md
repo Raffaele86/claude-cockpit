@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.13.0
+- The app and every new chat/tab now always open in the CLI view; switching to Chat is a manual, session-only choice (not persisted)
+- Chat view redesigned in the style of claude.ai (dark): warm palette (#262624 / coral #D97757), serif prose for Claude's replies with no bubble and a ✳ marker, rounded user cards, a single rounded composer with the mic and a circular send button inside, quiet tool cards — whole app re-skinned on the same warm tokens
+
+
 ## 0.12.1
 - Dictation language is now an explicit setting (`sttLanguage` in Settings → Telegram: Auto/Italiano/English) instead of following the UI locale — an `en-US` runtime (typical in Electron) was making Whisper TRANSLATE Italian speech into English
 - Telegram voice memos use the same setting (was hardcoded to Italian) and the same transcription code path

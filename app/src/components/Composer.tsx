@@ -141,14 +141,19 @@ export function Composer({ disabled, busy, queued, slashCommands, client, onSend
           >
             {mic.state === 'recording' ? '🔴' : mic.state === 'busy' ? '…' : '🎤'}
           </button>
-          <button className="send" onClick={submit} disabled={disabled || !text.trim()}>
-            {busy ? t('enqueue') : t('send')}
-          </button>
           {busy && (
             <button className="stop" onClick={onInterrupt}>
               {t('stopEsc')}
             </button>
           )}
+          <button
+            className="send"
+            title={busy ? t('enqueue') : t('send')}
+            onClick={submit}
+            disabled={disabled || !text.trim()}
+          >
+            ↑
+          </button>
         </div>
       </div>
     </div>

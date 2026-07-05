@@ -61,14 +61,9 @@ export function App() {
   const [pending, setPending] = useState<PendingPermission[]>([]);
   const [engineError, setEngineError] = useState<string | null>(null);
   const [terminal, setTerminal] = useState<string | null>(null); // shell dal FileNav (pannello inferiore), path
-  // Vista principale per scheda: CLI vero di Claude Code (default desktop) o Chat SDK (default ≤840px).
-  const [viewByKey, setViewByKey] = useState<Record<string, 'cli' | 'chat'>>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('cockpit-view') || '{}');
-    } catch {
-      return {};
-    }
-  });
+  // Vista principale per scheda: si apre SEMPRE nel CLI; la Chat è una scelta manuale
+  // che vale solo per la sessione corrente (stato in memoria, niente persistenza).
+  const [viewByKey, setViewByKey] = useState<Record<string, 'cli' | 'chat'>>({});
   const [cliNonce, setCliNonce] = useState<Record<string, number>>({}); // remount dopo /exit
   const [cliExited, setCliExited] = useState<Record<string, boolean>>({});
   const cliInput = useRef<((text: string) => void) | null>(null);
@@ -555,15 +550,9 @@ export function App() {
     if (!res.ok) setEngineError(t('engineStartFailed')(res.error ?? ''));
   }
 
-  const view: 'cli' | 'chat' = viewByKey[activeKey] ?? (window.innerWidth <= 840 ? 'chat' : 'cli');
+  const view: 'cli' | 'chat' = viewByKey[activeKey] ?? 'cli';
   const setView = useCallback(
-    (v: 'cli' | 'chat') => {
-      setViewByKey((prev) => {
-        const next = { ...prev, [activeKey]: v };
-        localStorage.setItem('cockpit-view', JSON.stringify(next));
-        return next;
-      });
-    },
+    (v: 'cli' | 'chat') => setViewByKey((prev) => ({ ...prev, [activeKey]: v })),
     [activeKey],
   );
 

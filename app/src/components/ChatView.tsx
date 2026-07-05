@@ -94,9 +94,9 @@ export function ChatView({
           );
         }
         if (it.kind === 'user') {
+          // Come su claude.ai: card arrotondata senza etichetta.
           return (
             <div key={it.id} className="turn user">
-              <div className="role">{t('you')}</div>
               <div className="bubble">
                 {it.text}
                 {it.imageCount ? <span className="img-badge"> 🖼 {it.imageCount}</span> : null}
@@ -104,13 +104,12 @@ export function ChatView({
             </div>
           );
         }
+        // Risposta: prosa serif direttamente sul fondo (niente bolla), marcatore ✳ e copia in hover.
         return (
           <div key={it.id} className="turn assistant">
-            <div className="role">
-              Claude
-              <CopyButton getText={() => it.text} />
-            </div>
-            <div className="bubble md" dangerouslySetInnerHTML={{ __html: marked.parse(it.text || '…') as string }} />
+            <span className="asst-mark">✳</span>
+            <div className="asst-body md" dangerouslySetInnerHTML={{ __html: marked.parse(it.text || '…') as string }} />
+            <CopyButton getText={() => it.text} />
           </div>
         );
       })}

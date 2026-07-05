@@ -1,16 +1,20 @@
+/* Palette claude.ai (dark): fondo caldo, corallo, avorio. La prosa delle risposte è in serif
+   (Tiempos se presente, fallback di sistema) come su claude.ai; la UI resta in grottesco. */
 :root {
-  --bg: #0f1115;
-  --bg-elev: #171a21;
-  --bg-input: #1d2129;
-  --border: #262c37;
-  --text: #d7dce5;
-  --text-dim: #8b93a3;
-  --accent: #d98a4a;
-  --user: #2a3140;
-  --green: #4ac07a;
-  --red: #d95a5a;
+  --bg: #262624;
+  --bg-elev: #30302e;
+  --bg-input: #3a3937;
+  --border: #45423c;
+  --text: #f0eee6;
+  --text-dim: #a6a39a;
+  --accent: #d97757;
+  --accent-hover: #e08a6d;
+  --user: #393733;
+  --green: #7fbf7f;
+  --red: #e07a6a;
   --amber: #d9a94a;
-  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --serif: 'Tiempos Text', 'Source Serif 4', Georgia, 'Times New Roman', serif;
+  font-family: 'Styrene B', -apple-system, 'Segoe UI', system-ui, Roboto, sans-serif;
 }
 
 * {
@@ -139,27 +143,27 @@ body {
   border: 1px solid var(--border);
 }
 
-.bubble.md {
+.chat .md {
   white-space: normal;
 }
-.bubble.md p {
+.chat .md p {
   margin: 0 0 8px;
 }
-.bubble.md p:last-child {
+.chat .md p:last-child {
   margin-bottom: 0;
 }
-.bubble.md pre {
+.chat .md pre {
   background: #0c0e12;
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 10px;
   overflow-x: auto;
 }
-.bubble.md code {
+.chat .md code {
   font-family: 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
   font-size: 13px;
 }
-.bubble.md :not(pre) > code {
+.chat .md :not(pre) > code {
   background: #0c0e12;
   padding: 1px 5px;
   border-radius: 4px;
@@ -181,7 +185,7 @@ body {
 .rail {
   width: 168px;
   flex: none;
-  background: #12141a;
+  background: #21201e;
   border-right: 1px solid var(--border);
   overflow-y: auto;
   padding: 8px;
@@ -644,7 +648,7 @@ body {
   color: var(--text);
   border-color: var(--accent);
 }
-.bubble.md pre {
+.chat .md pre {
   position: relative;
 }
 .code-copy {
@@ -661,7 +665,7 @@ body {
   opacity: 0;
   transition: opacity 0.12s;
 }
-.bubble.md pre:hover .code-copy {
+.chat .md pre:hover .code-copy {
   opacity: 1;
 }
 
@@ -1752,12 +1756,12 @@ body {
 }
 
 /* ---- v0.10: markdown chat — hr/tabelle/titoli leggibili sul tema scuro ---- */
-.bubble.md hr {
+.chat .md hr {
   border: none;
   border-top: 1px solid var(--border);
   margin: 12px 0;
 }
-.bubble.md table {
+.chat .md table {
   border-collapse: collapse;
   margin: 8px 0;
   font-size: 13px;
@@ -1765,31 +1769,31 @@ body {
   overflow-x: auto;
   max-width: 100%;
 }
-.bubble.md th,
-.bubble.md td {
+.chat .md th,
+.chat .md td {
   border: 1px solid var(--border);
   padding: 4px 10px;
   text-align: left;
 }
-.bubble.md th {
+.chat .md th {
   background: var(--bg-input);
 }
-.bubble.md tr:nth-child(even) td {
+.chat .md tr:nth-child(even) td {
   background: rgba(255, 255, 255, 0.02);
 }
-.bubble.md h1,
-.bubble.md h2,
-.bubble.md h3,
-.bubble.md h4 {
+.chat .md h1,
+.chat .md h2,
+.chat .md h3,
+.chat .md h4 {
   margin: 12px 0 6px;
   line-height: 1.3;
 }
-.bubble.md h1 { font-size: 18px; }
-.bubble.md h2 { font-size: 16px; }
-.bubble.md h3 { font-size: 14.5px; }
-.bubble.md h4 { font-size: 13.5px; }
-.bubble.md ul,
-.bubble.md ol {
+.chat .md h1 { font-size: 18px; }
+.chat .md h2 { font-size: 16px; }
+.chat .md h3 { font-size: 14.5px; }
+.chat .md h4 { font-size: 13.5px; }
+.chat .md ul,
+.chat .md ol {
   margin: 6px 0;
   padding-left: 22px;
 }
@@ -1915,4 +1919,153 @@ body {
   border: none;
   color: var(--amber);
   cursor: pointer;
+}
+
+/* ---- v0.13: chat in stile claude.ai (dark) ---- */
+.chat {
+  gap: 26px;
+  padding: 30px 20px 10px;
+}
+.turn {
+  max-width: 760px;
+}
+/* Messaggio utente: card arrotondata calda, senza etichetta */
+.turn.user .bubble {
+  background: var(--user);
+  border: none;
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-size: 14.5px;
+  line-height: 1.6;
+}
+/* Risposta di Claude: prosa serif sul fondo, marcatore ✳, copia in hover */
+.turn.assistant {
+  position: relative;
+  padding-left: 30px;
+}
+.asst-mark {
+  position: absolute;
+  left: 2px;
+  top: 7px;
+  color: var(--accent);
+  font-size: 14px;
+  line-height: 1;
+}
+.asst-body {
+  font-family: var(--serif);
+  font-size: 15.5px;
+  line-height: 1.7;
+  word-break: break-word;
+}
+.asst-body.md p {
+  margin: 0 0 12px;
+}
+.asst-body.md p:last-child {
+  margin-bottom: 0;
+}
+.turn.assistant .copy-btn {
+  position: absolute;
+  top: 2px;
+  right: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.turn.assistant:hover .copy-btn {
+  opacity: 1;
+}
+/* codice: il mono resta mono anche dentro la prosa serif */
+.chat .md pre,
+.chat .md code {
+  font-family: 'Cascadia Code', 'Fira Code', ui-monospace, monospace;
+}
+.chat .md pre {
+  background: #1f1e1c;
+}
+.chat .md :not(pre) > code {
+  background: #1f1e1c;
+  font-size: 13px;
+}
+
+/* Composer: contenitore unico arrotondato con i bottoni dentro (come claude.ai) */
+.composer {
+  flex-direction: column;
+  gap: 4px;
+  max-width: 792px;
+  width: calc(100% - 32px);
+  margin: 4px auto 14px;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 22px;
+  border-top: 1px solid var(--border);
+  padding: 12px 14px 10px;
+}
+.composer:focus-within {
+  border-color: #5a564e;
+}
+.composer textarea {
+  background: transparent;
+  border: none;
+  padding: 2px 4px;
+  font-size: 15px;
+}
+.composer textarea:focus {
+  border: none;
+}
+.composer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.composer .mic {
+  margin-right: auto;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  font-size: 16px;
+  padding: 4px 8px;
+}
+.composer .mic:hover {
+  border-color: var(--border);
+}
+.composer .send {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #1c130e;
+  font-size: 17px;
+  font-weight: 700;
+  padding: 0;
+  align-self: center;
+}
+.composer .send:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+.composer .send:disabled {
+  opacity: 0.4;
+}
+.composer .stop {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 10px;
+  font-size: 12px;
+}
+
+/* Barre di contorno della chat: quiete e centrate sulla colonna */
+.modebar,
+.statusline,
+.quickactions {
+  max-width: 792px;
+  width: 100%;
+  margin: 0 auto;
+}
+.tool-card {
+  max-width: 760px;
+  border-radius: 12px;
+  background: #2b2a28;
+}
+.thinking-block {
+  max-width: 760px;
 }
