@@ -1,0 +1,30 @@
+appId: app.claudecockpit
+productName: Claude Cockpit
+copyright: © Claude Cockpit contributors
+
+directories:
+  output: dist-win
+  buildResources: build
+
+# main.cjs usa solo built-in Electron; React/marked/xterm sono già in dist/ (bundle Vite).
+# Nessuna dependency runtime → niente node_modules nel pacchetto (pacchetto snello, zero native deps).
+files:
+  - electron/**
+  - dist/**
+  - package.json
+
+# portable + nsis (nsis richiede wine + wine32:i386 per makensis a 32 bit).
+win:
+  icon: build/icon.ico
+  target:
+    - portable
+    - nsis
+
+portable:
+  artifactName: ClaudeCockpit-portable-${version}.exe
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ClaudeCockpit-setup-${version}.exe
