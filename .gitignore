@@ -9,3 +9,4 @@ engine/ui/
 scripts/build-raffa.sh
 TELEGRAM-SETUP.md
 .DS_Store
+__pycache__/
