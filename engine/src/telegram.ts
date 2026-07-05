@@ -5,6 +5,7 @@ import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { COCKPIT_DIR } from './auth.js';
+import { transcribeAudio } from './stt.js';
 import type { ServerMsg } from './protocol.js';
 
 interface TelegramConfig {
@@ -41,12 +42,6 @@ function loadConfig(): TelegramConfig | null {
   }
 }
 
-const STT_ENDPOINTS = {
-  groq: 'https://api.groq.com/openai/v1/audio/transcriptions',
-  openai: 'https://api.openai.com/v1/audio/transcriptions',
-};
-const STT_MODELS = { groq: 'whisper-large-v3', openai: 'whisper-1' };
-
 export function startTelegramGateway(deps: GatewayDeps): TelegramGateway | null {
   const cfg = loadConfig();
   if (!cfg) return null;
@@ -75,26 +70,17 @@ export function startTelegramGateway(deps: GatewayDeps): TelegramGateway | null 
 
   async function transcribe(fileId: string): Promise<string | null> {
     if (!cfg!.sttApiKey) return null;
-    const provider = cfg!.sttProvider ?? 'groq';
     const info = (await call('getFile', { file_id: fileId })) as { file_path?: string } | undefined;
     if (!info?.file_path) return null;
     const audio = await fetch(`https://api.telegram.org/file/bot${cfg!.botToken}/${info.file_path}`);
-    const blob = await audio.blob();
-    const form = new FormData();
-    form.append('file', blob, 'voice.ogg');
-    form.append('model', STT_MODELS[provider]);
-    form.append('language', 'it');
-    const res = await fetch(STT_ENDPOINTS[provider], {
-      method: 'POST',
-      headers: { authorization: `Bearer ${cfg!.sttApiKey}` },
-      body: form,
-    });
-    if (!res.ok) {
-      console.error(`[telegram] STT ${provider}: HTTP ${res.status}`);
+    const buf = Buffer.from(await audio.arrayBuffer());
+    try {
+      // Stessa pipeline (e stessa lingua configurata) della dettatura UI.
+      return await transcribeAudio(buf.toString('base64'), 'audio/ogg');
+    } catch (err) {
+      console.error('[telegram] STT:', String(err));
       return null;
     }
-    const data = (await res.json()) as { text?: string };
-    return data.text?.trim() || null;
   }
 
   async function handleMessage(msg: {

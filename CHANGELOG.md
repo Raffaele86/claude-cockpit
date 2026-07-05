@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.12.1
+- Dictation language is now an explicit setting (`sttLanguage` in Settings → Telegram: Auto/Italiano/English) instead of following the UI locale — an `en-US` runtime (typical in Electron) was making Whisper TRANSLATE Italian speech into English
+- Telegram voice memos use the same setting (was hardcoded to Italian) and the same transcription code path
+
+
 ## 0.12.0
 - Dictation rebuilt on server-side Whisper (Groq/OpenAI, same key as Telegram voice memos): record with MediaRecorder, the engine transcribes — works in the **desktop app** (where Web Speech never worked) and over https on mobile
 - Microphone in the **CLI view** too: floating 🎤 button, the transcribed text is typed into the terminal (you review, then press Enter)

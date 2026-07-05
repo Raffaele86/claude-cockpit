@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from 'react';
 import type { CockpitClient } from '../ws';
-import { LANG, t } from '../strings';
+import { t } from '../strings';
 
 export type MicState = 'idle' | 'recording' | 'busy';
 
@@ -67,7 +67,7 @@ export function useDictation(getClient: () => CockpitClient | null, onText: (tex
             if (m.error) setMsg(m.error);
             else if (m.text) onTextRef.current(m.text);
           });
-          client.send({ op: 'stt', audio: b64, mime: blob.type, lang: LANG });
+          client.send({ op: 'stt', audio: b64, mime: blob.type });
         };
         reader.readAsDataURL(blob);
       };

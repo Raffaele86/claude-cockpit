@@ -10,8 +10,8 @@ const ENDPOINTS = {
 };
 const MODELS = { groq: 'whisper-large-v3', openai: 'whisper-1' };
 
-export async function transcribeAudio(audioB64: string, mime: string, lang: string): Promise<string> {
-  let cfg: { sttApiKey?: string; sttProvider?: 'groq' | 'openai' };
+export async function transcribeAudio(audioB64: string, mime: string): Promise<string> {
+  let cfg: { sttApiKey?: string; sttProvider?: 'groq' | 'openai'; sttLanguage?: string };
   try {
     cfg = JSON.parse(readFileSync(join(COCKPIT_DIR, 'telegram.json'), 'utf8'));
   } catch {
@@ -25,7 +25,9 @@ export async function transcribeAudio(audioB64: string, mime: string, lang: stri
   const form = new FormData();
   form.append('file', new Blob([buf], { type: mime }), `voice.${ext}`);
   form.append('model', MODELS[provider]);
-  form.append('language', lang);
+  // Lingua ESPLICITA da config (mai dalla UI: un runtime en-US faceva TRADURRE l'italiano
+  // in inglese). 'auto'/assente = auto-rilevamento Whisper, che trascrive senza tradurre.
+  if (cfg.sttLanguage && cfg.sttLanguage !== 'auto') form.append('language', cfg.sttLanguage);
 
   const res = await fetch(ENDPOINTS[provider], {
     method: 'POST',

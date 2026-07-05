@@ -51,6 +51,7 @@ export function applySettings(patch: Partial<CockpitSettings>): { telegram: bool
       project: p.project?.trim() || undefined,
       sttApiKey: isMasked(p.sttApiKey) ? cur.sttApiKey : p.sttApiKey?.trim() || undefined,
       sttProvider: p.sttProvider,
+      sttLanguage: p.sttLanguage?.trim() || undefined,
     };
     // Contiene segreti: mode 0600 come il token.
     writeFileSync(TELEGRAM_PATH, JSON.stringify(next, null, 2) + '\n', { mode: 0o600 });

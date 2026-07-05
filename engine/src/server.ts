@@ -17,7 +17,7 @@ import { startTelegramGateway, type TelegramGateway } from './telegram.js';
 import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 
-const ENGINE_VERSION = '0.12.0';
+const ENGINE_VERSION = '0.12.1';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -624,7 +624,7 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
         break;
       }
       try {
-        const text = await transcribeAudio(msg.audio, msg.mime, msg.lang ?? 'it');
+        const text = await transcribeAudio(msg.audio, msg.mime);
         send(ws, { ev: 'stt_result', text });
       } catch (err) {
         send(ws, { ev: 'stt_result', error: String(err instanceof Error ? err.message : err) });

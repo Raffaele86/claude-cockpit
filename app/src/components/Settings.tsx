@@ -154,6 +154,14 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
                   {t('tgSttKey')}
                   <input type="password" value={tg.sttApiKey ?? ''} onChange={(e) => setTg({ ...tg, sttApiKey: e.target.value })} />
                 </label>
+                <label className="set-field">
+                  {t('sttLangLbl')}
+                  <select value={tg.sttLanguage ?? 'auto'} onChange={(e) => setTg({ ...tg, sttLanguage: e.target.value })}>
+                    <option value="auto">{t('langAuto')}</option>
+                    <option value="it">Italiano</option>
+                    <option value="en">English</option>
+                  </select>
+                </label>
                 <p className="set-hint">{t('tgHint')}</p>
               </section>
 

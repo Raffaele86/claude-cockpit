@@ -51,7 +51,7 @@ export type ClientMsg =
   | { op: 'set_provider'; project: string; provider: ProviderName }
   | { op: 'settings_get' }
   | { op: 'settings_set'; patch: Partial<CockpitSettings> }
-  | { op: 'stt'; audio: string; mime: string; lang?: string } // audio base64 (≤2MB) → trascrizione Whisper
+  | { op: 'stt'; audio: string; mime: string } // audio base64 (≤2MB) → trascrizione Whisper (lingua da config)
   | { op: 'mcp_add'; project: string; server: McpAddRequest }
   | { op: 'mcp_remove'; project: string; name: string };
 
@@ -75,6 +75,7 @@ export interface CockpitSettings {
     project?: string;
     sttApiKey?: string;
     sttProvider?: 'groq' | 'openai';
+    sttLanguage?: string; // 'auto' | codice ISO (es. 'it') — dettatura E vocali Telegram
   };
   providers: { glm?: { configDir: string; model?: string } };
   engine: { hosts: string[]; defaultPermissionMode?: PermissionModeName };

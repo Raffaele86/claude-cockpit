@@ -170,6 +170,7 @@ const IT = {
   // Dettatura
   micNeedsHttps: 'Microfono non disponibile su http: apri il Cockpit dall’app desktop o da un indirizzo https:// (es. tailscale serve — vedi README).',
   micTranscribing: 'Trascrizione in corso…',
+  sttLangLbl: 'Lingua dettatura e vocali',
   micDenied: 'Permesso microfono negato: consentilo nelle impostazioni del sito.',
   micError: (code: string) => `Dettatura non riuscita${code ? ` (${code})` : ''}. Riprova.`,
   // Statusline / console / permessi default
@@ -346,6 +347,7 @@ const EN: typeof IT = {
   // Dictation
   micNeedsHttps: 'Microphone unavailable over http: open Cockpit from the desktop app or an https:// address (e.g. tailscale serve — see README).',
   micTranscribing: 'Transcribing…',
+  sttLangLbl: 'Dictation & voice-memo language',
   micDenied: 'Microphone permission denied: allow it in the site settings.',
   micError: (code: string) => `Dictation failed${code ? ` (${code})` : ''}. Try again.`,
   // Statusline / console / default permissions
