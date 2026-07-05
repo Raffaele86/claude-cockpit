@@ -148,6 +148,12 @@ export class CockpitSession {
     return list.map((s) => ({ name: s.name, status: s.status }));
   }
 
+  /** Uso reale della finestra di contesto (fonte: SDK, stesso dato del CLI). */
+  async contextUsage(): Promise<{ totalTokens: number; maxTokens: number; percentage: number }> {
+    const u = await this.q.getContextUsage();
+    return { totalTokens: u.totalTokens, maxTokens: u.maxTokens, percentage: u.percentage };
+  }
+
   private requestPermission(
     toolName: string,
     input: Record<string, unknown>,

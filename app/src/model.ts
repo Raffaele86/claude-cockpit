@@ -48,7 +48,6 @@ export interface QueuedPrompt {
 export interface ProjectState {
   items: Item[];
   queue: QueuedPrompt[];
-  contextTokens: number; // input+cache dell'ultimo turno ≈ contesto corrente
   sessions: SessionSummary[]; // cronologia chat del progetto (sessions_list)
   searchResults: SearchResult[] | null; // esito sessions_search (null = nessuna ricerca attiva)
   sessionId?: string; // sessione attiva (da init/session_opened)
@@ -65,6 +64,8 @@ export interface ProjectState {
   tokensIn: number;
   tokensOut: number;
   thinkingSince: number | null; // epoch ms, null se non sta pensando
+  ctx: { totalTokens: number; maxTokens: number; percentage: number } | null; // uso contesto reale (ev 'context')
+  branch?: string; // branch git del cwd (dall'ev 'context')
   mcpServers: McpServer[];
   mcpOp: { busy: boolean; error: string | null }; // add/remove server MCP in corso / esito
 }
@@ -73,7 +74,6 @@ export function emptyProject(): ProjectState {
   return {
     items: [],
     queue: [],
-    contextTokens: 0,
     sessions: [],
     searchResults: null,
     todos: [],
@@ -89,6 +89,7 @@ export function emptyProject(): ProjectState {
     tokensIn: 0,
     tokensOut: 0,
     thinkingSince: null,
+    ctx: null,
     mcpServers: [],
     mcpOp: { busy: false, error: null },
   };

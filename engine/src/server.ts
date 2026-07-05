@@ -16,7 +16,7 @@ import { randomUUID } from 'node:crypto';
 import { startTelegramGateway, type TelegramGateway } from './telegram.js';
 import { applySettings, hostsChanged, readSettings } from './settings.js';
 
-const ENGINE_VERSION = '0.9.2';
+const ENGINE_VERSION = '0.10.0';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -34,6 +34,16 @@ function loadEngineHosts(): string[] {
   }
 }
 const HOSTS = loadEngineHosts();
+
+// engine.json: modalità permessi di partenza delle sessioni (es. bypassPermissions); riletta a ogni sessione.
+function loadDefaultPermissionMode(): PermissionModeName {
+  try {
+    const cfg = JSON.parse(readFileSync(join(COCKPIT_DIR, 'engine.json'), 'utf8')) as { defaultPermissionMode?: PermissionModeName };
+    return cfg.defaultPermissionMode ?? 'default';
+  } catch {
+    return 'default';
+  }
+}
 
 const token = loadOrCreateToken();
 const sessions = new Map<string, CockpitSession>();
@@ -55,6 +65,7 @@ function loadProviderConfig(name: string): { configDir: string; model?: string }
   }
 }
 const eventListeners = new Set<(msg: ServerMsg) => void>(); // es. gateway Telegram
+const permMeta = new Map<string, { project: string; toolName: string }>(); // requestId → per l'auto-uscita dal plan mode
 
 // UI statica (build vite copiata in engine/ui): stessa porta del WS → usabile da browser.
 const UI_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'ui');
@@ -116,6 +127,7 @@ function forwardSdkMessage(project: string, msg: SDKMessage): void {
           tools: msg.tools,
           slash_commands: msg.slash_commands,
         });
+        void emitContext(project);
       }
       break;
     case 'stream_event':
@@ -138,10 +150,33 @@ function forwardSdkMessage(project: string, msg: SDKMessage): void {
         num_turns: msg.num_turns,
         result: msg.subtype === 'success' ? msg.result : undefined,
       });
+      void emitContext(project);
       break;
     default:
       // Altri tipi (status, hook, task, ...) non servono alla UI per ora.
       break;
+  }
+}
+
+/** Branch git corrente di una dir (da .git/HEAD, senza spawnare git). */
+function gitBranch(cwd: string): string | undefined {
+  try {
+    const head = readFileSync(join(cwd, '.git', 'HEAD'), 'utf8').trim();
+    return head.startsWith('ref: refs/heads/') ? head.slice(16) : head.slice(0, 8);
+  } catch {
+    return undefined;
+  }
+}
+
+/** Uso contesto reale dall'SDK (stesso dato del CLI) → ev 'context' con anche il branch git. */
+async function emitContext(project: string): Promise<void> {
+  const session = sessions.get(project);
+  if (!session) return;
+  try {
+    const u = await session.contextUsage();
+    broadcast({ ev: 'context', project, ...u, branch: gitBranch(cwdOf(project)) });
+  } catch {
+    /* sessione appena chiusa o SDK vecchio: nessun dato ctx */
   }
 }
 
@@ -248,6 +283,7 @@ function getOrCreateSession(projectPath: string, model?: string): CockpitSession
   let session = sessions.get(project);
   if (!session) {
     const resume = getStoredSession(project);
+    const permissionMode = loadDefaultPermissionMode();
     // Provider alternativo (GLM): config dir dedicata via env; il model del provider vince sul default.
     let env: Record<string, string | undefined> | undefined;
     const provider = providerByProject.get(project) ?? 'claude';
@@ -263,7 +299,10 @@ function getOrCreateSession(projectPath: string, model?: string): CockpitSession
       cwdOf(project),
       {
         message: (msg) => forwardSdkMessage(project, msg),
-        permissionRequest: (req) => broadcast({ ev: 'permission_request', project, ...req }),
+        permissionRequest: (req) => {
+          permMeta.set(req.requestId, { project, toolName: req.toolName });
+          broadcast({ ev: 'permission_request', project, ...req });
+        },
         closed: (error) => {
           // Solo se in mappa c'è ANCORA questa sessione: una closed() tardiva (es. dopo reset+prompt
           // rapidi) non deve sganciare la sessione nuova già creata al suo posto.
@@ -284,7 +323,7 @@ function getOrCreateSession(projectPath: string, model?: string): CockpitSession
           if (error) broadcast({ ev: 'error', project, message: String(error) });
         },
       },
-      { model, resume, env },
+      { model, resume, env, permissionMode },
     );
     session = created;
     sessions.set(project, session);
@@ -317,8 +356,19 @@ function decidePermissionAny(
   updatedInput?: Record<string, unknown>,
 ): boolean {
   for (const session of sessions.values()) {
-    if (session.decidePermission(requestId, decision, updatedInput)) return true;
+    if (session.decidePermission(requestId, decision, updatedInput)) {
+      // Fine plan mode: al via libera su ExitPlanMode la sessione torna alla modalità di default
+      // (per l'utente tipicamente bypassPermissions) invece di restare in plan.
+      const meta = permMeta.get(requestId);
+      permMeta.delete(requestId);
+      if (meta && decision !== 'deny' && meta.toolName === 'ExitPlanMode') {
+        const mode = loadDefaultPermissionMode();
+        void session.setPermissionMode(mode as never).then(() => broadcast({ ev: 'permission_mode', project: meta.project, mode }));
+      }
+      return true;
+    }
   }
+  permMeta.delete(requestId);
   return false;
 }
 

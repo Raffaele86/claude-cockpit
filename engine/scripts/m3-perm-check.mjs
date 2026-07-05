@@ -27,13 +27,19 @@ ws.on('message', (raw) => {
       ws.send(JSON.stringify({ op: 'session_reset', project }));
       break;
     case 'session_reset':
-      ws.send(
-        JSON.stringify({
-          op: 'prompt',
-          project,
-          text: "Esegui con lo strumento Bash il comando: touch m3-perm-test.tmp && rm m3-perm-test.tmp. Non fare altro, poi rispondi 'fatto'.",
-        }),
-      );
+      // Il default engine può essere bypassPermissions: per testare il flusso permessi
+      // la sessione va riportata a 'default' prima del prompt.
+      ws.send(JSON.stringify({ op: 'open_project', project }));
+      setTimeout(() => {
+        ws.send(JSON.stringify({ op: 'set_permission_mode', project, mode: 'default' }));
+        ws.send(
+          JSON.stringify({
+            op: 'prompt',
+            project,
+            text: "Esegui con lo strumento Bash il comando: touch m3-perm-test.tmp && rm m3-perm-test.tmp. Non fare altro, poi rispondi 'fatto'.",
+          }),
+        );
+      }, 1500);
       break;
     case 'permission_request':
       sawPermission = true;

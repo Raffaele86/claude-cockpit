@@ -76,7 +76,7 @@ export interface CockpitSettings {
     sttProvider?: 'groq' | 'openai';
   };
   providers: { glm?: { configDir: string; model?: string } };
-  engine: { hosts: string[] };
+  engine: { hosts: string[]; defaultPermissionMode?: PermissionModeName };
   quickactions: QuickActionEntry[];
 }
 
@@ -176,4 +176,6 @@ export type ServerMsg =
   | { ev: 'provider'; project: string; provider: ProviderName }
   | { ev: 'settings'; data: CockpitSettings; restartRequired?: boolean; telegramActive: boolean }
   | { ev: 'mcp_op_done'; project: string; name: string; error?: string }
+  | { ev: 'permission_mode'; project: string; mode: PermissionModeName } // cambio modalità lato engine (es. fine plan)
+  | { ev: 'context'; project: string; totalTokens: number; maxTokens: number; percentage: number; branch?: string }
   | { ev: 'error'; message: string; project?: string };

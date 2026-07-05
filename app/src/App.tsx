@@ -11,6 +11,7 @@ import { ProjectSwitcher } from './components/ProjectSwitcher';
 import { QuickActions } from './components/QuickActions';
 import { ModelSelect } from './components/ModelSelect';
 import { TerminalPanel } from './components/Terminal';
+import { SessionConsole } from './components/SessionConsole';
 import { McpStatus } from './components/McpStatus';
 import { SessionPicker } from './components/SessionPicker';
 import { MdViewer, type ViewerState } from './components/MdViewer';
@@ -59,7 +60,7 @@ export function App() {
   const [quickActions, setQuickActions] = useState<QuickActionEntry[]>([]);
   const [pending, setPending] = useState<PendingPermission[]>([]);
   const [engineError, setEngineError] = useState<string | null>(null);
-  const [terminal, setTerminal] = useState<{ project: string; cmd: 'claude' | 'shell' } | null>(null);
+  const [terminal, setTerminal] = useState<{ project: string; cmd: 'session' | 'claude' | 'shell' } | null>(null);
   const [notifyOn, setNotifyOn] = useState(true);
   const [picker, setPicker] = useState(false);
   const [sideOpen, setSideOpen] = useState(() => localStorage.getItem('cockpit-side') === '1');
@@ -343,7 +344,6 @@ export function App() {
             costUsd: s.costUsd + (msg.cost_usd || 0),
             tokensIn: s.tokensIn + inTok,
             tokensOut: s.tokensOut + outTok,
-            contextTokens: inTok + outTok,
           }));
           // Coda: invia il prossimo prompt in attesa (fuori dal setState, stato già aggiornato).
           setTimeout(() => {
@@ -380,6 +380,16 @@ export function App() {
         }
         case 'mcp_status':
           updateProject(msg.project, (s) => ({ ...s, mcpServers: msg.servers }));
+          break;
+        case 'permission_mode':
+          updateProject(msg.project, (s) => ({ ...s, permissionMode: msg.mode }));
+          break;
+        case 'context':
+          updateProject(msg.project, (s) => ({
+            ...s,
+            ctx: { totalTokens: msg.totalTokens, maxTokens: msg.maxTokens, percentage: msg.percentage },
+            branch: msg.branch,
+          }));
           break;
         case 'mcp_op_done':
           updateProject(msg.project, (s) => ({ ...s, mcpOp: { busy: false, error: msg.error ?? null } }));
@@ -556,12 +566,12 @@ export function App() {
                   ${active.costUsd.toFixed(2)} · {Math.round((active.tokensIn + active.tokensOut) / 1000)}k
                 </span>
               )}
-              {active.contextTokens > 0 && (
+              {active.ctx && (
                 <span
-                  className={`ctx ${active.contextTokens > 160_000 ? 'hot' : active.contextTokens > 100_000 ? 'warm' : ''}`}
-                  title={t('ctxTitle')(Math.round(active.contextTokens / 1000))}
+                  className={`ctx ${active.ctx.percentage > 80 ? 'hot' : active.ctx.percentage > 55 ? 'warm' : ''}`}
+                  title={t('ctxRealTitle')(Math.round(active.ctx.totalTokens / 1000), Math.round(active.ctx.maxTokens / 1000))}
                 >
-                  ctx {Math.min(99, Math.round((active.contextTokens / 200_000) * 100))}%
+                  ctx {Math.round(active.ctx.percentage)}%
                 </span>
               )}
               <button className="mini ghost" title={t('newChatTitle')} onClick={() => resetSession()}>
@@ -596,7 +606,7 @@ export function App() {
               </button>
               <button
                 className={terminal ? 'mini on' : 'mini ghost'}
-                onClick={() => setTerminal((t) => (t ? null : { project: activeProject, cmd: 'claude' }))}
+                onClick={() => setTerminal((t) => (t ? null : { project: activeKey, cmd: 'session' }))}
               >
                 {t('terminal')}
               </button>
@@ -760,27 +770,53 @@ export function App() {
             <div className="term-panel">
               <div className="term-bar">
                 <span>
-                  {t('terminal')} · {terminal.cmd} · {terminal.project.split('/').filter(Boolean).at(-1) || '~'}
+                  {t('terminal')} · {terminal.cmd === 'session' ? t('sessionConsole') : terminal.cmd} ·{' '}
+                  {shortOf(terminal.project)}
                 </span>
                 <div className="term-bar-actions">
-                  <button
-                    onClick={() => setTerminal((t) => (t ? { ...t, cmd: t.cmd === 'claude' ? 'shell' : 'claude' } : t))}
-                  >
-                    {terminal.cmd === 'claude' ? 'shell' : 'claude'}
-                  </button>
+                  {(['session', 'claude', 'shell'] as const).map((c) => (
+                    <button
+                      key={c}
+                      className={terminal.cmd === c ? 'on' : ''}
+                      onClick={() => setTerminal((t) => (t ? { ...t, cmd: c, project: c === 'session' ? activeKey : t.project } : t))}
+                    >
+                      {c === 'session' ? t('sessionConsole') : c}
+                    </button>
+                  ))}
                   <button onClick={() => setTerminal(null)}>{t('close')}</button>
                 </div>
               </div>
-              <TerminalPanel
-                key={`${terminal.project}:${terminal.cmd}`}
-                client={client.current}
-                project={terminal.project}
-                cmd={terminal.cmd}
-                subscribe={(fn) => client.current!.subscribe(fn)}
-              />
+              {terminal.cmd === 'session' ? (
+                <SessionConsole items={active.items} sessionId={active.sessionId} model={active.model} />
+              ) : (
+                <TerminalPanel
+                  key={`${terminal.project}:${terminal.cmd}`}
+                  client={client.current}
+                  project={terminal.project}
+                  cmd={terminal.cmd}
+                  subscribe={(fn) => client.current!.subscribe(fn)}
+                />
+              )}
             </div>
           )}
           <QuickActions actions={quickActions} disabled={conn !== 'authed' || active.busy} onRun={(t) => submit(t)} />
+          {conn === 'authed' && (
+            <div className="statusline">
+              <span title={activeProject}>📁 {shortOf(activeKey)}</span>
+              {active.branch && <span>⎇ {active.branch}</span>}
+              {active.model && <span>{active.model}</span>}
+              {active.effort && <span>effort {active.effort}</span>}
+              <span>{MODES.find((m) => m.key === active.permissionMode)?.label ?? active.permissionMode}</span>
+              {active.ctx && (
+                <span className={active.ctx.percentage > 80 ? 'sl-hot' : ''}>
+                  ctx {Math.round(active.ctx.percentage)}% ({Math.round(active.ctx.totalTokens / 1000)}k/
+                  {Math.round(active.ctx.maxTokens / 1000)}k)
+                </span>
+              )}
+              {active.costUsd > 0 && <span>${active.costUsd.toFixed(2)}</span>}
+              {active.sessionId && <span title={active.sessionId}>#{active.sessionId.slice(0, 8)}</span>}
+            </div>
+          )}
           <div className="modebar">
             {MODES.map((m) => (
               <button key={m.key} className={active.permissionMode === m.key ? 'mode on' : 'mode'} onClick={() => setMode(m.key)}>

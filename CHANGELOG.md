@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.0
+- Fixed the unreadable chat: tool cards were being flex-squeezed into 2px lines on long turns (`flex-shrink: 0`); markdown tables/hr/headings now styled
+- Real context usage: `ctx %` now comes from the SDK (`getContextUsage`) — actual tokens vs the model's real window (e.g. 967k), not a hardcoded 200k guess
+- Statusline above the composer: dir, git branch, model, effort, permission mode, context, cost, session id
+- Session console: the Terminal button now defaults to a live monospace feed of the active session (tools, results, texts); new `claude`/`shell` terminals still available
+- Default permission mode for new sessions (Settings → Engine, stored in engine.json); approving ExitPlanMode returns the session to that mode automatically
+
+
 ## 0.9.2
 - PWA manifest + icons: "Add to Home screen" on Android installs Cockpit as a standalone app with its own icon
 

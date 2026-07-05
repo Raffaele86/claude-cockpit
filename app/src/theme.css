@@ -95,6 +95,10 @@ body {
   flex-direction: column;
   gap: 18px;
 }
+.chat > * {
+  /* niente shrink: le tool-card (overflow hidden → min-height 0) venivano schiacciate a linee da 2px */
+  flex-shrink: 0;
+}
 
 .empty {
   color: var(--text-dim);
@@ -1745,4 +1749,110 @@ body {
   border: none;
   color: var(--amber);
   cursor: pointer;
+}
+
+/* ---- v0.10: markdown chat — hr/tabelle/titoli leggibili sul tema scuro ---- */
+.bubble.md hr {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 12px 0;
+}
+.bubble.md table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  font-size: 13px;
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
+.bubble.md th,
+.bubble.md td {
+  border: 1px solid var(--border);
+  padding: 4px 10px;
+  text-align: left;
+}
+.bubble.md th {
+  background: var(--bg-input);
+}
+.bubble.md tr:nth-child(even) td {
+  background: rgba(255, 255, 255, 0.02);
+}
+.bubble.md h1,
+.bubble.md h2,
+.bubble.md h3,
+.bubble.md h4 {
+  margin: 12px 0 6px;
+  line-height: 1.3;
+}
+.bubble.md h1 { font-size: 18px; }
+.bubble.md h2 { font-size: 16px; }
+.bubble.md h3 { font-size: 14.5px; }
+.bubble.md h4 { font-size: 13.5px; }
+.bubble.md ul,
+.bubble.md ol {
+  margin: 6px 0;
+  padding-left: 22px;
+}
+
+/* ---- v0.10: statusline + console sessione ---- */
+.statusline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 5px 16px 0;
+  font-size: 11.5px;
+  font-family: 'Cascadia Code', ui-monospace, monospace;
+  color: var(--text-dim);
+}
+.statusline .sl-hot {
+  color: var(--red);
+}
+.console {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  background: #0c0e12;
+  padding: 10px 14px;
+  font-family: 'Cascadia Code', ui-monospace, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.con-line {
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin-bottom: 2px;
+}
+.con-meta {
+  color: var(--text-dim);
+  opacity: 0.7;
+}
+.con-user {
+  color: var(--accent);
+  margin-top: 8px;
+}
+.con-think {
+  color: var(--amber);
+  opacity: 0.7;
+}
+.con-tool {
+  color: var(--text);
+}
+.con-tool.error .con-mark {
+  color: var(--red);
+}
+.con-tool.running .con-mark {
+  color: var(--amber);
+}
+.con-tool .con-mark {
+  color: var(--green);
+}
+.con-dim {
+  color: var(--text-dim);
+}
+.con-asst {
+  color: var(--text-dim);
+}
+.term-bar-actions button.on {
+  border-color: var(--accent);
+  color: var(--accent);
 }

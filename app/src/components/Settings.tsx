@@ -30,6 +30,7 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
   const [tg, setTg] = useState<CockpitSettings['telegram']>({});
   const [glm, setGlm] = useState<{ configDir: string; model: string }>({ configDir: '', model: '' });
   const [hosts, setHosts] = useState('');
+  const [defaultMode, setDefaultMode] = useState('default');
   const [qa, setQa] = useState<QuickActionEntry[]>([]);
   const [notifyCfg, setNotifyCfg] = useState<NotifyCfg | null>(null);
   const [lang, setLang] = useState(() => localStorage.getItem('cockpit-lang') ?? '');
@@ -42,6 +43,7 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
     setTg(snapshot.data.telegram);
     setGlm({ configDir: snapshot.data.providers.glm?.configDir ?? '', model: snapshot.data.providers.glm?.model ?? '' });
     setHosts(snapshot.data.engine.hosts.join('\n'));
+    setDefaultMode(snapshot.data.engine.defaultPermissionMode ?? 'default');
     setQa(snapshot.data.quickactions);
     setLoaded(true);
   }, [snapshot, loaded]);
@@ -54,7 +56,10 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
     onSave({
       telegram: { ...tg, chatId: tg.chatId ? Number(tg.chatId) : undefined },
       providers: glm.configDir.trim() ? { glm: { configDir: glm.configDir, model: glm.model || undefined } } : {},
-      engine: { hosts: hosts.split('\n').map((h) => h.trim()).filter(Boolean) },
+      engine: {
+        hosts: hosts.split('\n').map((h) => h.trim()).filter(Boolean),
+        defaultPermissionMode: defaultMode as CockpitSettings['engine']['defaultPermissionMode'],
+      },
       quickactions: qa,
     });
     if (IS_ELECTRON && notifyCfg) void window.cockpit.setConfig(notifyCfg);
@@ -189,6 +194,14 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
 
               <section>
                 <h3>{t('secEngine')}</h3>
+                <label className="set-field">
+                  {t('defaultModeLbl')}
+                  <select value={defaultMode} onChange={(e) => setDefaultMode(e.target.value)}>
+                    <option value="default">Default</option>
+                    <option value="acceptEdits">Accept edits</option>
+                    <option value="bypassPermissions">Bypass</option>
+                  </select>
+                </label>
                 <label className="set-field">
                   {t('engineHosts')}
                   <textarea rows={3} value={hosts} onChange={(e) => setHosts(e.target.value)} />

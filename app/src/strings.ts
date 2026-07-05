@@ -7,7 +7,6 @@ const IT = {
   you: 'Tu',
   // App — topbar
   costTitle: 'costo · token cumulativi del progetto',
-  ctxTitle: (k: number) => `contesto ~${k}k token (finestra 200k)`,
   newChat: 'Nuova chat',
   newChatTitle: 'Chiudi la sessione e riparti da zero',
   history: 'Cronologia',
@@ -173,13 +172,16 @@ const IT = {
   micUnsupported: 'Dettatura non supportata da questo browser.',
   micDenied: 'Permesso microfono negato: consentilo nelle impostazioni del sito.',
   micError: (code: string) => `Dettatura non riuscita${code ? ` (${code})` : ''}. Riprova.`,
+  // Statusline / console / permessi default
+  ctxRealTitle: (tot: number, max: number) => `contesto ${tot}k su ${max}k token (dato reale della sessione)`,
+  sessionConsole: 'sessione',
+  defaultModeLbl: 'Modalità permessi delle nuove sessioni',
 };
 
 const EN: typeof IT = {
   you: 'You',
   // App — topbar
   costTitle: 'cost · cumulative project tokens',
-  ctxTitle: (k: number) => `context ~${k}k tokens (200k window)`,
   newChat: 'New chat',
   newChatTitle: 'Close the session and start from scratch',
   history: 'History',
@@ -345,6 +347,10 @@ const EN: typeof IT = {
   micUnsupported: 'Dictation is not supported by this browser.',
   micDenied: 'Microphone permission denied: allow it in the site settings.',
   micError: (code: string) => `Dictation failed${code ? ` (${code})` : ''}. Try again.`,
+  // Statusline / console / default permissions
+  ctxRealTitle: (tot: number, max: number) => `context ${tot}k of ${max}k tokens (real session data)`,
+  sessionConsole: 'session',
+  defaultModeLbl: 'Permission mode for new sessions',
 };
 
 export const t = <K extends keyof typeof IT>(k: K): (typeof IT)[K] => (LANG === 'it' ? IT : EN)[k];
