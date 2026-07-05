@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.0
+- Settings panel (⚙️ in the top bar): notifications, Telegram gateway, alternative provider (GLM), quick actions editor, engine hosts, UI language — no more hand-editing JSON files
+- Telegram gateway hot-reload: saving settings restarts the bot immediately, no engine restart needed
+- Secrets are masked in the UI (last 4 chars) and never sent back in clear unless changed
+- `COCKPIT_DIR` / `COCKPIT_PORT` env overrides (isolated smoke-test instances)
+
 ## 0.7.0
 - Open-source release: neutral defaults, English/Italian UI (auto-detected), docs, MIT license
 - WSL user auto-detection on Windows

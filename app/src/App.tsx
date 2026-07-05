@@ -14,6 +14,7 @@ import { TerminalPanel } from './components/Terminal';
 import { McpStatus } from './components/McpStatus';
 import { SessionPicker } from './components/SessionPicker';
 import { MdViewer, type ViewerState } from './components/MdViewer';
+import { Settings, type SettingsSnapshot } from './components/Settings';
 import { FileNav } from './components/FileNav';
 import { Tabs } from './components/Tabs';
 import { t, LOCALE } from './strings';
@@ -63,6 +64,9 @@ export function App() {
   const [picker, setPicker] = useState(false);
   const [sideOpen, setSideOpen] = useState(() => localStorage.getItem('cockpit-side') === '1');
   const [viewer, setViewer] = useState<ViewerState | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [settingsSnap, setSettingsSnap] = useState<SettingsSnapshot | null>(null);
+  const [engineVersion, setEngineVersion] = useState('');
   const [ttsOn, setTtsOn] = useState(() => localStorage.getItem('cockpit-tts') === '1');
   const [railW, setRailW] = useState(() => Number(localStorage.getItem('cockpit-rail-w')) || 200);
   const ttsRef = useRef(ttsOn);
@@ -208,6 +212,7 @@ export function App() {
       switch (msg.ev) {
         case 'auth_ok':
           home.current = msg.home;
+          setEngineVersion(msg.engineVersion);
           setEngineError(null);
           setActiveProject((cur) => cur || msg.home);
           break;
@@ -431,6 +436,9 @@ export function App() {
           }));
           setTimeout(() => client.current?.send({ op: 'history', project: msg.project }), 0);
           break;
+        case 'settings':
+          setSettingsSnap({ data: msg.data, restartRequired: msg.restartRequired, telegramActive: msg.telegramActive });
+          break;
         case 'file_content':
           setViewer((v) => (v && v.path === msg.path ? { path: msg.path, content: msg.content, error: msg.error } : v));
           break;
@@ -625,6 +633,21 @@ export function App() {
               </select>
             </>
           )}
+          {conn === 'authed' && (
+            <button
+              className={settingsOpen ? 'mini on' : 'mini ghost'}
+              title={t('settingsBtnTitle')}
+              onClick={() => {
+                if (!settingsOpen) {
+                  setSettingsSnap(null);
+                  client.current?.send({ op: 'settings_get' });
+                }
+                setSettingsOpen((o) => !o);
+              }}
+            >
+              ⚙️
+            </button>
+          )}
           <button
             className={sideOpen ? 'mini on' : 'mini ghost'}
             title={t('sidePanelTitle')}
@@ -780,6 +803,15 @@ export function App() {
       </div>
 
       {viewer && <MdViewer viewer={viewer} onClose={() => setViewer(null)} />}
+      {settingsOpen && (
+        <Settings
+          snapshot={settingsSnap}
+          engineVersion={engineVersion}
+          home={home.current}
+          onSave={(patch) => client.current?.send({ op: 'settings_set', patch })}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
       {req && <PermissionPrompt req={req} onDecide={(d, input) => decide(req.requestId, d, input)} />}
     </div>
   );

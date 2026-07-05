@@ -3,7 +3,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-export const COCKPIT_DIR = join(homedir(), '.claude-cockpit');
+// COCKPIT_DIR env: override della dir config (usato dagli smoke per non toccare i file reali).
+export const COCKPIT_DIR = process.env.COCKPIT_DIR || join(homedir(), '.claude-cockpit');
 export const TOKEN_PATH = join(COCKPIT_DIR, 'token');
 
 export function loadOrCreateToken(): string {

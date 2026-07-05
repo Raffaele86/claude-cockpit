@@ -1,5 +1,7 @@
-// Stringhe UI localizzate (IT/EN). La lingua segue quella del browser/OS.
-export const LANG = navigator.language?.toLowerCase().startsWith('it') ? 'it' : 'en';
+// Stringhe UI localizzate (IT/EN). La lingua segue il browser/OS, con override
+// da Impostazioni → Interfaccia (localStorage 'cockpit-lang': 'it' | 'en' | assente = auto).
+const saved = typeof localStorage !== 'undefined' ? localStorage.getItem('cockpit-lang') : null;
+export const LANG = saved === 'it' || saved === 'en' ? saved : navigator.language?.toLowerCase().startsWith('it') ? 'it' : 'en';
 
 const IT = {
   you: 'Tu',
@@ -114,6 +116,43 @@ const IT = {
   // browser-shim
   tokenPrompt: 'Token engine (~/.claude-cockpit/token):',
   notFromBrowser: 'Non disponibile da browser: avvia l’engine in WSL.',
+  // Settings
+  settingsTitle: 'Impostazioni',
+  settingsBtnTitle: 'Impostazioni (notifiche, Telegram, provider, quick actions…)',
+  save: 'Salva',
+  saved: 'Salvato ✓',
+  secNotify: 'Notifiche',
+  notifyDesktop: 'Notifiche desktop a fine task / richiesta permesso',
+  notifyPhoneLbl: 'Inoltra anche al telefono via ntfy',
+  ntfyTopicLbl: 'Topic ntfy.sh',
+  ntfyTopicHint: 'Un nome segreto qualsiasi: iscriviti allo stesso topic nell’app ntfy sul telefono.',
+  notifyBrowserOnly: 'Configurabili dall’app desktop (qui nel browser valgono le notifiche del browser).',
+  secTelegram: 'Telegram',
+  tgActive: 'gateway attivo',
+  tgOff: 'gateway spento',
+  tgBotToken: 'Bot token (da @BotFather)',
+  tgChatId: 'Chat ID autorizzato',
+  tgProject: 'Progetto di default (path, vuoto = home)',
+  tgSttProvider: 'Provider trascrizione vocali',
+  tgSttKey: 'API key trascrizione',
+  tgHint: 'Salvando, il bot riparte subito con la nuova configurazione.',
+  secProvider: 'Provider alternativo (GLM)',
+  glmConfigDir: 'Config dir (es. ~/.claude-glm)',
+  glmModel: 'Modello (es. glm-5.2)',
+  glmHint: 'Vuoto = switch GLM disabilitato. La config dir è un’installazione Claude Code con le sue credenziali.',
+  secQuickActions: 'Quick actions',
+  qaLabel: 'Etichetta',
+  qaText: 'Prompt / comando',
+  qaAdd: '+ aggiungi',
+  secEngine: 'Engine',
+  engineHosts: 'Host in ascolto (uno per riga)',
+  engineHostsHint: '127.0.0.1 = solo questo PC. Aggiungi l’IP VPN (es. Tailscale) per usarlo dal telefono.',
+  restartRequired: '⚠ Modifica agli host: riavvia l’engine per applicarla.',
+  engineInfo: (v: string, home: string) => `Engine v${v} · home ${home}`,
+  secUi: 'Interfaccia',
+  langLbl: 'Lingua',
+  langAuto: 'Auto (browser)',
+  langReloadHint: 'La lingua cambia al prossimo ricaricamento della pagina.',
 };
 
 const EN: typeof IT = {
@@ -229,6 +268,43 @@ const EN: typeof IT = {
   // browser-shim
   tokenPrompt: 'Engine token (~/.claude-cockpit/token):',
   notFromBrowser: 'Not available from browser: start the engine in WSL.',
+  // Settings
+  settingsTitle: 'Settings',
+  settingsBtnTitle: 'Settings (notifications, Telegram, providers, quick actions…)',
+  save: 'Save',
+  saved: 'Saved ✓',
+  secNotify: 'Notifications',
+  notifyDesktop: 'Desktop notifications on task end / permission request',
+  notifyPhoneLbl: 'Also forward to phone via ntfy',
+  ntfyTopicLbl: 'ntfy.sh topic',
+  ntfyTopicHint: 'Any secret name: subscribe to the same topic in the ntfy app on your phone.',
+  notifyBrowserOnly: 'Configurable from the desktop app (in the browser, native browser notifications apply).',
+  secTelegram: 'Telegram',
+  tgActive: 'gateway active',
+  tgOff: 'gateway off',
+  tgBotToken: 'Bot token (from @BotFather)',
+  tgChatId: 'Authorized chat ID',
+  tgProject: 'Default project (path, empty = home)',
+  tgSttProvider: 'Voice transcription provider',
+  tgSttKey: 'Transcription API key',
+  tgHint: 'On save, the bot restarts immediately with the new configuration.',
+  secProvider: 'Alternative provider (GLM)',
+  glmConfigDir: 'Config dir (e.g. ~/.claude-glm)',
+  glmModel: 'Model (e.g. glm-5.2)',
+  glmHint: 'Empty = GLM switch disabled. The config dir is a Claude Code install with its own credentials.',
+  secQuickActions: 'Quick actions',
+  qaLabel: 'Label',
+  qaText: 'Prompt / command',
+  qaAdd: '+ add',
+  secEngine: 'Engine',
+  engineHosts: 'Listen hosts (one per line)',
+  engineHostsHint: '127.0.0.1 = this PC only. Add your VPN IP (e.g. Tailscale) to use it from your phone.',
+  restartRequired: '⚠ Hosts changed: restart the engine to apply.',
+  engineInfo: (v: string, home: string) => `Engine v${v} · home ${home}`,
+  secUi: 'Interface',
+  langLbl: 'Language',
+  langAuto: 'Auto (browser)',
+  langReloadHint: 'The language changes on the next page reload.',
 };
 
 export const t = <K extends keyof typeof IT>(k: K): (typeof IT)[K] => (LANG === 'it' ? IT : EN)[k];

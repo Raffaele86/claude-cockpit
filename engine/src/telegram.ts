@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { COCKPIT_DIR } from './auth.js';
 import type { ServerMsg } from './protocol.js';
 
 interface TelegramConfig {
@@ -21,13 +22,18 @@ export interface GatewayDeps {
   reset: (project: string) => void;
   status: (project: string) => { busy: boolean; model: string | null };
   decidePermission: (requestId: string, decision: 'allow-once' | 'allow-always' | 'deny') => boolean;
-  /** Registra un listener sugli eventi broadcast dell'engine. */
-  subscribe: (fn: (msg: ServerMsg) => void) => void;
+  /** Registra un listener sugli eventi broadcast dell'engine; ritorna la funzione di unsubscribe. */
+  subscribe: (fn: (msg: ServerMsg) => void) => () => void;
+}
+
+/** Handle del gateway: stop() ferma polling e listener (per l'hot-reload da impostazioni). */
+export interface TelegramGateway {
+  stop: () => void;
 }
 
 function loadConfig(): TelegramConfig | null {
   try {
-    const cfg = JSON.parse(readFileSync(join(homedir(), '.claude-cockpit', 'telegram.json'), 'utf8')) as TelegramConfig;
+    const cfg = JSON.parse(readFileSync(join(COCKPIT_DIR, 'telegram.json'), 'utf8')) as TelegramConfig;
     if (!cfg.botToken || !cfg.chatId) return null;
     return cfg;
   } catch {
@@ -41,17 +47,18 @@ const STT_ENDPOINTS = {
 };
 const STT_MODELS = { groq: 'whisper-large-v3', openai: 'whisper-1' };
 
-export function startTelegramGateway(deps: GatewayDeps): boolean {
+export function startTelegramGateway(deps: GatewayDeps): TelegramGateway | null {
   const cfg = loadConfig();
-  if (!cfg) return false;
+  if (!cfg) return null;
   const api = `https://api.telegram.org/bot${cfg.botToken}`;
   const project = cfg.project ?? homedir();
 
-  async function call(method: string, payload: Record<string, unknown>): Promise<unknown> {
+  async function call(method: string, payload: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
     const res = await fetch(`${api}/${method}`, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify(payload),
+      signal,
     });
     const data = (await res.json()) as { ok: boolean; result?: unknown; description?: string };
     if (!data.ok) console.error(`[telegram] ${method}: ${data.description}`);
@@ -137,7 +144,7 @@ export function startTelegramGateway(deps: GatewayDeps): boolean {
   }
 
   // Eventi engine → Telegram (solo per il progetto del gateway).
-  deps.subscribe((msg) => {
+  const unsubscribe = deps.subscribe((msg) => {
     if (!('project' in msg) || msg.project !== project) return;
     if (msg.ev === 'result') {
       sendText(msg.is_error ? `⚠️ errore: ${msg.subtype}` : (msg.result ?? 'completato'));
@@ -159,12 +166,15 @@ export function startTelegramGateway(deps: GatewayDeps): boolean {
     }
   });
 
-  // Long polling.
+  // Long polling — stop() interrompe il getUpdates in corso e chiude il loop (hot-reload).
   let offset = 0;
+  let stopped = false;
+  let polling: AbortController | null = null;
   (async () => {
-    for (;;) {
+    while (!stopped) {
       try {
-        const updates = (await call('getUpdates', { offset, timeout: 50, allowed_updates: ['message', 'callback_query'] })) as
+        polling = new AbortController();
+        const updates = (await call('getUpdates', { offset, timeout: 50, allowed_updates: ['message', 'callback_query'] }, polling.signal)) as
           | Array<{ update_id: number; message?: Parameters<typeof handleMessage>[0]; callback_query?: Parameters<typeof handleCallback>[0] }>
           | undefined;
         for (const u of updates ?? []) {
@@ -173,6 +183,7 @@ export function startTelegramGateway(deps: GatewayDeps): boolean {
           if (u.callback_query) await handleCallback(u.callback_query);
         }
       } catch (err) {
+        if (stopped) break;
         console.error('[telegram] polling:', String(err));
         await new Promise((r) => setTimeout(r, 5000));
       }
@@ -180,5 +191,12 @@ export function startTelegramGateway(deps: GatewayDeps): boolean {
   })();
 
   console.log(`[engine] gateway Telegram attivo (chat ${cfg.chatId}, progetto ${project})`);
-  return true;
+  return {
+    stop() {
+      stopped = true;
+      unsubscribe();
+      polling?.abort();
+      console.log('[engine] gateway Telegram fermato');
+    },
+  };
 }

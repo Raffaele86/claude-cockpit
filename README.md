@@ -16,6 +16,7 @@ A self-hosted desktop + mobile cockpit for [Claude Code](https://claude.com/clau
 - **Voice** — dictation (Web Speech API) and spoken replies (TTS)
 - **Multi-provider** — switch between Anthropic and any Claude-Code-compatible endpoint (e.g. GLM via `CLAUDE_CONFIG_DIR`), keeping the conversation
 - **Images** — paste screenshots straight into the composer
+- **Settings panel** — configure everything (Telegram, notifications, providers, quick actions, engine hosts, language) from the ⚙️ menu; the Telegram bot hot-reloads on save
 
 ## Architecture
 
@@ -53,6 +54,8 @@ Open `http://127.0.0.1:8130/?token=$(cat ~/.claude-cockpit/token)` in a browser 
 Run the engine as a service (Linux/WSL systemd): `scripts/install-engine-service.sh`. On macOS use a LaunchAgent that runs `node engine/dist/server.js`.
 
 ## Configuration (`~/.claude-cockpit/`)
+
+Everything below is editable from the **⚙️ Settings panel** in the top bar — the files are the storage, not the interface. Secrets are shown masked and are only overwritten when you type a new value.
 
 | File | Purpose |
 |------|---------|

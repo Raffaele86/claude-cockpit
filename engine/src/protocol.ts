@@ -48,7 +48,24 @@ export type ClientMsg =
   | { op: 'file_read'; project: string; path: string }
   | { op: 'dir_list'; path: string }
   | { op: 'file_op'; kind: 'mkdir' | 'rename' | 'delete' | 'reveal'; path: string; newName?: string }
-  | { op: 'set_provider'; project: string; provider: ProviderName };
+  | { op: 'set_provider'; project: string; provider: ProviderName }
+  | { op: 'settings_get' }
+  | { op: 'settings_set'; patch: Partial<CockpitSettings> };
+
+// Impostazioni engine (file in ~/.claude-cockpit). I segreti viaggiano mascherati (••••+ultimi 4):
+// rimandare il valore mascherato in settings_set = "non toccare".
+export interface CockpitSettings {
+  telegram: {
+    botToken?: string;
+    chatId?: number;
+    project?: string;
+    sttApiKey?: string;
+    sttProvider?: 'groq' | 'openai';
+  };
+  providers: { glm?: { configDir: string; model?: string } };
+  engine: { hosts: string[] };
+  quickactions: QuickActionEntry[];
+}
 
 export interface PromptImage {
   media_type: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
@@ -144,4 +161,5 @@ export type ServerMsg =
   | { ev: 'dir_entries'; path: string; entries: DirEntry[] }
   | { ev: 'file_op_done'; kind: string; path: string; error?: string }
   | { ev: 'provider'; project: string; provider: ProviderName }
+  | { ev: 'settings'; data: CockpitSettings; restartRequired?: boolean; telegramActive: boolean }
   | { ev: 'error'; message: string; project?: string };

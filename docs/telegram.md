@@ -4,6 +4,8 @@ Chat with your Cockpit from Telegram: every message becomes a prompt, results co
 
 ## Setup
 
+The easy way: open **⚙️ Settings → Telegram** in the app and fill in the fields — the gateway starts immediately on save, no restart needed. Steps 1–3 below still apply to get the values; steps 4–5 are the manual (file-based) alternative.
+
 1. **Create a bot**: talk to [@BotFather](https://t.me/BotFather) → `/newbot` → copy the token. Recommended: `/setjoingroups` → Disable.
 2. **Get your chat id**: send any message to your new bot, then:
    ```bash

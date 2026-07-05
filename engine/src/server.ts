@@ -6,17 +6,18 @@ import { execFileSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import { getSessionMessages, listSessions, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
-import { loadOrCreateToken, tokenMatches, TOKEN_PATH } from './auth.js';
+import { COCKPIT_DIR, loadOrCreateToken, tokenMatches, TOKEN_PATH } from './auth.js';
 import { CockpitSession } from './session.js';
 import { loadProjects, loadQuickActions, removeProject, upsertProject } from './projects.js';
 import { clearStoredSession, getStoredSession, setStoredSession } from './sessions-store.js';
 import { PtyChannel } from './pty.js';
 import type { ClientMsg, PermissionModeName, ServerMsg, SessionCategory } from './protocol.js';
 import { randomUUID } from 'node:crypto';
-import { startTelegramGateway } from './telegram.js';
+import { startTelegramGateway, type TelegramGateway } from './telegram.js';
+import { applySettings, hostsChanged, readSettings } from './settings.js';
 
-const ENGINE_VERSION = '0.7.0';
-const PORT = 8130;
+const ENGINE_VERSION = '0.8.0';
+const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
 
@@ -24,7 +25,7 @@ const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessio
 // Default solo localhost; aggiungere l'IP Tailscale abilita l'accesso dal telefono (browser).
 function loadEngineHosts(): string[] {
   try {
-    const raw = readFileSync(join(homedir(), '.claude-cockpit', 'engine.json'), 'utf8');
+    const raw = readFileSync(join(COCKPIT_DIR, 'engine.json'), 'utf8');
     const cfg = JSON.parse(raw) as { hosts?: string[]; host?: string };
     const hosts = cfg.hosts ?? (cfg.host ? [cfg.host] : []);
     return hosts.length > 0 ? hosts : ['127.0.0.1'];
@@ -44,7 +45,7 @@ const providerByProject = new Map<string, import('./protocol.js').ProviderName>(
 // providers.json opzionale: { "glm": { "configDir": "...", "model": "glm-5.1" } }
 function loadProviderConfig(name: string): { configDir: string; model?: string } | null {
   try {
-    const cfg = JSON.parse(readFileSync(join(homedir(), '.claude-cockpit', 'providers.json'), 'utf8')) as Record<
+    const cfg = JSON.parse(readFileSync(join(COCKPIT_DIR, 'providers.json'), 'utf8')) as Record<
       string,
       { configDir: string; model?: string }
     >;
@@ -317,6 +318,15 @@ function decidePermissionAny(
   return false;
 }
 
+function sendSettings(ws: WebSocket): void {
+  send(ws, {
+    ev: 'settings',
+    data: readSettings(),
+    restartRequired: hostsChanged(HOSTS),
+    telegramActive: telegram !== null,
+  });
+}
+
 async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
   switch (msg.op) {
     case 'prompt': {
@@ -489,6 +499,21 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       }
       break;
     }
+    case 'settings_get': {
+      sendSettings(ws);
+      break;
+    }
+    case 'settings_set': {
+      try {
+        const changed = applySettings(msg.patch);
+        if (changed.telegram) restartTelegram();
+        if (changed.quickactions) broadcast({ ev: 'quickactions', list: loadQuickActions() });
+        sendSettings(ws);
+      } catch (err) {
+        send(ws, { ev: 'error', message: `settings_set: ${String(err)}` });
+      }
+      break;
+    }
     case 'set_provider': {
       const project = normalizeProject(msg.project);
       const targetCfg = msg.provider === 'claude' ? { configDir: join(homedir(), '.claude') } : loadProviderConfig(msg.provider);
@@ -634,15 +659,28 @@ for (const host of HOSTS) {
 console.log(`[engine] UI statica: ${existsSync(UI_DIR) ? UI_DIR : 'assente (solo WS)'}`);
 console.log(`[engine] token: ${TOKEN_PATH}`);
 
-const telegramOn = startTelegramGateway({
-  prompt: (project, text) => promptProject(project, text),
-  interrupt: (project) => void sessions.get(normalizeProject(project))?.interrupt(),
-  reset: (project) => resetProject(project),
-  status: (project) => {
-    const p = normalizeProject(project);
-    return { busy: busy.get(p) ?? false, model: sessions.has(p) ? 'sessione attiva' : null };
-  },
-  decidePermission: (requestId, decision) => decidePermissionAny(requestId, decision),
-  subscribe: (fn) => eventListeners.add(fn),
-});
-if (!telegramOn) console.log('[engine] gateway Telegram spento (manca ~/.claude-cockpit/telegram.json)');
+function launchTelegram(): TelegramGateway | null {
+  return startTelegramGateway({
+    prompt: (project, text) => promptProject(project, text),
+    interrupt: (project) => void sessions.get(normalizeProject(project))?.interrupt(),
+    reset: (project) => resetProject(project),
+    status: (project) => {
+      const p = normalizeProject(project);
+      return { busy: busy.get(p) ?? false, model: sessions.has(p) ? 'sessione attiva' : null };
+    },
+    decidePermission: (requestId, decision) => decidePermissionAny(requestId, decision),
+    subscribe: (fn) => {
+      eventListeners.add(fn);
+      return () => eventListeners.delete(fn);
+    },
+  });
+}
+
+/** Hot-reload da settings_set: ferma il gateway e lo rilancia con la config aggiornata. */
+function restartTelegram(): void {
+  telegram?.stop();
+  telegram = launchTelegram();
+}
+
+let telegram = launchTelegram();
+if (!telegram) console.log('[engine] gateway Telegram spento (manca telegram.json)');
