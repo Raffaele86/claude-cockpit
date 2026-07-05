@@ -16,7 +16,7 @@ import { randomUUID } from 'node:crypto';
 import { startTelegramGateway, type TelegramGateway } from './telegram.js';
 import { applySettings, hostsChanged, readSettings } from './settings.js';
 
-const ENGINE_VERSION = '0.10.1';
+const ENGINE_VERSION = '0.11.0';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -48,6 +48,7 @@ function loadDefaultPermissionMode(): PermissionModeName {
 const token = loadOrCreateToken();
 const sessions = new Map<string, CockpitSession>();
 const ptys = new Map<string, PtyChannel>();
+const ptyByKey = new Map<string, string>(); // "<chiave-canale>::<cmd>" → ptyId (pty persistenti, re-attach)
 const authed = new Set<WebSocket>();
 const busy = new Map<string, boolean>(); // project → turno in corso (per /status del gateway)
 const providerByProject = new Map<string, import('./protocol.js').ProviderName>(); // default 'claude'
@@ -674,22 +675,34 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       }
       break;
     }
-    case 'pty_open': {
-      const ptyId = randomUUID();
-      const cwd = normalizeProject(msg.project);
-      const channel = new PtyChannel(
-        cwd,
-        msg.cmd,
-        msg.cols,
-        msg.rows,
-        (data) => broadcast({ ev: 'pty_data', ptyId, data }),
-        (exitCode) => {
-          ptys.delete(ptyId);
-          broadcast({ ev: 'pty_exit', ptyId, exitCode });
-        },
-      );
-      ptys.set(ptyId, channel);
-      send(ws, { ev: 'pty_open_ok', ptyId, project: cwd });
+    case 'pty_attach': {
+      const key = normalizeProject(msg.project);
+      const mapKey = `${key}::${msg.cmd}`;
+      let ptyId = ptyByKey.get(mapKey);
+      let channel = ptyId ? ptys.get(ptyId) : undefined;
+      if (!ptyId || !channel) {
+        // Pty nuovo, persistente: sopravvive al detach (reload/cambio scheda); muore solo
+        // a pty_kill o all'uscita del processo.
+        const id = randomUUID();
+        ptyId = id;
+        channel = new PtyChannel(
+          cwdOf(key),
+          msg.cmd,
+          msg.cols,
+          msg.rows,
+          (data) => broadcast({ ev: 'pty_data', ptyId: id, data }),
+          (exitCode) => {
+            ptys.delete(id);
+            if (ptyByKey.get(mapKey) === id) ptyByKey.delete(mapKey);
+            broadcast({ ev: 'pty_exit', ptyId: id, exitCode });
+          },
+        );
+        ptys.set(ptyId, channel);
+        ptyByKey.set(mapKey, ptyId);
+      } else {
+        channel.resize(msg.cols, msg.rows);
+      }
+      send(ws, { ev: 'pty_attach_ok', ptyId, project: key, cmd: msg.cmd, scrollback: channel.scrollback() });
       break;
     }
     case 'pty_input':
@@ -698,12 +711,9 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
     case 'pty_resize':
       ptys.get(msg.ptyId)?.resize(msg.cols, msg.rows);
       break;
-    case 'pty_close': {
+    case 'pty_kill': {
       const ch = ptys.get(msg.ptyId);
-      if (ch) {
-        ch.kill();
-        ptys.delete(msg.ptyId);
-      }
+      if (ch) ch.kill(); // cleanup mappe nel callback onExit
       break;
     }
     case 'interrupt': {

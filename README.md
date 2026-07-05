@@ -6,7 +6,8 @@ A self-hosted desktop + mobile cockpit for [Claude Code](https://claude.com/clau
 
 ## Features
 
-- **Chat UI for Claude Code** — streaming markdown, tool cards with diffs, todo panel, thinking blocks, cost/context indicators
+- **Native CLI as the main view** — the real Claude Code TUI in a persistent per-tab terminal (survives reloads); toggle to a chat-style view per tab
+- **Chat UI for Claude Code** — streaming markdown, tool cards with diffs, todo panel, thinking blocks, cost/context indicators (default on mobile)
 - **Permission prompts as buttons** — allow once / always / deny / edit input, from the app or from Telegram
 - **Multi-session tabs** — run N parallel Claude sessions per project, plus unlimited projects
 - **Session history** — browse and resume past conversations (like `claude -r`), with category filters and full-text search inside transcripts

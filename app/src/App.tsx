@@ -11,7 +11,6 @@ import { ProjectSwitcher } from './components/ProjectSwitcher';
 import { QuickActions } from './components/QuickActions';
 import { ModelSelect } from './components/ModelSelect';
 import { TerminalPanel } from './components/Terminal';
-import { SessionConsole } from './components/SessionConsole';
 import { McpStatus } from './components/McpStatus';
 import { SessionPicker } from './components/SessionPicker';
 import { MdViewer, type ViewerState } from './components/MdViewer';
@@ -60,7 +59,18 @@ export function App() {
   const [quickActions, setQuickActions] = useState<QuickActionEntry[]>([]);
   const [pending, setPending] = useState<PendingPermission[]>([]);
   const [engineError, setEngineError] = useState<string | null>(null);
-  const [terminal, setTerminal] = useState<{ project: string; cmd: 'session' | 'claude' | 'shell' } | null>(null);
+  const [terminal, setTerminal] = useState<string | null>(null); // shell dal FileNav (pannello inferiore), path
+  // Vista principale per scheda: CLI vero di Claude Code (default desktop) o Chat SDK (default ≤840px).
+  const [viewByKey, setViewByKey] = useState<Record<string, 'cli' | 'chat'>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('cockpit-view') || '{}');
+    } catch {
+      return {};
+    }
+  });
+  const [cliNonce, setCliNonce] = useState<Record<string, number>>({}); // remount dopo /exit
+  const [cliExited, setCliExited] = useState<Record<string, boolean>>({});
+  const cliInput = useRef<((text: string) => void) | null>(null);
   const [notifyOn, setNotifyOn] = useState(true);
   const [picker, setPicker] = useState(false);
   const [sideOpen, setSideOpen] = useState(() => localStorage.getItem('cockpit-side') === '1');
@@ -539,6 +549,18 @@ export function App() {
     if (!res.ok) setEngineError(t('engineStartFailed')(res.error ?? ''));
   }
 
+  const view: 'cli' | 'chat' = viewByKey[activeKey] ?? (window.innerWidth <= 840 ? 'chat' : 'cli');
+  const setView = useCallback(
+    (v: 'cli' | 'chat') => {
+      setViewByKey((prev) => {
+        const next = { ...prev, [activeKey]: v };
+        localStorage.setItem('cockpit-view', JSON.stringify(next));
+        return next;
+      });
+    },
+    [activeKey],
+  );
+
   const active = projects[activeKey] ?? emptyProject();
   const shortProject = activeProject.split('/').filter(Boolean).at(-1) || '~';
   const req = pending.find((p) => p.project === activeProject) ?? pending[0];
@@ -578,19 +600,23 @@ export function App() {
                   ctx {Math.round(active.ctx.percentage)}%
                 </span>
               )}
-              <button className="mini ghost" title={t('newChatTitle')} onClick={() => resetSession()}>
-                {t('newChat')}
-              </button>
-              <button
-                className={picker ? 'mini on' : 'mini ghost'}
-                title={t('historyTitle')}
-                onClick={() => {
-                  if (!picker && activeProject) client.current?.send({ op: 'sessions_list', project: activeProject });
-                  setPicker((p) => !p);
-                }}
-              >
-                {t('history')}
-              </button>
+              {view === 'chat' && (
+                <>
+                  <button className="mini ghost" title={t('newChatTitle')} onClick={() => resetSession()}>
+                    {t('newChat')}
+                  </button>
+                  <button
+                    className={picker ? 'mini on' : 'mini ghost'}
+                    title={t('historyTitle')}
+                    onClick={() => {
+                      if (!picker && activeProject) client.current?.send({ op: 'sessions_list', project: activeProject });
+                      setPicker((p) => !p);
+                    }}
+                  >
+                    {t('history')}
+                  </button>
+                </>
+              )}
               <button
                 className={ttsOn ? 'mini on' : 'mini ghost'}
                 title={t('ttsTitle')}
@@ -608,46 +634,44 @@ export function App() {
               <button className={notifyOn ? 'mini on' : 'mini ghost'} title={t('notifyTitle')} onClick={toggleNotify}>
                 🔔
               </button>
-              <button
-                className={terminal ? 'mini on' : 'mini ghost'}
-                onClick={() => setTerminal((t) => (t ? null : { project: activeKey, cmd: 'session' }))}
-              >
-                {t('terminal')}
-              </button>
-              <div className="provider-toggle" title={t('providerTitle')}>
-                {(['claude', 'glm'] as const).map((p) => (
-                  <button
-                    key={p}
-                    className={active.provider === p ? 'prov on' : 'prov'}
-                    onClick={() => {
-                      if (active.provider !== p) client.current?.send({ op: 'set_provider', project: activeKey, provider: p });
-                    }}
+              {view === 'chat' && (
+                <>
+                  <div className="provider-toggle" title={t('providerTitle')}>
+                    {(['claude', 'glm'] as const).map((p) => (
+                      <button
+                        key={p}
+                        className={active.provider === p ? 'prov on' : 'prov'}
+                        onClick={() => {
+                          if (active.provider !== p) client.current?.send({ op: 'set_provider', project: activeKey, provider: p });
+                        }}
+                      >
+                        {p === 'claude' ? 'Claude' : 'GLM'}
+                      </button>
+                    ))}
+                  </div>
+                  {active.provider === 'glm' ? (
+                    <span className="model-static" title={t('glmModelTitle')}>
+                      {active.model || 'glm…'}
+                    </span>
+                  ) : (
+                    <ModelSelect models={active.models} current={active.model} onChange={changeModel} />
+                  )}
+                  <select
+                    className="effort-select"
+                    title={t('effortTitle')}
+                    value={active.effort}
+                    onChange={(e) => changeEffort(e.target.value)}
                   >
-                    {p === 'claude' ? 'Claude' : 'GLM'}
-                  </button>
-                ))}
-              </div>
-              {active.provider === 'glm' ? (
-                <span className="model-static" title={t('glmModelTitle')}>
-                  {active.model || 'glm…'}
-                </span>
-              ) : (
-                <ModelSelect models={active.models} current={active.model} onChange={changeModel} />
+                    <option value="" disabled>
+                      effort…
+                    </option>
+                    <option value="low">low</option>
+                    <option value="medium">medium</option>
+                    <option value="high">high</option>
+                    <option value="xhigh">xhigh</option>
+                  </select>
+                </>
               )}
-              <select
-                className="effort-select"
-                title={t('effortTitle')}
-                value={active.effort}
-                onChange={(e) => changeEffort(e.target.value)}
-              >
-                <option value="" disabled>
-                  effort…
-                </option>
-                <option value="low">low</option>
-                <option value="medium">medium</option>
-                <option value="high">high</option>
-                <option value="xhigh">xhigh</option>
-              </select>
             </>
           )}
           {conn === 'authed' && (
@@ -728,31 +752,40 @@ export function App() {
               onRemoveProject={(path) => client.current?.send({ op: 'projects_remove', path })}
               onOpenFile={openFile}
               onAskClaude={(path) => composerInsert.current?.(path)}
-              onOpenTerminal={(path) => setTerminal({ project: path, cmd: 'shell' })}
+              onOpenTerminal={(path) => setTerminal(path)}
             />
           )}
         </ProjectSwitcher>
         <div className="rail-resizer" title={t('resizerTitle')} onMouseDown={startRailResize} />
         <div className="main">
-          <Tabs
-            tabs={tabs}
-            active={activeTab}
-            busy={tabBusy}
-            onSelect={(t) => setActiveTabByProject((prev) => ({ ...prev, [activeProject]: t }))}
-            onAdd={() => {
-              const n = tabs.filter((t) => t !== 'main').reduce((max, t) => Math.max(max, parseInt(t.slice(1)) || 0), 1) + 1;
-              const id = `t${n}`;
-              setTabs(activeProject, (list) => [...list, id]);
-              setActiveTabByProject((prev) => ({ ...prev, [activeProject]: id }));
-            }}
-            onClose={(t) => {
-              const key = t === 'main' ? activeProject : `${activeProject}##${t}`;
-              client.current?.send({ op: 'session_reset', project: key });
-              warmed.current.delete(key);
-              setTabs(activeProject, (list) => list.filter((x) => x !== t));
-              setActiveTabByProject((prev) => ({ ...prev, [activeProject]: 'main' }));
-            }}
-          />
+          <div className="tabs-row">
+            <Tabs
+              tabs={tabs}
+              active={activeTab}
+              busy={tabBusy}
+              onSelect={(t) => setActiveTabByProject((prev) => ({ ...prev, [activeProject]: t }))}
+              onAdd={() => {
+                const n = tabs.filter((t) => t !== 'main').reduce((max, t) => Math.max(max, parseInt(t.slice(1)) || 0), 1) + 1;
+                const id = `t${n}`;
+                setTabs(activeProject, (list) => [...list, id]);
+                setActiveTabByProject((prev) => ({ ...prev, [activeProject]: id }));
+              }}
+              onClose={(t) => {
+                const key = t === 'main' ? activeProject : `${activeProject}##${t}`;
+                client.current?.send({ op: 'session_reset', project: key });
+                warmed.current.delete(key);
+                setTabs(activeProject, (list) => list.filter((x) => x !== t));
+                setActiveTabByProject((prev) => ({ ...prev, [activeProject]: 'main' }));
+              }}
+            />
+            <div className="view-toggle" title={t('viewToggleTitle')}>
+              {(['cli', 'chat'] as const).map((v) => (
+                <button key={v} className={view === v ? 'on' : ''} onClick={() => setView(v)}>
+                  {v === 'cli' ? 'CLI' : t('chat')}
+                </button>
+              ))}
+            </div>
+          </div>
           {picker && (
             <SessionPicker
               sessions={active.sessions}
@@ -769,42 +802,60 @@ export function App() {
               onClose={() => setPicker(false)}
             />
           )}
-          <ChatView items={active.items} thinkingSince={active.thinkingSince} onOpenFile={openFile} />
+          {view === 'cli' && conn === 'authed' && client.current ? (
+            <div className="cli-wrap">
+              <TerminalPanel
+                key={`${activeKey}:cli:${cliNonce[activeKey] ?? 0}`}
+                client={client.current}
+                project={activeKey}
+                cmd="claude"
+                subscribe={(fn) => client.current!.subscribe(fn)}
+                inputRef={cliInput}
+                onExit={() => setCliExited((p) => ({ ...p, [activeKey]: true }))}
+              />
+              {cliExited[activeKey] && (
+                <button
+                  className="cli-restart"
+                  onClick={() => {
+                    setCliExited((p) => ({ ...p, [activeKey]: false }));
+                    setCliNonce((p) => ({ ...p, [activeKey]: (p[activeKey] ?? 0) + 1 }));
+                  }}
+                >
+                  ↻ {t('restartCli')}
+                </button>
+              )}
+            </div>
+          ) : (
+            <ChatView items={active.items} thinkingSince={active.thinkingSince} onOpenFile={openFile} />
+          )}
           {terminal && client.current && (
             <div className="term-panel">
               <div className="term-bar">
                 <span>
-                  {t('terminal')} · {terminal.cmd === 'session' ? t('sessionConsole') : terminal.cmd} ·{' '}
-                  {shortOf(terminal.project)}
+                  {t('terminal')} · shell · {shortOf(terminal)}
                 </span>
                 <div className="term-bar-actions">
-                  {(['session', 'claude', 'shell'] as const).map((c) => (
-                    <button
-                      key={c}
-                      className={terminal.cmd === c ? 'on' : ''}
-                      onClick={() => setTerminal((t) => (t ? { ...t, cmd: c, project: c === 'session' ? activeKey : t.project } : t))}
-                    >
-                      {c === 'session' ? t('sessionConsole') : c}
-                    </button>
-                  ))}
                   <button onClick={() => setTerminal(null)}>{t('close')}</button>
                 </div>
               </div>
-              {terminal.cmd === 'session' ? (
-                <SessionConsole items={active.items} sessionId={active.sessionId} model={active.model} />
-              ) : (
-                <TerminalPanel
-                  key={`${terminal.project}:${terminal.cmd}`}
-                  client={client.current}
-                  project={terminal.project}
-                  cmd={terminal.cmd}
-                  subscribe={(fn) => client.current!.subscribe(fn)}
-                />
-              )}
+              <TerminalPanel
+                key={`${terminal}:shell`}
+                client={client.current}
+                project={terminal}
+                cmd="shell"
+                subscribe={(fn) => client.current!.subscribe(fn)}
+              />
             </div>
           )}
-          <QuickActions actions={quickActions} disabled={conn !== 'authed' || active.busy} onRun={(t) => submit(t)} />
-          {conn === 'authed' && (
+          <QuickActions
+            actions={quickActions}
+            disabled={conn !== 'authed' || (view === 'chat' && active.busy)}
+            onRun={(text) => {
+              if (view === 'cli') cliInput.current?.(text + '\r');
+              else submit(text);
+            }}
+          />
+          {conn === 'authed' && view === 'chat' && (
             <div className="statusline">
               <span title={activeProject}>📁 {shortOf(activeKey)}</span>
               {active.branch && <span>⎇ {active.branch}</span>}
@@ -821,22 +872,26 @@ export function App() {
               {active.sessionId && <span title={active.sessionId}>#{active.sessionId.slice(0, 8)}</span>}
             </div>
           )}
-          <div className="modebar">
-            {MODES.map((m) => (
-              <button key={m.key} className={active.permissionMode === m.key ? 'mode on' : 'mode'} onClick={() => setMode(m.key)}>
-                {m.label}
-              </button>
-            ))}
-          </div>
-          <Composer
-            disabled={conn !== 'authed'}
-            busy={active.busy}
-            queued={active.queue.length}
-            slashCommands={active.slashCommands}
-            onSend={(t, imgs) => submit(t, imgs)}
-            onInterrupt={interrupt}
-            insertRef={composerInsert}
-          />
+          {view === 'chat' && (
+            <>
+              <div className="modebar">
+                {MODES.map((m) => (
+                  <button key={m.key} className={active.permissionMode === m.key ? 'mode on' : 'mode'} onClick={() => setMode(m.key)}>
+                    {m.label}
+                  </button>
+                ))}
+              </div>
+              <Composer
+                disabled={conn !== 'authed'}
+                busy={active.busy}
+                queued={active.queue.length}
+                slashCommands={active.slashCommands}
+                onSend={(t, imgs) => submit(t, imgs)}
+                onInterrupt={interrupt}
+                insertRef={composerInsert}
+              />
+            </>
+          )}
         </div>
         {sideOpen && <div className="side-backdrop mobile-only" onClick={() => setSideOpen(false)} />}
         <aside className={sideOpen ? 'side open' : 'side'}>

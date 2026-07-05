@@ -174,8 +174,9 @@ const IT = {
   micError: (code: string) => `Dettatura non riuscita${code ? ` (${code})` : ''}. Riprova.`,
   // Statusline / console / permessi default
   ctxRealTitle: (tot: number, max: number) => `contesto ${tot}k su ${max}k token (dato reale della sessione)`,
-  sessionConsole: 'sessione',
   defaultModeLbl: 'Modalità permessi delle nuove sessioni',
+  restartCli: 'Riavvia il CLI',
+  viewToggleTitle: 'Vista della scheda: CLI nativo di Claude Code o Chat',
 };
 
 const EN: typeof IT = {
@@ -349,8 +350,9 @@ const EN: typeof IT = {
   micError: (code: string) => `Dictation failed${code ? ` (${code})` : ''}. Try again.`,
   // Statusline / console / default permissions
   ctxRealTitle: (tot: number, max: number) => `context ${tot}k of ${max}k tokens (real session data)`,
-  sessionConsole: 'session',
   defaultModeLbl: 'Permission mode for new sessions',
+  restartCli: 'Restart the CLI',
+  viewToggleTitle: 'Tab view: native Claude Code CLI or Chat',
 };
 
 export const t = <K extends keyof typeof IT>(k: K): (typeof IT)[K] => (LANG === 'it' ? IT : EN)[k];

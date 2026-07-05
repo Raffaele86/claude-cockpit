@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type MutableRefObject } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import '@xterm/xterm/css/xterm.css';
@@ -10,13 +10,17 @@ interface Props {
   project: string;
   cmd: 'claude' | 'shell';
   subscribe: (fn: (m: ServerMsg) => void) => () => void;
+  /** Iniezione testo nel pty (es. quick actions in vista CLI). */
+  inputRef?: MutableRefObject<((text: string) => void) | null>;
+  /** Il processo del pty è uscito (es. /exit) — la UI può offrire il riavvio. */
+  onExit?: () => void;
 }
 
 const enc = new TextEncoder();
 const toB64 = (s: string) => btoa(String.fromCharCode(...enc.encode(s)));
 const fromB64 = (b: string) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
 
-export function TerminalPanel({ client, project, cmd, subscribe }: Props) {
+export function TerminalPanel({ client, project, cmd, subscribe, inputRef, onExit }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -26,6 +30,7 @@ export function TerminalPanel({ client, project, cmd, subscribe }: Props) {
       fontSize: 13,
       theme: { background: '#0c0e12', foreground: '#d7dce5' },
       cursorBlink: true,
+      scrollback: 5000,
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -35,16 +40,21 @@ export function TerminalPanel({ client, project, cmd, subscribe }: Props) {
     let ptyId: string | null = null;
 
     const unsub = subscribe((m: ServerMsg) => {
-      if (m.ev === 'pty_open_ok' && ptyId === null && m.project === project) {
+      if (m.ev === 'pty_attach_ok' && ptyId === null && m.project === project && m.cmd === cmd) {
         ptyId = m.ptyId;
+        if (m.scrollback) term.write(fromB64(m.scrollback));
+        if (inputRef) inputRef.current = (text) => client.send({ op: 'pty_input', ptyId: m.ptyId, data: toB64(text) });
+        term.focus();
       } else if (m.ev === 'pty_data' && m.ptyId === ptyId) {
         term.write(fromB64(m.data));
       } else if (m.ev === 'pty_exit' && m.ptyId === ptyId) {
         term.write(`\r\n\x1b[90m[processo terminato: ${m.exitCode}]\x1b[0m\r\n`);
+        onExit?.();
       }
     });
 
-    client.send({ op: 'pty_open', project, cmd, cols: term.cols, rows: term.rows });
+    // Attach: riusa il pty persistente della chiave (con replay scrollback) o lo crea.
+    client.send({ op: 'pty_attach', project, cmd, cols: term.cols, rows: term.rows });
 
     const dataDisp = term.onData((d) => {
       if (ptyId) client.send({ op: 'pty_input', ptyId, data: toB64(d) });
@@ -59,11 +69,12 @@ export function TerminalPanel({ client, project, cmd, subscribe }: Props) {
     ro.observe(host);
 
     return () => {
+      // Detach senza kill: il pty resta vivo lato engine per il re-attach.
       window.removeEventListener('resize', onResize);
       ro.disconnect();
       dataDisp.dispose();
       unsub();
-      if (ptyId) client.send({ op: 'pty_close', ptyId });
+      if (inputRef) inputRef.current = null;
       term.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

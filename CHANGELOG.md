@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.0
+- The main view is now the **native Claude Code CLI** (real TUI, statusline, colors) running in a persistent pty per tab — survives tab switches and page reloads (scrollback replay on re-attach). `/exit` shows a restart button
+- Per-tab CLI/Chat toggle: the SDK chat view remains (default on mobile, where dictation, permission buttons and the Telegram gateway shine); sessions are independent (`/resume` inside the CLI to pick up any conversation)
+- Quick actions inject into whichever view is active (typed into the CLI, or sent as chat prompts)
+- Removed: the Terminal button and the session console (superseded by the real CLI); "open terminal here" in the file navigator still opens a shell panel
+- Engine: `pty_attach`/`pty_kill` replace `pty_open`/`pty_close` — ptys are keyed per tab, persistent, with a 200KB scrollback buffer
+
+
 ## 0.10.1
 - Permission requests no longer expire: the old 5-minute auto-deny silently killed long-lived prompts (e.g. reading a big plan before approving ExitPlanMode → "unknown permission request"). Like the CLI, requests now wait until decided; turn abort still cancels them
 - New `permission_resolved` event: when a request is decided elsewhere (another tab, Telegram) or cancelled, every UI closes its prompt instead of showing a stale one

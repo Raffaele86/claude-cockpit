@@ -1807,52 +1807,63 @@ body {
 .statusline .sl-hot {
   color: var(--red);
 }
-.console {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  background: #0c0e12;
-  padding: 10px 14px;
-  font-family: 'Cascadia Code', ui-monospace, monospace;
-  font-size: 12px;
-  line-height: 1.5;
-}
-.con-line {
-  white-space: pre-wrap;
-  word-break: break-word;
-  margin-bottom: 2px;
-}
-.con-meta {
-  color: var(--text-dim);
-  opacity: 0.7;
-}
-.con-user {
-  color: var(--accent);
-  margin-top: 8px;
-}
-.con-think {
-  color: var(--amber);
-  opacity: 0.7;
-}
-.con-tool {
-  color: var(--text);
-}
-.con-tool.error .con-mark {
-  color: var(--red);
-}
-.con-tool.running .con-mark {
-  color: var(--amber);
-}
-.con-tool .con-mark {
-  color: var(--green);
-}
-.con-dim {
-  color: var(--text-dim);
-}
-.con-asst {
-  color: var(--text-dim);
-}
 .term-bar-actions button.on {
   border-color: var(--accent);
   color: var(--accent);
+}
+
+/* ---- v0.11: vista principale CLI ---- */
+.tabs-row {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+}
+.tabs-row .tabs {
+  flex: 1;
+  border-bottom: none;
+}
+.view-toggle {
+  display: flex;
+  gap: 2px;
+  padding: 0 10px;
+}
+.view-toggle button {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  border-radius: 6px;
+  padding: 2px 10px;
+  font-size: 11.5px;
+  cursor: pointer;
+}
+.view-toggle button.on {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.cli-wrap {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  display: flex;
+  background: #0c0e12;
+  padding: 6px 2px 2px 8px;
+}
+.cli-wrap .terminal-host {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+.cli-restart {
+  position: absolute;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: #14110c;
+  border: none;
+  border-radius: 8px;
+  padding: 8px 18px;
+  font-size: 13px;
+  cursor: pointer;
+  z-index: 5;
 }

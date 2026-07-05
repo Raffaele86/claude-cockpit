@@ -1,9 +1,14 @@
 import pty from 'node-pty';
 import type { IPty } from 'node-pty';
 
-/** Un canale PTY: login shell nella cwd del progetto, opzionalmente lancia `claude`. */
+const SCROLLBACK_CAP = 200 * 1024; // byte di output conservati per il re-attach
+
+/** Un canale PTY: login shell nella cwd del progetto, opzionalmente lancia `claude`.
+ *  Persistente: conserva lo scrollback così un client può ri-attaccarsi dopo reload/cambio scheda. */
 export class PtyChannel {
   private readonly p: IPty;
+  private chunks: Buffer[] = [];
+  private bufBytes = 0;
 
   constructor(
     cwd: string,
@@ -23,7 +28,15 @@ export class PtyChannel {
       cwd,
       env: process.env as { [key: string]: string },
     });
-    this.p.onData((data) => onData(Buffer.from(data, 'utf8').toString('base64')));
+    this.p.onData((data) => {
+      const buf = Buffer.from(data, 'utf8');
+      this.chunks.push(buf);
+      this.bufBytes += buf.length;
+      while (this.bufBytes > SCROLLBACK_CAP && this.chunks.length > 1) {
+        this.bufBytes -= this.chunks.shift()!.length;
+      }
+      onData(buf.toString('base64'));
+    });
     this.p.onExit(({ exitCode }) => onExit(exitCode));
   }
 
@@ -45,5 +58,10 @@ export class PtyChannel {
     } catch {
       /* già morto */
     }
+  }
+
+  /** Output accumulato (base64) da riprodurre al re-attach. */
+  scrollback(): string {
+    return Buffer.concat(this.chunks).toString('base64');
   }
 }

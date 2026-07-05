@@ -31,10 +31,10 @@ export type ClientMsg =
       decision: PermissionDecision;
       updatedInput?: Record<string, unknown>;
     }
-  | { op: 'pty_open'; project: string; cmd: 'claude' | 'shell'; cols: number; rows: number }
+  | { op: 'pty_attach'; project: string; cmd: 'claude' | 'shell'; cols: number; rows: number } // riusa o crea il pty della chiave
   | { op: 'pty_input'; ptyId: string; data: string } // base64
   | { op: 'pty_resize'; ptyId: string; cols: number; rows: number }
-  | { op: 'pty_close'; ptyId: string }
+  | { op: 'pty_kill'; ptyId: string } // termina il processo (il detach NON lo chiude)
   | { op: 'projects_list' }
   | { op: 'projects_upsert'; project: ProjectEntry }
   | { op: 'projects_remove'; path: string }
@@ -157,7 +157,7 @@ export type ServerMsg =
       input: unknown;
       suggestions?: unknown[];
     }
-  | { ev: 'pty_open_ok'; ptyId: string; project: string }
+  | { ev: 'pty_attach_ok'; ptyId: string; project: string; cmd: 'claude' | 'shell'; scrollback: string } // scrollback base64
   | { ev: 'pty_data'; ptyId: string; data: string } // base64
   | { ev: 'pty_exit'; ptyId: string; exitCode: number }
   | { ev: 'projects'; list: ProjectEntry[] }
