@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.10.1
+- Permission requests no longer expire: the old 5-minute auto-deny silently killed long-lived prompts (e.g. reading a big plan before approving ExitPlanMode → "unknown permission request"). Like the CLI, requests now wait until decided; turn abort still cancels them
+- New `permission_resolved` event: when a request is decided elsewhere (another tab, Telegram) or cancelled, every UI closes its prompt instead of showing a stale one
+
+
 ## 0.10.0
 - Fixed the unreadable chat: tool cards were being flex-squeezed into 2px lines on long turns (`flex-shrink: 0`); markdown tables/hr/headings now styled
 - Real context usage: `ctx %` now comes from the SDK (`getContextUsage`) — actual tokens vs the model's real window (e.g. 967k), not a hardcoded 200k guess

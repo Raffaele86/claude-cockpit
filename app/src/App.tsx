@@ -381,6 +381,10 @@ export function App() {
         case 'mcp_status':
           updateProject(msg.project, (s) => ({ ...s, mcpServers: msg.servers }));
           break;
+        case 'permission_resolved':
+          // Decisa altrove (altra scheda/Telegram) o annullata: il prompt non è più valido.
+          setPending((prev) => prev.filter((p) => p.requestId !== msg.requestId));
+          break;
         case 'permission_mode':
           updateProject(msg.project, (s) => ({ ...s, permissionMode: msg.mode }));
           break;

@@ -1,6 +1,6 @@
 {
   "name": "claude-cockpit",
-  "version": "0.10.0",
+  "version": "0.10.1",
   "private": true,
   "description": "Claude Cockpit — pilota Claude Code da un'app desktop",
   "author": "Raffaele",

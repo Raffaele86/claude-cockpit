@@ -10,7 +10,6 @@ import type {
 } from '@anthropic-ai/claude-agent-sdk';
 import type { PermissionDecision, PromptImage } from './protocol.js';
 
-const PERMISSION_TIMEOUT_MS = 5 * 60 * 1000;
 // Default economico; fable/opus solo su scelta esplicita dalla UI (decisione 2026-07-03).
 const DEFAULT_MODEL = 'claude-sonnet-5';
 
@@ -49,13 +48,14 @@ export interface SessionEmit {
     input: Record<string, unknown>;
     suggestions?: PermissionUpdate[];
   }) => void;
+  /** La richiesta non è più decidibile (decisa altrove o annullata): le UI devono chiudere il prompt. */
+  permissionResolved: (requestId: string) => void;
   closed: (error?: unknown) => void;
 }
 
 interface PendingPermission {
   resolve: (result: PermissionResult) => void;
   suggestions?: PermissionUpdate[];
-  timer: NodeJS.Timeout;
 }
 
 /** Una sessione Claude viva per progetto: query() con input streaming + permessi via UI. */
@@ -161,16 +161,10 @@ export class CockpitSession {
     suggestions?: PermissionUpdate[],
   ): Promise<PermissionResult> {
     return new Promise<PermissionResult>((resolve) => {
+      // Nessun timeout: come nel CLI, la richiesta resta valida finché l'utente non decide
+      // (un piano lungo si legge in più di 5 minuti). L'abort del turno la annulla comunque.
       const requestId = randomUUID();
-      const timer = setTimeout(
-        () =>
-          this.finishPermission(requestId, {
-            behavior: 'deny',
-            message: 'Nessuna decisione dalla UI entro 5 minuti',
-          }),
-        PERMISSION_TIMEOUT_MS,
-      );
-      this.pending.set(requestId, { resolve, suggestions, timer });
+      this.pending.set(requestId, { resolve, suggestions });
       signal.addEventListener('abort', () =>
         this.finishPermission(requestId, { behavior: 'deny', message: 'Operazione annullata' }),
       );
@@ -182,8 +176,8 @@ export class CockpitSession {
     const entry = this.pending.get(requestId);
     if (!entry) return;
     this.pending.delete(requestId);
-    clearTimeout(entry.timer);
     entry.resolve(result);
+    this.emit.permissionResolved(requestId);
   }
 
   /** Applica la decisione arrivata dalla UI. Ritorna false se la richiesta non è più pendente. */

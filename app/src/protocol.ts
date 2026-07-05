@@ -177,5 +177,6 @@ export type ServerMsg =
   | { ev: 'settings'; data: CockpitSettings; restartRequired?: boolean; telegramActive: boolean }
   | { ev: 'mcp_op_done'; project: string; name: string; error?: string }
   | { ev: 'permission_mode'; project: string; mode: PermissionModeName } // cambio modalità lato engine (es. fine plan)
+  | { ev: 'permission_resolved'; project: string; requestId: string } // richiesta decisa altrove/annullata: chiudere il prompt
   | { ev: 'context'; project: string; totalTokens: number; maxTokens: number; percentage: number; branch?: string }
   | { ev: 'error'; message: string; project?: string };

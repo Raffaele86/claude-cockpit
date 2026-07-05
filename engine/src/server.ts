@@ -16,7 +16,7 @@ import { randomUUID } from 'node:crypto';
 import { startTelegramGateway, type TelegramGateway } from './telegram.js';
 import { applySettings, hostsChanged, readSettings } from './settings.js';
 
-const ENGINE_VERSION = '0.10.0';
+const ENGINE_VERSION = '0.10.1';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -303,6 +303,10 @@ function getOrCreateSession(projectPath: string, model?: string): CockpitSession
           permMeta.set(req.requestId, { project, toolName: req.toolName });
           broadcast({ ev: 'permission_request', project, ...req });
         },
+        permissionResolved: (requestId) => {
+          permMeta.delete(requestId);
+          broadcast({ ev: 'permission_resolved', project, requestId });
+        },
         closed: (error) => {
           // Solo se in mappa c'è ANCORA questa sessione: una closed() tardiva (es. dopo reset+prompt
           // rapidi) non deve sganciare la sessione nuova già creata al suo posto.
@@ -355,12 +359,12 @@ function decidePermissionAny(
   decision: import('./protocol.js').PermissionDecision,
   updatedInput?: Record<string, unknown>,
 ): boolean {
+  // Da leggere PRIMA della decisione: finishPermission emette permissionResolved che svuota permMeta.
+  const meta = permMeta.get(requestId);
   for (const session of sessions.values()) {
     if (session.decidePermission(requestId, decision, updatedInput)) {
       // Fine plan mode: al via libera su ExitPlanMode la sessione torna alla modalità di default
       // (per l'utente tipicamente bypassPermissions) invece di restare in plan.
-      const meta = permMeta.get(requestId);
-      permMeta.delete(requestId);
       if (meta && decision !== 'deny' && meta.toolName === 'ExitPlanMode') {
         const mode = loadDefaultPermissionMode();
         void session.setPermissionMode(mode as never).then(() => broadcast({ ev: 'permission_mode', project: meta.project, mode }));
