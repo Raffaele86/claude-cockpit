@@ -17,6 +17,7 @@ import { MdViewer, type ViewerState } from './components/MdViewer';
 import { Settings, type SettingsSnapshot } from './components/Settings';
 import { FileNav } from './components/FileNav';
 import { Tabs } from './components/Tabs';
+import { useDictation } from './components/useDictation';
 import { t, LOCALE } from './strings';
 
 const shortOf = (p: string) => {
@@ -71,6 +72,11 @@ export function App() {
   const [cliNonce, setCliNonce] = useState<Record<string, number>>({}); // remount dopo /exit
   const [cliExited, setCliExited] = useState<Record<string, boolean>>({});
   const cliInput = useRef<((text: string) => void) | null>(null);
+  // Dettatura nella vista CLI: il testo trascritto viene digitato nel terminale (senza invio).
+  const cliDict = useDictation(
+    () => client.current,
+    (text) => cliInput.current?.(text),
+  );
   const [notifyOn, setNotifyOn] = useState(true);
   const [picker, setPicker] = useState(false);
   const [sideOpen, setSideOpen] = useState(() => localStorage.getItem('cockpit-side') === '1');
@@ -824,6 +830,19 @@ export function App() {
                   ↻ {t('restartCli')}
                 </button>
               )}
+              <button
+                className={`cli-mic ${cliDict.state}`}
+                title={cliDict.state === 'busy' ? t('micTranscribing') : t('dictateTitle')}
+                onClick={() => void cliDict.toggle()}
+              >
+                {cliDict.state === 'recording' ? '🔴' : cliDict.state === 'busy' ? '…' : '🎤'}
+              </button>
+              {cliDict.msg && (
+                <div className="cli-mic-msg">
+                  {cliDict.msg}
+                  <button onClick={() => cliDict.setMsg(null)}>✕</button>
+                </div>
+              )}
             </div>
           ) : (
             <ChatView items={active.items} thinkingSince={active.thinkingSince} onOpenFile={openFile} />
@@ -886,6 +905,7 @@ export function App() {
                 busy={active.busy}
                 queued={active.queue.length}
                 slashCommands={active.slashCommands}
+                client={client.current}
                 onSend={(t, imgs) => submit(t, imgs)}
                 onInterrupt={interrupt}
                 insertRef={composerInsert}

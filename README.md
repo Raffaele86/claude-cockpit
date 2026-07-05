@@ -14,7 +14,7 @@ A self-hosted desktop + mobile cockpit for [Claude Code](https://claude.com/clau
 - **Telegram gateway** — chat with your agent from anywhere, approve permissions inline, send voice memos (auto-transcribed via Whisper)
 - **Mobile browser access** — the engine serves the UI over HTTP; open it from your phone (e.g. via Tailscale), fully responsive
 - **File explorer** — navigate local drives, mark folders as projects, context menu (rename, delete, open terminal here, ask Claude about a file), integrated Markdown reader with clean-copy
-- **Voice** — dictation (Web Speech API) and spoken replies (TTS)
+- **Voice** — dictation via server-side Whisper (Groq/OpenAI key, same as Telegram voice memos): works in the desktop app, in the CLI view (text typed into the terminal) and on mobile over https; spoken replies (TTS) in chat view
 - **Multi-provider** — switch between Anthropic and any Claude-Code-compatible endpoint (e.g. GLM via `CLAUDE_CONFIG_DIR`), keeping the conversation
 - **Images** — paste screenshots straight into the composer
 - **Settings panel** — configure everything (Telegram, notifications, providers, quick actions, engine hosts, language) from the ⚙️ menu; the Telegram bot hot-reloads on save

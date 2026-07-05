@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.12.0
+- Dictation rebuilt on server-side Whisper (Groq/OpenAI, same key as Telegram voice memos): record with MediaRecorder, the engine transcribes — works in the **desktop app** (where Web Speech never worked) and over https on mobile
+- Microphone in the **CLI view** too: floating 🎤 button, the transcribed text is typed into the terminal (you review, then press Enter)
+- Web Speech API removed; clear error messages (missing key → points to Settings → Telegram)
+
+
 ## 0.11.0
 - The main view is now the **native Claude Code CLI** (real TUI, statusline, colors) running in a persistent pty per tab — survives tab switches and page reloads (scrollback replay on re-attach). `/exit` shows a restart button
 - Per-tab CLI/Chat toggle: the SDK chat view remains (default on mobile, where dictation, permission buttons and the Telegram gateway shine); sessions are independent (`/resume` inside the CLI to pick up any conversation)

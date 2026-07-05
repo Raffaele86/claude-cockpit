@@ -168,8 +168,8 @@ const IT = {
   mcpEmpty: 'Nessun server MCP configurato in Claude Code.',
   mcpRestartNote: 'La sessione si riavvia per caricare la modifica (la chat resta).',
   // Dettatura
-  micNeedsHttps: 'Il microfono richiede HTTPS: apri il Cockpit da un indirizzo https:// (es. tailscale serve — vedi README).',
-  micUnsupported: 'Dettatura non supportata da questo browser.',
+  micNeedsHttps: 'Microfono non disponibile su http: apri il Cockpit dall’app desktop o da un indirizzo https:// (es. tailscale serve — vedi README).',
+  micTranscribing: 'Trascrizione in corso…',
   micDenied: 'Permesso microfono negato: consentilo nelle impostazioni del sito.',
   micError: (code: string) => `Dettatura non riuscita${code ? ` (${code})` : ''}. Riprova.`,
   // Statusline / console / permessi default
@@ -344,8 +344,8 @@ const EN: typeof IT = {
   mcpEmpty: 'No MCP servers configured in Claude Code.',
   mcpRestartNote: 'The session restarts to load the change (the chat is kept).',
   // Dictation
-  micNeedsHttps: 'The microphone requires HTTPS: open Cockpit from an https:// address (e.g. tailscale serve — see README).',
-  micUnsupported: 'Dictation is not supported by this browser.',
+  micNeedsHttps: 'Microphone unavailable over http: open Cockpit from the desktop app or an https:// address (e.g. tailscale serve — see README).',
+  micTranscribing: 'Transcribing…',
   micDenied: 'Microphone permission denied: allow it in the site settings.',
   micError: (code: string) => `Dictation failed${code ? ` (${code})` : ''}. Try again.`,
   // Statusline / console / default permissions

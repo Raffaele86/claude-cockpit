@@ -161,6 +161,10 @@ ipcMain.handle('get-config', () => readConfig());
 ipcMain.handle('set-config', (_e, patch) => writeConfig(patch || {}));
 
 app.whenReady().then(() => {
+  // Microfono per la dettatura (Whisper via engine): consenti esplicitamente il permesso media.
+  session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => {
+    cb(permission === 'media');
+  });
   // CSP nel pacchetto (file://): consenti solo self + WS localhost verso l'engine.
   // In dev (COCKPIT_RENDERER_URL) niente CSP, così Vite HMR non si rompe.
   if (!process.env.COCKPIT_RENDERER_URL) {

@@ -51,6 +51,7 @@ export type ClientMsg =
   | { op: 'set_provider'; project: string; provider: ProviderName }
   | { op: 'settings_get' }
   | { op: 'settings_set'; patch: Partial<CockpitSettings> }
+  | { op: 'stt'; audio: string; mime: string; lang?: string } // audio base64 (≤2MB) → trascrizione Whisper
   | { op: 'mcp_add'; project: string; server: McpAddRequest }
   | { op: 'mcp_remove'; project: string; name: string };
 
@@ -175,6 +176,7 @@ export type ServerMsg =
   | { ev: 'file_op_done'; kind: string; path: string; error?: string }
   | { ev: 'provider'; project: string; provider: ProviderName }
   | { ev: 'settings'; data: CockpitSettings; restartRequired?: boolean; telegramActive: boolean }
+  | { ev: 'stt_result'; text?: string; error?: string } // solo al richiedente
   | { ev: 'mcp_op_done'; project: string; name: string; error?: string }
   | { ev: 'permission_mode'; project: string; mode: PermissionModeName } // cambio modalità lato engine (es. fine plan)
   | { ev: 'permission_resolved'; project: string; requestId: string } // richiesta decisa altrove/annullata: chiudere il prompt

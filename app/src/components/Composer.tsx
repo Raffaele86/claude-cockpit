@@ -1,18 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react';
-import { t, LOCALE } from '../strings';
-
-// Dettatura via Web Speech API (Chrome/Android sì, Electron no → il bottone non compare).
-type SpeechRec = {
-  lang: string;
-  continuous: boolean;
-  interimResults: boolean;
-  onresult: ((e: { resultIndex: number; results: ArrayLike<{ isFinal: boolean; 0: { transcript: string } }> }) => void) | null;
-  onend: (() => void) | null;
-  onerror: ((e: { error?: string }) => void) | null;
-  start: () => void;
-  stop: () => void;
-};
-const SpeechRecCtor = (window as unknown as { webkitSpeechRecognition?: new () => SpeechRec }).webkitSpeechRecognition;
+import { t } from '../strings';
+import type { CockpitClient } from '../ws';
+import { useDictation } from './useDictation';
 
 type ImageAttachment = { media_type: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'; data: string };
 
@@ -21,6 +10,7 @@ interface Props {
   busy: boolean;
   queued: number;
   slashCommands: string[];
+  client: CockpitClient | null; // per la dettatura (op stt)
   onSend: (text: string, images?: ImageAttachment[]) => void;
   onInterrupt: () => void;
   insertRef?: React.MutableRefObject<((text: string) => void) | null>; // es. "Chiedi a Claude" dal navigator
@@ -28,15 +18,20 @@ interface Props {
 
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
 
-export function Composer({ disabled, busy, queued, slashCommands, onSend, onInterrupt, insertRef }: Props) {
+export function Composer({ disabled, busy, queued, slashCommands, client, onSend, onInterrupt, insertRef }: Props) {
   const [text, setText] = useState('');
   const [images, setImages] = useState<ImageAttachment[]>([]);
-  const [listening, setListening] = useState(false);
-  const [micMsg, setMicMsg] = useState<string | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
-  const recRef = useRef<SpeechRec | null>(null);
-
-  useEffect(() => () => recRef.current?.stop(), []);
+  const clientRef = useRef(client);
+  clientRef.current = client;
+  // Dettatura Whisper server-side: registra → engine trascrive → testo nel composer.
+  const mic = useDictation(
+    () => clientRef.current,
+    (spoken) => {
+      setText((prev) => (prev ? `${prev} ${spoken}` : spoken));
+      ref.current?.focus();
+    },
+  );
 
   useEffect(() => {
     if (!insertRef) return;
@@ -48,44 +43,6 @@ export function Composer({ disabled, busy, queued, slashCommands, onSend, onInte
       insertRef.current = null;
     };
   }, [insertRef]);
-
-  function toggleMic() {
-    setMicMsg(null);
-    if (listening) {
-      recRef.current?.stop();
-      return;
-    }
-    // Chrome blocca microfono/Web Speech sulle origini http non sicure (es. http://IP:8130):
-    // fallirebbe in silenzio — meglio dirlo subito.
-    if (!window.isSecureContext) {
-      setMicMsg(t('micNeedsHttps'));
-      return;
-    }
-    if (!SpeechRecCtor) {
-      setMicMsg(t('micUnsupported'));
-      return;
-    }
-    const rec = new SpeechRecCtor();
-    rec.lang = LOCALE;
-    rec.continuous = true;
-    rec.interimResults = false;
-    rec.onresult = (e) => {
-      let chunk = '';
-      for (let i = e.resultIndex; i < e.results.length; i++) {
-        if (e.results[i].isFinal) chunk += e.results[i][0].transcript;
-      }
-      if (chunk) setText((t) => (t ? t + ' ' : '') + chunk.trim());
-    };
-    rec.onerror = (e) => {
-      setListening(false);
-      const code = (e as { error?: string }).error ?? '';
-      setMicMsg(code === 'not-allowed' || code === 'service-not-allowed' ? t('micDenied') : t('micError')(code));
-    };
-    rec.onend = () => setListening(false);
-    recRef.current = rec;
-    rec.start();
-    setListening(true);
-  }
 
   // Palette slash: attiva quando il testo è "/qualcosa" senza spazi.
   const matches = useMemo(() => {
@@ -148,10 +105,10 @@ export function Composer({ disabled, busy, queued, slashCommands, onSend, onInte
           ))}
         </div>
       )}
-      {micMsg && (
+      {mic.msg && (
         <div className="mic-msg">
-          {micMsg}
-          <button onClick={() => setMicMsg(null)}>✕</button>
+          {mic.msg}
+          <button onClick={() => mic.setMsg(null)}>✕</button>
         </div>
       )}
       {(images.length > 0 || queued > 0) && (
@@ -177,11 +134,13 @@ export function Composer({ disabled, busy, queued, slashCommands, onSend, onInte
           rows={3}
         />
         <div className="composer-actions">
-          {SpeechRecCtor && (
-            <button className={listening ? 'mic on' : 'mic'} title={t('dictateTitle')} onClick={toggleMic}>
-              {listening ? '🔴' : '🎤'}
-            </button>
-          )}
+          <button
+            className={mic.state === 'recording' ? 'mic on' : 'mic'}
+            title={mic.state === 'busy' ? t('micTranscribing') : t('dictateTitle')}
+            onClick={() => void mic.toggle()}
+          >
+            {mic.state === 'recording' ? '🔴' : mic.state === 'busy' ? '…' : '🎤'}
+          </button>
           <button className="send" onClick={submit} disabled={disabled || !text.trim()}>
             {busy ? t('enqueue') : t('send')}
           </button>
