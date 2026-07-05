@@ -66,6 +66,7 @@ export interface ProjectState {
   tokensOut: number;
   thinkingSince: number | null; // epoch ms, null se non sta pensando
   mcpServers: McpServer[];
+  mcpOp: { busy: boolean; error: string | null }; // add/remove server MCP in corso / esito
 }
 
 export function emptyProject(): ProjectState {
@@ -89,6 +90,7 @@ export function emptyProject(): ProjectState {
     tokensOut: 0,
     thinkingSince: null,
     mcpServers: [],
+    mcpOp: { busy: false, error: null },
   };
 }
 

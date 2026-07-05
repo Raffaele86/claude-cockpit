@@ -2,7 +2,7 @@ import { homedir } from 'node:os';
 import { dirname, extname, join, normalize, resolve } from 'node:path';
 import { createServer } from 'node:http';
 import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmdirSync, statSync, unlinkSync } from 'node:fs';
-import { execFileSync, spawn } from 'node:child_process';
+import { execFile, execFileSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
 import { getSessionMessages, listSessions, type SDKMessage } from '@anthropic-ai/claude-agent-sdk';
@@ -16,7 +16,7 @@ import { randomUUID } from 'node:crypto';
 import { startTelegramGateway, type TelegramGateway } from './telegram.js';
 import { applySettings, hostsChanged, readSettings } from './settings.js';
 
-const ENGINE_VERSION = '0.8.1';
+const ENGINE_VERSION = '0.9.0';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -264,6 +264,9 @@ function getOrCreateSession(projectPath: string, model?: string): CockpitSession
         message: (msg) => forwardSdkMessage(project, msg),
         permissionRequest: (req) => broadcast({ ev: 'permission_request', project, ...req }),
         closed: (error) => {
+          // Solo se in mappa c'è ANCORA questa sessione: una closed() tardiva (es. dopo reset+prompt
+          // rapidi) non deve sganciare la sessione nuova già creata al suo posto.
+          if (sessions.get(project) !== created) return;
           sessions.delete(project);
           // Resume fallito (session_id obsoleto): mai lasciare il progetto bloccato.
           if (error && created.usedResume && created.sessionId === null) {
@@ -316,6 +319,50 @@ function decidePermissionAny(
     if (session.decidePermission(requestId, decision, updatedInput)) return true;
   }
   return false;
+}
+
+/** Esegue `claude mcp ...` nel cwd del progetto (scope project → scrive .mcp.json lì). */
+function runClaudeCli(args: string[], cwd: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    execFile('claude', args, { cwd, timeout: 30_000 }, (err, stdout, stderr) => {
+      if (err) reject(new Error(stderr.trim() || stdout.trim() || String(err)));
+      else resolve(stdout);
+    });
+  });
+}
+
+// N.B. il CLI vuole i positional PRIMA delle opzioni; per stdio le opzioni prima di `--`.
+function mcpAddArgs(server: import('./protocol.js').McpAddRequest): string[] {
+  const scope = ['-s', server.scope === 'project' ? 'project' : 'user'];
+  if (server.transport === 'stdio') {
+    const env = (server.env ?? []).filter((e) => e.trim()).flatMap((e) => ['-e', e.trim()]);
+    return ['mcp', 'add', server.name, ...scope, ...env, '--', ...server.target.trim().split(/\s+/)];
+  }
+  const headers = (server.headers ?? []).filter((h) => h.trim()).flatMap((h) => ['--header', h.trim()]);
+  return ['mcp', 'add', server.name, server.target.trim(), ...scope, '--transport', server.transport, ...headers];
+}
+
+/** Chiude la sessione viva senza toccare lo stored id: il prossimo prompt riparte in resume
+ *  ricaricando la config (stesso pattern di set_provider) — serve dopo mcp add/remove. */
+function restartSessionKeepingConversation(project: string): void {
+  const session = sessions.get(project);
+  if (session) {
+    sessions.delete(project);
+    session.close();
+  }
+}
+
+async function handleMcpOp(ws: WebSocket, projectPath: string, name: string, args: string[]): Promise<void> {
+  const project = normalizeProject(projectPath);
+  try {
+    await runClaudeCli(args, cwdOf(project));
+    restartSessionKeepingConversation(project);
+    broadcast({ ev: 'mcp_op_done', project, name });
+    const servers = await getOrCreateSession(project).mcpStatus();
+    send(ws, { ev: 'mcp_status', project, servers });
+  } catch (err) {
+    send(ws, { ev: 'mcp_op_done', project, name, error: String(err instanceof Error ? err.message : err) });
+  }
 }
 
 function sendSettings(ws: WebSocket): void {
@@ -512,6 +559,18 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       } catch (err) {
         send(ws, { ev: 'error', message: `settings_set: ${String(err)}` });
       }
+      break;
+    }
+    case 'mcp_add': {
+      if (!msg.server.name.trim() || !msg.server.target.trim()) {
+        send(ws, { ev: 'mcp_op_done', project: normalizeProject(msg.project), name: msg.server.name, error: 'nome o URL/comando mancante' });
+        break;
+      }
+      await handleMcpOp(ws, msg.project, msg.server.name, mcpAddArgs(msg.server));
+      break;
+    }
+    case 'mcp_remove': {
+      await handleMcpOp(ws, msg.project, msg.name, ['mcp', 'remove', msg.name]);
       break;
     }
     case 'set_provider': {

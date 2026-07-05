@@ -153,6 +153,21 @@ const IT = {
   langLbl: 'Lingua',
   langAuto: 'Auto (browser)',
   langReloadHint: 'La lingua cambia al prossimo ricaricamento della pagina.',
+  // MCP add/remove
+  mcpAddTitle: 'Connetti un server MCP',
+  mcpName: 'Nome',
+  mcpTransport: 'Tipo',
+  mcpTargetUrl: 'URL del server',
+  mcpTargetCmd: 'Comando (es. npx my-mcp-server)',
+  mcpHeaders: 'Header (uno per riga, es. Authorization: Bearer …)',
+  mcpEnv: 'Variabili env (KEY=VALUE, una per riga)',
+  mcpScopeAll: 'tutti i progetti',
+  mcpScopeProject: 'questo progetto',
+  mcpAdding: 'aggiungo…',
+  mcpRemoveTitle: 'Rimuovi server',
+  mcpConfirmRemove: 'rimuovere?',
+  mcpEmpty: 'Nessun server MCP configurato in Claude Code.',
+  mcpRestartNote: 'La sessione si riavvia per caricare la modifica (la chat resta).',
 };
 
 const EN: typeof IT = {
@@ -305,6 +320,21 @@ const EN: typeof IT = {
   langLbl: 'Language',
   langAuto: 'Auto (browser)',
   langReloadHint: 'The language changes on the next page reload.',
+  // MCP add/remove
+  mcpAddTitle: 'Connect an MCP server',
+  mcpName: 'Name',
+  mcpTransport: 'Type',
+  mcpTargetUrl: 'Server URL',
+  mcpTargetCmd: 'Command (e.g. npx my-mcp-server)',
+  mcpHeaders: 'Headers (one per line, e.g. Authorization: Bearer …)',
+  mcpEnv: 'Env vars (KEY=VALUE, one per line)',
+  mcpScopeAll: 'all projects',
+  mcpScopeProject: 'this project',
+  mcpAdding: 'adding…',
+  mcpRemoveTitle: 'Remove server',
+  mcpConfirmRemove: 'remove?',
+  mcpEmpty: 'No MCP servers configured in Claude Code.',
+  mcpRestartNote: 'The session restarts to load the change (the chat is kept).',
 };
 
 export const t = <K extends keyof typeof IT>(k: K): (typeof IT)[K] => (LANG === 'it' ? IT : EN)[k];

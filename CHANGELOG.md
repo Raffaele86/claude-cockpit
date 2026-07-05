@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.9.0
+- MCP management from the side panel: connect your own servers (HTTP/SSE/stdio, headers, env vars, user or project scope — wraps `claude mcp add`) and remove them; the session restarts keeping the conversation
+- The MCP panel is always visible (even with zero servers) so new users can add one
+- Fixed a race where a late session-close event after a quick reset+prompt detached the new session (permission decisions went unanswered)
+
 ## 0.8.1
 - Settings and Markdown reader are now floating windows: draggable by their title bar and non-blocking — keep using the cockpit while they're open
 - Right-click context menu in the desktop app (copy selection, cut/paste in fields, select all) — e.g. copy just a portion of text from the Markdown reader

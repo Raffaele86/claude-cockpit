@@ -66,6 +66,10 @@ Everything below is editable from the **⚙️ Settings panel** in the top bar �
 | `providers.json` | alternative providers — see [docs/providers.md](docs/providers.md) |
 | `config.json` | desktop notifications, optional [ntfy](https://ntfy.sh) topic for phone push |
 
+## MCP servers
+
+Cockpit ships with **no MCP servers** and never connects to anything preconfigured: sessions inherit the MCP configuration of *your* Claude Code install (`settingSources: user/project/local`). The side panel (☰) shows their status, and lets you **connect your own**: ＋ opens a form (HTTP / SSE / stdio command, optional headers or env vars, scope "all projects" or "this project") that wraps `claude mcp add`; ✕ removes one. The session restarts to load the change — the conversation is kept.
+
 ## Security notes
 
 - The engine binds to `127.0.0.1` only, by default. Adding other hosts (LAN/VPN IPs) is opt-in via `engine.json`; the WS is protected by the bearer token, but traffic is plain `ws://` — only expose it on networks you trust (a VPN like Tailscale is the intended path).

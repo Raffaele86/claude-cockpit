@@ -50,7 +50,20 @@ export type ClientMsg =
   | { op: 'file_op'; kind: 'mkdir' | 'rename' | 'delete' | 'reveal'; path: string; newName?: string }
   | { op: 'set_provider'; project: string; provider: ProviderName }
   | { op: 'settings_get' }
-  | { op: 'settings_set'; patch: Partial<CockpitSettings> };
+  | { op: 'settings_set'; patch: Partial<CockpitSettings> }
+  | { op: 'mcp_add'; project: string; server: McpAddRequest }
+  | { op: 'mcp_remove'; project: string; name: string };
+
+// Aggiunta server MCP (wrapper di `claude mcp add`): target = URL (http/sse) o comando completo (stdio);
+// headers = righe "Chiave: valore" (http/sse), env = righe "KEY=VALUE" (stdio).
+export interface McpAddRequest {
+  name: string;
+  transport: 'http' | 'sse' | 'stdio';
+  target: string;
+  headers?: string[];
+  env?: string[];
+  scope: 'user' | 'project';
+}
 
 // Impostazioni engine (file in ~/.claude-cockpit). I segreti viaggiano mascherati (••••+ultimi 4):
 // rimandare il valore mascherato in settings_set = "non toccare".
@@ -162,4 +175,5 @@ export type ServerMsg =
   | { ev: 'file_op_done'; kind: string; path: string; error?: string }
   | { ev: 'provider'; project: string; provider: ProviderName }
   | { ev: 'settings'; data: CockpitSettings; restartRequired?: boolean; telegramActive: boolean }
+  | { ev: 'mcp_op_done'; project: string; name: string; error?: string }
   | { ev: 'error'; message: string; project?: string };

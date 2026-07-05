@@ -1,11 +1,14 @@
-// Verifica M3: forza un permesso (tool MCP non in allowlist), risponde allow-once, verifica il round-trip.
-import { readFileSync } from 'node:fs';
+// Verifica M3: forza un permesso su Bash, risponde allow-once, verifica il round-trip.
+// Una regola "ask" locale in .smoke garantisce il prompt anche se l'utente ha Bash in allowlist.
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import WebSocket from 'ws';
 
 const token = readFileSync(join(homedir(), '.claude-cockpit', 'token'), 'utf8').trim();
-const project = join(homedir(), 'cockpit-m3-test');
+const project = join(homedir(), 'claude-cockpit', '.smoke');
+mkdirSync(join(project, '.claude'), { recursive: true });
+writeFileSync(join(project, '.claude', 'settings.local.json'), JSON.stringify({ permissions: { ask: ['Bash(*)'] } }) + '\n');
 const ws = new WebSocket('ws://127.0.0.1:8130');
 
 let sawPermission = false;
@@ -20,11 +23,15 @@ ws.on('message', (raw) => {
   const m = JSON.parse(raw.toString());
   switch (m.ev) {
     case 'auth_ok':
+      // Reset: la sessione deve nascere DOPO la scrittura della regola ask locale.
+      ws.send(JSON.stringify({ op: 'session_reset', project }));
+      break;
+    case 'session_reset':
       ws.send(
         JSON.stringify({
           op: 'prompt',
           project,
-          text: 'Chiama lo strumento mcp__mcp-gateway__ga4__ga4_realtime per vedere gli utenti in tempo reale. Non fare altro, poi riporta il numero.',
+          text: "Esegui con lo strumento Bash il comando: touch m3-perm-test.tmp && rm m3-perm-test.tmp. Non fare altro, poi rispondi 'fatto'.",
         }),
       );
       break;

@@ -1646,3 +1646,82 @@ body {
 .set-qa-add {
   margin-top: 2px;
 }
+
+/* ---- v0.9: gestione server MCP dal pannello ---- */
+.mcp-empty {
+  padding: 4px 10px 8px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+.mcp-rm {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 0 4px;
+  flex-shrink: 0;
+}
+.mcp-rm:hover {
+  color: var(--red);
+}
+.mcp-rm.danger {
+  color: var(--red);
+  font-size: 11px;
+}
+.mcp-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 10px 10px;
+  border-top: 1px solid var(--border);
+}
+.mcp-add-form input,
+.mcp-add-form select,
+.mcp-add-form textarea {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 6px 8px;
+  font-size: 12px;
+  font-family: inherit;
+}
+.mcp-add-form input:focus,
+.mcp-add-form textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.mcp-add-actions {
+  display: flex;
+  gap: 6px;
+}
+.mcp-add-actions button {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 12px;
+  padding: 5px 12px;
+}
+.mcp-add-actions button:first-child {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+.mcp-add-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.mcp-error {
+  font-size: 11.5px;
+  color: var(--red);
+  white-space: pre-wrap;
+  max-height: 90px;
+  overflow-y: auto;
+}
+.mcp-note {
+  font-size: 11px;
+  color: var(--text-dim);
+  opacity: 0.8;
+}

@@ -381,6 +381,9 @@ export function App() {
         case 'mcp_status':
           updateProject(msg.project, (s) => ({ ...s, mcpServers: msg.servers }));
           break;
+        case 'mcp_op_done':
+          updateProject(msg.project, (s) => ({ ...s, mcpOp: { busy: false, error: msg.error ?? null } }));
+          break;
         case 'permission_request':
           setPending((prev) => [
             ...prev,
@@ -798,7 +801,19 @@ export function App() {
         {sideOpen && <div className="side-backdrop mobile-only" onClick={() => setSideOpen(false)} />}
         <aside className={sideOpen ? 'side open' : 'side'}>
           <TodoPanel todos={active.todos} />
-          <McpStatus servers={active.mcpServers} onRefresh={refreshMcp} />
+          <McpStatus
+            servers={active.mcpServers}
+            op={active.mcpOp}
+            onRefresh={refreshMcp}
+            onAdd={(server) => {
+              updateProject(activeProject, (s) => ({ ...s, mcpOp: { busy: true, error: null } }));
+              client.current?.send({ op: 'mcp_add', project: activeProject, server });
+            }}
+            onRemove={(name) => {
+              updateProject(activeProject, (s) => ({ ...s, mcpOp: { busy: true, error: null } }));
+              client.current?.send({ op: 'mcp_remove', project: activeProject, name });
+            }}
+          />
         </aside>
       </div>
 
