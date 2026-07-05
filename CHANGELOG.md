@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.9.2
+- PWA manifest + icons: "Add to Home screen" on Android installs Cockpit as a standalone app with its own icon
+
 ## 0.9.1
 - Same-origin WebSocket: the UI works behind a TLS reverse proxy (e.g. `tailscale serve` → `https://…ts.net` with `wss://`), enabling the microphone on mobile (browsers require a secure context for dictation)
 - Dictation errors are now visible: insecure-context / unsupported-browser / permission-denied messages instead of a silent red button
