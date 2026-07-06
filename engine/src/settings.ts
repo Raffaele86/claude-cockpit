@@ -60,8 +60,9 @@ export function applySettings(patch: Partial<CockpitSettings>): { telegram: bool
 
   if (patch.providers) {
     const glm = patch.providers.glm;
+    const models = (glm?.models ?? []).map((m) => m.trim()).filter(Boolean);
     const next: ProvidersFile = glm?.configDir?.trim()
-      ? { glm: { configDir: glm.configDir.trim(), model: glm.model?.trim() || undefined } }
+      ? { glm: { configDir: glm.configDir.trim(), model: glm.model?.trim() || undefined, models: models.length ? models : undefined } }
       : {};
     writeJson(PROVIDERS_PATH, next);
   }

@@ -233,6 +233,7 @@ export function App() {
           setEngineVersion(msg.engineVersion);
           setEngineError(null);
           setActiveProject((cur) => cur || msg.home);
+          client.current?.send({ op: 'settings_get' }); // per la lista modelli GLM del selettore
           break;
         case 'projects':
           setRegistry(msg.list);
@@ -582,6 +583,11 @@ export function App() {
   );
 
   const active = projects[activeKey] ?? emptyProject();
+  // Modelli selezionabili con provider GLM (da providers.json; fallback = il model configurato).
+  const glmModels = useMemo(() => {
+    const g = settingsSnap?.data.providers.glm;
+    return g?.models?.length ? g.models : g?.model ? [g.model] : [];
+  }, [settingsSnap]);
   const shortProject = activeProject.split('/').filter(Boolean).at(-1) || '~';
   const req = pending.find((p) => p.project === activeProject) ?? pending[0];
   const busyMap = useMemo(() => {
@@ -670,9 +676,27 @@ export function App() {
                     ))}
                   </div>
                   {active.provider === 'glm' ? (
-                    <span className="model-static" title={t('glmModelTitle')}>
-                      {active.model || 'glm…'}
-                    </span>
+                    glmModels.length > 0 ? (
+                      <select
+                        className="effort-select"
+                        title={t('glmModelTitle')}
+                        value={glmModels.includes(active.model) ? active.model : ''}
+                        onChange={(e) => changeModel(e.target.value)}
+                      >
+                        <option value="" disabled>
+                          {active.model || 'glm…'}
+                        </option>
+                        {glmModels.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="model-static" title={t('glmModelTitle')}>
+                        {active.model || 'glm…'}
+                      </span>
+                    )
                   ) : (
                     <ModelSelect models={active.models} current={active.model} onChange={changeModel} />
                   )}
@@ -816,7 +840,7 @@ export function App() {
                     </button>
                   ))}
                 </div>
-                {(cliProv[activeKey] ?? 'claude') === 'claude' && (
+                {(cliProv[activeKey] ?? 'claude') === 'claude' ? (
                   <ModelSelect
                     models={active.models}
                     current={cliModel[activeKey] ?? ''}
@@ -825,6 +849,27 @@ export function App() {
                       cliInput.current?.(`/model ${m}\r`);
                     }}
                   />
+                ) : (
+                  glmModels.length > 0 && (
+                    <select
+                      className="effort-select"
+                      title={t('glmModelTitle')}
+                      value={cliModel[activeKey] ?? ''}
+                      onChange={(e) => {
+                        setCliModel((prev) => ({ ...prev, [activeKey]: e.target.value }));
+                        cliInput.current?.(`/model ${e.target.value}\r`);
+                      }}
+                    >
+                      <option value="" disabled>
+                        model…
+                      </option>
+                      {glmModels.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  )
                 )}
                 <select
                   className="effort-select"

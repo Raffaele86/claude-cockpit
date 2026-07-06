@@ -10,15 +10,19 @@ Cockpit can run sessions against any endpoint that Claude Code itself supports, 
      "env": {
        "ANTHROPIC_AUTH_TOKEN": "<your key>",
        "ANTHROPIC_BASE_URL": "https://api.z.ai/api/anthropic",
-       "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.2",
-       "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.2"
+       "ANTHROPIC_DEFAULT_OPUS_MODEL": "glm-5.2[1m]",
+       "ANTHROPIC_DEFAULT_SONNET_MODEL": "glm-5.2[1m]",
+       "ANTHROPIC_DEFAULT_HAIKU_MODEL": "glm-4.5-air",
+       "ANTHROPIC_DEFAULT_FABLE_MODEL": "glm-5.2[1m]"
      }
    }
    ```
+   Map **every** model alias Claude Code knows (opus/sonnet/haiku/fable): an unmapped alias sends the raw Anthropic model id to the gateway, which rejects it with `400 Unknown Model`.
 2. Register it in `~/.claude-cockpit/providers.json`:
    ```json
-   { "glm": { "configDir": "/home/you/.claude-glm", "model": "glm-5.2" } }
+   { "glm": { "configDir": "/home/you/.claude-glm", "model": "glm-5.2[1m]", "models": ["glm-5.2[1m]", "glm-4.5-air"] } }
    ```
+   `models` feeds the model dropdown shown in the CLI toolbar and the chat top bar while GLM is active (also editable in Settings → Provider).
 3. Restart the engine. A `Claude | GLM` toggle appears in the top bar.
 
 ## How switching works

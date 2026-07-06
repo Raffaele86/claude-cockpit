@@ -86,7 +86,7 @@ export interface CockpitSettings {
     sttProvider?: 'groq' | 'openai';
     sttLanguage?: string; // 'auto' | codice ISO (es. 'it') — dettatura E vocali Telegram
   };
-  providers: { glm?: { configDir: string; model?: string } };
+  providers: { glm?: { configDir: string; model?: string; models?: string[] } }; // models = scelte del selettore (CLI /model, chat set_model)
   engine: { hosts: string[]; defaultPermissionMode?: PermissionModeName };
   quickactions: QuickActionEntry[];
 }

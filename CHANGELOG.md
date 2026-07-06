@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.15.1
+- GLM model selector: with the GLM provider active, both the CLI toolbar and the chat topbar now show a model dropdown fed by `providers.json` `models` (editable in Settings -> Provider, comma-separated); picking one types `/model <id>` in the CLI or calls set_model in chat
+- Docs note: map ALL the CLI model aliases in the GLM install's settings.json (including `ANTHROPIC_DEFAULT_FABLE_MODEL`) — an unmapped alias sends the raw Anthropic model id to the alternate gateway, which rejects it with 400 Unknown Model
+
 ## 0.15.0
 - The cockpit now ALWAYS opens with a clean CLI session: the first attach of an app run discards any pty left over from previous runs (reloads and view/tab switches within the same run still keep the session alive)
 - Toolbar buttons: "New chat" (`/clear`) and "History" (`/resume` — the CLI's native session picker) 

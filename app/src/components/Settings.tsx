@@ -28,7 +28,7 @@ const IS_ELECTRON = navigator.userAgent.includes('Electron');
 export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Props) {
   // Stato editabile, inizializzato quando arriva lo snapshot dall'engine.
   const [tg, setTg] = useState<CockpitSettings['telegram']>({});
-  const [glm, setGlm] = useState<{ configDir: string; model: string }>({ configDir: '', model: '' });
+  const [glm, setGlm] = useState<{ configDir: string; model: string; models: string }>({ configDir: '', model: '', models: '' });
   const [hosts, setHosts] = useState('');
   const [defaultMode, setDefaultMode] = useState('default');
   const [qa, setQa] = useState<QuickActionEntry[]>([]);
@@ -41,7 +41,11 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
   useEffect(() => {
     if (!snapshot || loaded) return;
     setTg(snapshot.data.telegram);
-    setGlm({ configDir: snapshot.data.providers.glm?.configDir ?? '', model: snapshot.data.providers.glm?.model ?? '' });
+    setGlm({
+      configDir: snapshot.data.providers.glm?.configDir ?? '',
+      model: snapshot.data.providers.glm?.model ?? '',
+      models: (snapshot.data.providers.glm?.models ?? []).join(', '),
+    });
     setHosts(snapshot.data.engine.hosts.join('\n'));
     setDefaultMode(snapshot.data.engine.defaultPermissionMode ?? 'default');
     setQa(snapshot.data.quickactions);
@@ -55,7 +59,15 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
   function save() {
     onSave({
       telegram: { ...tg, chatId: tg.chatId ? Number(tg.chatId) : undefined },
-      providers: glm.configDir.trim() ? { glm: { configDir: glm.configDir, model: glm.model || undefined } } : {},
+      providers: glm.configDir.trim()
+        ? {
+            glm: {
+              configDir: glm.configDir,
+              model: glm.model || undefined,
+              models: glm.models.split(',').map((m) => m.trim()).filter(Boolean),
+            },
+          }
+        : {},
       engine: {
         hosts: hosts.split('\n').map((h) => h.trim()).filter(Boolean),
         defaultPermissionMode: defaultMode as CockpitSettings['engine']['defaultPermissionMode'],
@@ -174,6 +186,10 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
                 <label className="set-field">
                   {t('glmModel')}
                   <input value={glm.model} onChange={(e) => setGlm({ ...glm, model: e.target.value })} />
+                </label>
+                <label className="set-field">
+                  {t('glmModels')}
+                  <input value={glm.models} onChange={(e) => setGlm({ ...glm, models: e.target.value })} />
                 </label>
                 <p className="set-hint">{t('glmHint')}</p>
               </section>
