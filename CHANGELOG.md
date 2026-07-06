@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.15.0
+- The cockpit now ALWAYS opens with a clean CLI session: the first attach of an app run discards any pty left over from previous runs (reloads and view/tab switches within the same run still keep the session alive)
+- Toolbar buttons: "New chat" (`/clear`) and "History" (`/resume` — the CLI's native session picker) 
+- Smarter conversation continue on relaunch: `-c` is used only when the conversation was actually started in that tab (never resumes unrelated chats from external terminals); switching provider copies the session file into the target provider's store and resumes it there with `--resume`
+- GLM launch no longer passes a default `--model` from providers.json (the provider's own settings decide) — a stale model code was causing API 400 "Unknown Model"
+
 ## 0.14.1
 - Fix: switching the CLI to GLM (or any relaunch) on a project with no prior conversation died with "No conversation found to continue" — `-c` is now added only when a conversation actually exists in the target provider's store; otherwise the CLI starts fresh
 

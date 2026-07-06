@@ -12,6 +12,8 @@ interface Props {
   subscribe: (fn: (m: ServerMsg) => void) => () => void;
   /** Flag di lancio (provider/model/effort/mode): con questo il pty viene RICREATO coi flag. */
   launch?: PtyLaunch;
+  /** Chiamata al momento dell'attach: true = chiedi un pty pulito (sessione nuova). */
+  takeFresh?: () => boolean;
   /** Iniezione testo nel pty (es. quick actions in vista CLI). */
   inputRef?: MutableRefObject<((text: string) => void) | null>;
   /** Il processo del pty è uscito (es. /exit) — la UI può offrire il riavvio. */
@@ -22,7 +24,7 @@ const enc = new TextEncoder();
 const toB64 = (s: string) => btoa(String.fromCharCode(...enc.encode(s)));
 const fromB64 = (b: string) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
 
-export function TerminalPanel({ client, project, cmd, subscribe, launch, inputRef, onExit }: Props) {
+export function TerminalPanel({ client, project, cmd, subscribe, launch, takeFresh, inputRef, onExit }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -56,8 +58,10 @@ export function TerminalPanel({ client, project, cmd, subscribe, launch, inputRe
     });
 
     // Attach: riusa il pty persistente della chiave (con replay scrollback) o lo crea;
-    // con launch il pty viene ricreato coi flag richiesti (il -c riprende la conversazione).
-    client.send({ op: 'pty_attach', project, cmd, cols: term.cols, rows: term.rows, launch });
+    // con launch il pty viene ricreato coi flag richiesti; fresh (primo attach della run)
+    // scarta il pty di run precedenti → il cockpit apre sempre una sessione pulita.
+    const fresh = (!launch && takeFresh?.()) || undefined;
+    client.send({ op: 'pty_attach', project, cmd, cols: term.cols, rows: term.rows, launch, fresh });
 
     const dataDisp = term.onData((d) => {
       if (ptyId) client.send({ op: 'pty_input', ptyId, data: toB64(d) });

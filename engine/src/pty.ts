@@ -9,6 +9,10 @@ export class PtyChannel {
   private readonly p: IPty;
   private chunks: Buffer[] = [];
   private bufBytes = 0;
+  /** Timestamp spawn: serve a capire se una conversazione è nata in QUESTA scheda. */
+  readonly startedAt = Date.now();
+  /** CLAUDE_CONFIG_DIR con cui è partito claude (undefined = ~/.claude): lo store delle sue conversazioni. */
+  readonly configDir?: string;
 
   constructor(
     cwd: string,
@@ -19,6 +23,7 @@ export class PtyChannel {
     onExit: (code: number) => void,
     opts: { extraArgs?: string[]; env?: Record<string, string> } = {},
   ) {
+    this.configDir = opts.env?.CLAUDE_CONFIG_DIR;
     const shell = process.env.SHELL || '/bin/bash';
     // Login shell → eredita PATH del profilo (claude sta in ~/.local/bin).
     // extraArgs (es. --permission-mode plan, -c) quotati singolarmente.

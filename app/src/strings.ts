@@ -179,6 +179,10 @@ const IT = {
   restartCli: 'Riavvia il CLI',
   viewToggleTitle: 'Vista della scheda: CLI nativo di Claude Code o Chat',
   cliModeTitle: 'Modalità permessi del CLI (il cambio rilancia il CLI riprendendo la conversazione)',
+  cliNewChat: 'Nuova chat',
+  cliNewChatTitle: 'Pulisce la conversazione corrente (/clear)',
+  cliHistory: 'Cronologia',
+  cliHistoryTitle: 'Riapri una sessione precedente (/resume)',
 };
 
 const EN: typeof IT = {
@@ -357,6 +361,10 @@ const EN: typeof IT = {
   restartCli: 'Restart the CLI',
   viewToggleTitle: 'Tab view: native Claude Code CLI or Chat',
   cliModeTitle: 'CLI permission mode (switching relaunches the CLI resuming the conversation)',
+  cliNewChat: 'New chat',
+  cliNewChatTitle: 'Clear the current conversation (/clear)',
+  cliHistory: 'History',
+  cliHistoryTitle: 'Reopen a previous session (/resume)',
 };
 
 export const t = <K extends keyof typeof IT>(k: K): (typeof IT)[K] => (LANG === 'it' ? IT : EN)[k];

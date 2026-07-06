@@ -562,6 +562,15 @@ export function App() {
     [activeKey],
   );
 
+  /** Primo attach CLI di questa chiave nella run corrente? → pty pulito. sessionStorage
+   *  sopravvive al reload (pty persiste) e muore alla chiusura (riapertura = sessione nuova). */
+  const takeCliFresh = useCallback(() => {
+    const sk = `cli-fresh::${activeKey}`;
+    if (sessionStorage.getItem(sk)) return false;
+    sessionStorage.setItem(sk, '1');
+    return true;
+  }, [activeKey]);
+
   /** Rilancia il CLI della scheda coi flag scelti (claude -c riprende la conversazione). */
   const relaunchCli = useCallback(
     (launch: PtyLaunch) => {
@@ -853,6 +862,12 @@ export function App() {
                     </button>
                   ))}
                 </div>
+                <button className="prov cli-act" title={t('cliNewChatTitle')} onClick={() => cliInput.current?.('/clear\r')}>
+                  ＋ {t('cliNewChat')}
+                </button>
+                <button className="prov cli-act" title={t('cliHistoryTitle')} onClick={() => cliInput.current?.('/resume\r')}>
+                  ↺ {t('cliHistory')}
+                </button>
               </div>
             )}
             <div className="view-toggle" title={t('viewToggleTitle')}>
@@ -888,6 +903,7 @@ export function App() {
                 cmd="claude"
                 subscribe={(fn) => client.current!.subscribe(fn)}
                 launch={cliLaunch[activeKey]}
+                takeFresh={takeCliFresh}
                 inputRef={cliInput}
                 onExit={() => setCliExited((p) => ({ ...p, [activeKey]: true }))}
               />

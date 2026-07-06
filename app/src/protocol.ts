@@ -31,7 +31,7 @@ export type ClientMsg =
       decision: PermissionDecision;
       updatedInput?: Record<string, unknown>;
     }
-  | { op: 'pty_attach'; project: string; cmd: 'claude' | 'shell'; cols: number; rows: number; launch?: PtyLaunch } // riusa o crea; con launch: kill+respawn coi flag
+  | { op: 'pty_attach'; project: string; cmd: 'claude' | 'shell'; cols: number; rows: number; launch?: PtyLaunch; fresh?: boolean } // riusa o crea; con launch: kill+respawn coi flag; fresh: kill+respawn pulito (sessione nuova)
   | { op: 'pty_input'; ptyId: string; data: string } // base64
   | { op: 'pty_resize'; ptyId: string; cols: number; rows: number }
   | { op: 'pty_kill'; ptyId: string } // termina il processo (il detach NON lo chiude)
