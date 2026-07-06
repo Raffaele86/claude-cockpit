@@ -181,7 +181,7 @@ const IT = {
   viewToggleTitle: 'Vista della scheda: CLI nativo di Claude Code o Chat',
   cliModeTitle: 'Modalità permessi del CLI (il cambio rilancia il CLI riprendendo la conversazione)',
   cliNewChat: 'Nuova chat',
-  cliNewChatTitle: 'Pulisce la conversazione corrente (/clear)',
+  cliNewChatTitle: 'Apre una nuova chat indipendente in una scheda nuova',
   cliHistory: 'Cronologia',
   cliHistoryTitle: 'Riapri una sessione precedente (/resume)',
 };
@@ -364,7 +364,7 @@ const EN: typeof IT = {
   viewToggleTitle: 'Tab view: native Claude Code CLI or Chat',
   cliModeTitle: 'CLI permission mode (switching relaunches the CLI resuming the conversation)',
   cliNewChat: 'New chat',
-  cliNewChatTitle: 'Clear the current conversation (/clear)',
+  cliNewChatTitle: 'Open an independent new chat in a new tab',
   cliHistory: 'History',
   cliHistoryTitle: 'Reopen a previous session (/resume)',
 };

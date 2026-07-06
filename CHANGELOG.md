@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.15.3
+- Every chat is now truly independent: "New chat" opens a NEW tab with a fresh CLI session (it no longer /clear-ed the current conversation); tab ids are unique forever (a recycled id could re-attach to a closed tab's terminal); closing a tab also kills its terminal processes (new op `pty_kill_project`)
+
 ## 0.15.2
 - GLM launches always pass an explicit `--model` (the provider default from providers.json, or the one picked in the toolbar): the CLI flag overrides a `model` set in the project's `.claude/settings.json` — with cwd = home that file IS the main Claude config, whose Anthropic model id leaked into GLM sessions as API 400 Unknown Model
 

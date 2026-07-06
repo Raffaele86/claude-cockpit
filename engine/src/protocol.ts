@@ -35,6 +35,7 @@ export type ClientMsg =
   | { op: 'pty_input'; ptyId: string; data: string } // base64
   | { op: 'pty_resize'; ptyId: string; cols: number; rows: number }
   | { op: 'pty_kill'; ptyId: string } // termina il processo (il detach NON lo chiude)
+  | { op: 'pty_kill_project'; project: string } // termina i pty (claude+shell) della chiave: chiusura scheda
   | { op: 'projects_list' }
   | { op: 'projects_upsert'; project: ProjectEntry }
   | { op: 'projects_remove'; path: string }

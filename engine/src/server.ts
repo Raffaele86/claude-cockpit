@@ -17,7 +17,7 @@ import { startTelegramGateway, type TelegramGateway } from './telegram.js';
 import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 
-const ENGINE_VERSION = '0.15.2';
+const ENGINE_VERSION = '0.15.3';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -801,6 +801,16 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
     case 'pty_kill': {
       const ch = ptys.get(msg.ptyId);
       if (ch) ch.kill(); // cleanup mappe nel callback onExit
+      break;
+    }
+    case 'pty_kill_project': {
+      // Chiusura scheda: via i pty della chiave, così un futuro id di scheda uguale non
+      // può ri-attaccarsi alla conversazione di una scheda chiusa.
+      const key = normalizeProject(msg.project);
+      for (const cmd of ['claude', 'shell'] as const) {
+        const id = ptyByKey.get(`${key}::${cmd}`);
+        if (id) ptys.get(id)?.kill();
+      }
       break;
     }
     case 'interrupt': {

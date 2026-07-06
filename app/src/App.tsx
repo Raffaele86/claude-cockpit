@@ -572,6 +572,14 @@ export function App() {
     return true;
   }, [activeKey]);
 
+  /** Nuova scheda = chat indipendente: id UNICO (mai riusato — un id riciclato si
+   *  ri-attaccherebbe al pty di una scheda chiusa) → il primo attach è sempre fresco. */
+  const addTab = useCallback(() => {
+    const id = `t${Date.now().toString(36)}`;
+    setTabs(activeProject, (list) => [...list, id]);
+    setActiveTabByProject((prev) => ({ ...prev, [activeProject]: id }));
+  }, [activeProject, setTabs]);
+
   /** Rilancia il CLI della scheda coi flag scelti (claude -c riprende la conversazione). */
   const relaunchCli = useCallback(
     (launch: PtyLaunch) => {
@@ -808,15 +816,11 @@ export function App() {
               active={activeTab}
               busy={tabBusy}
               onSelect={(t) => setActiveTabByProject((prev) => ({ ...prev, [activeProject]: t }))}
-              onAdd={() => {
-                const n = tabs.filter((t) => t !== 'main').reduce((max, t) => Math.max(max, parseInt(t.slice(1)) || 0), 1) + 1;
-                const id = `t${n}`;
-                setTabs(activeProject, (list) => [...list, id]);
-                setActiveTabByProject((prev) => ({ ...prev, [activeProject]: id }));
-              }}
+              onAdd={addTab}
               onClose={(t) => {
                 const key = t === 'main' ? activeProject : `${activeProject}##${t}`;
                 client.current?.send({ op: 'session_reset', project: key });
+                client.current?.send({ op: 'pty_kill_project', project: key }); // la scheda chiusa non lascia terminali zombie
                 warmed.current.delete(key);
                 setTabs(activeProject, (list) => list.filter((x) => x !== t));
                 setActiveTabByProject((prev) => ({ ...prev, [activeProject]: 'main' }));
@@ -907,7 +911,7 @@ export function App() {
                     </button>
                   ))}
                 </div>
-                <button className="prov cli-act" title={t('cliNewChatTitle')} onClick={() => cliInput.current?.('/clear\r')}>
+                <button className="prov cli-act" title={t('cliNewChatTitle')} onClick={addTab}>
                   ＋ {t('cliNewChat')}
                 </button>
                 <button className="prov cli-act" title={t('cliHistoryTitle')} onClick={() => cliInput.current?.('/resume\r')}>
