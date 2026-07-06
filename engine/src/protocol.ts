@@ -31,7 +31,7 @@ export type ClientMsg =
       decision: PermissionDecision;
       updatedInput?: Record<string, unknown>;
     }
-  | { op: 'pty_attach'; project: string; cmd: 'claude' | 'shell'; cols: number; rows: number } // riusa o crea il pty della chiave
+  | { op: 'pty_attach'; project: string; cmd: 'claude' | 'shell'; cols: number; rows: number; launch?: PtyLaunch } // riusa o crea; con launch: kill+respawn coi flag
   | { op: 'pty_input'; ptyId: string; data: string } // base64
   | { op: 'pty_resize'; ptyId: string; cols: number; rows: number }
   | { op: 'pty_kill'; ptyId: string } // termina il processo (il detach NON lo chiude)
@@ -57,6 +57,15 @@ export type ClientMsg =
 
 // Aggiunta server MCP (wrapper di `claude mcp add`): target = URL (http/sse) o comando completo (stdio);
 // headers = righe "Chiave: valore" (http/sse), env = righe "KEY=VALUE" (stdio).
+// Rilancio del CLI con impostazioni: claude -c (--continue) mantiene la conversazione della cwd.
+export interface PtyLaunch {
+  provider?: ProviderName;
+  model?: string;
+  effort?: EffortName;
+  permissionMode?: PermissionModeName;
+  continue?: boolean;
+}
+
 export interface McpAddRequest {
   name: string;
   transport: 'http' | 'sse' | 'stdio';

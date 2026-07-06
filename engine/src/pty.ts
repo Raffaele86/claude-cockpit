@@ -17,16 +17,19 @@ export class PtyChannel {
     rows: number,
     onData: (b64: string) => void,
     onExit: (code: number) => void,
+    opts: { extraArgs?: string[]; env?: Record<string, string> } = {},
   ) {
     const shell = process.env.SHELL || '/bin/bash';
     // Login shell → eredita PATH del profilo (claude sta in ~/.local/bin).
-    const args = cmd === 'claude' ? ['-lc', 'exec claude'] : ['-l'];
+    // extraArgs (es. --permission-mode plan, -c) quotati singolarmente.
+    const quoted = (opts.extraArgs ?? []).map((a) => `'${a.replaceAll("'", "'\\''")}'`).join(' ');
+    const args = cmd === 'claude' ? ['-lc', `exec claude ${quoted}`.trim()] : ['-l'];
     this.p = pty.spawn(shell, args, {
       name: 'xterm-256color',
       cols,
       rows,
       cwd,
-      env: process.env as { [key: string]: string },
+      env: { ...(process.env as { [key: string]: string }), ...(opts.env ?? {}) },
     });
     this.p.onData((data) => {
       const buf = Buffer.from(data, 'utf8');

@@ -17,7 +17,7 @@ import { startTelegramGateway, type TelegramGateway } from './telegram.js';
 import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 
-const ENGINE_VERSION = '0.13.0';
+const ENGINE_VERSION = '0.14.0';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -694,6 +694,34 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       const mapKey = `${key}::${msg.cmd}`;
       let ptyId = ptyByKey.get(mapKey);
       let channel = ptyId ? ptys.get(ptyId) : undefined;
+      // launch esplicito = cambio impostazioni (provider/modello/effort/mode): via il pty vecchio,
+      // il nuovo parte coi flag e `-c` riprende la conversazione della cwd.
+      let launchOpts: { extraArgs?: string[]; env?: Record<string, string> } | undefined;
+      if (msg.cmd === 'claude' && msg.launch) {
+        if (channel && ptyId) {
+          ptys.delete(ptyId);
+          ptyByKey.delete(mapKey);
+          channel.kill();
+          ptyId = undefined;
+          channel = undefined;
+        }
+        const l = msg.launch;
+        const args: string[] = [];
+        let env: Record<string, string> | undefined;
+        let model = l.model;
+        if (l.provider === 'glm') {
+          const cfg = loadProviderConfig('glm');
+          if (cfg) {
+            env = { CLAUDE_CONFIG_DIR: cfg.configDir };
+            model = model ?? cfg.model;
+          }
+        }
+        if (l.continue) args.push('-c');
+        if (model) args.push('--model', model);
+        if (l.effort) args.push('--effort', l.effort);
+        if (l.permissionMode) args.push('--permission-mode', l.permissionMode);
+        launchOpts = { extraArgs: args, env };
+      }
       if (!ptyId || !channel) {
         // Pty nuovo, persistente: sopravvive al detach (reload/cambio scheda); muore solo
         // a pty_kill o all'uscita del processo.
@@ -710,6 +738,7 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
             if (ptyByKey.get(mapKey) === id) ptyByKey.delete(mapKey);
             broadcast({ ev: 'pty_exit', ptyId: id, exitCode });
           },
+          launchOpts,
         );
         ptys.set(ptyId, channel);
         ptyByKey.set(mapKey, ptyId);

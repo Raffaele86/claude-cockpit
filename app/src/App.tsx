@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CockpitClient, type ConnState } from './ws';
-import type { ProjectEntry, QuickActionEntry, ServerMsg } from './protocol';
+import type { ProjectEntry, PtyLaunch, QuickActionEntry, ServerMsg } from './protocol';
 import type { PermissionDecision } from './protocol';
 import { buildItemsFromMessages, emptyProject, toolResultText, type PendingPermission, type ProjectState, type QueuedPrompt, type Todo } from './model';
 import { ChatView } from './components/ChatView';
@@ -64,8 +64,14 @@ export function App() {
   // Vista principale per scheda: si apre SEMPRE nel CLI; la Chat è una scelta manuale
   // che vale solo per la sessione corrente (stato in memoria, niente persistenza).
   const [viewByKey, setViewByKey] = useState<Record<string, 'cli' | 'chat'>>({});
-  const [cliNonce, setCliNonce] = useState<Record<string, number>>({}); // remount dopo /exit
+  const [cliNonce, setCliNonce] = useState<Record<string, number>>({}); // remount dopo /exit o relaunch
   const [cliExited, setCliExited] = useState<Record<string, boolean>>({});
+  // Toolbar CLI: provider/modello/effort/mode scelti per scheda (solo per la sessione UI).
+  const [cliProv, setCliProv] = useState<Record<string, 'claude' | 'glm'>>({});
+  const [cliModel, setCliModel] = useState<Record<string, string>>({});
+  const [cliEffort, setCliEffort] = useState<Record<string, string>>({});
+  const [cliMode, setCliMode] = useState<Record<string, string>>({});
+  const [cliLaunch, setCliLaunch] = useState<Record<string, PtyLaunch | undefined>>({});
   const cliInput = useRef<((text: string) => void) | null>(null);
   // Dettatura nella vista CLI: il testo trascritto viene digitato nel terminale (senza invio).
   const cliDict = useDictation(
@@ -556,6 +562,16 @@ export function App() {
     [activeKey],
   );
 
+  /** Rilancia il CLI della scheda coi flag scelti (claude -c riprende la conversazione). */
+  const relaunchCli = useCallback(
+    (launch: PtyLaunch) => {
+      setCliLaunch((p) => ({ ...p, [activeKey]: launch }));
+      setCliExited((p) => ({ ...p, [activeKey]: false }));
+      setCliNonce((p) => ({ ...p, [activeKey]: (p[activeKey] ?? 0) + 1 }));
+    },
+    [activeKey],
+  );
+
   const active = projects[activeKey] ?? emptyProject();
   const shortProject = activeProject.split('/').filter(Boolean).at(-1) || '~';
   const req = pending.find((p) => p.project === activeProject) ?? pending[0];
@@ -773,6 +789,72 @@ export function App() {
                 setActiveTabByProject((prev) => ({ ...prev, [activeProject]: 'main' }));
               }}
             />
+            {view === 'cli' && conn === 'authed' && (
+              <div className="cli-toolbar">
+                <div className="provider-toggle" title={t('providerTitle')}>
+                  {(['claude', 'glm'] as const).map((p) => (
+                    <button
+                      key={p}
+                      className={(cliProv[activeKey] ?? 'claude') === p ? 'prov on' : 'prov'}
+                      onClick={() => {
+                        if ((cliProv[activeKey] ?? 'claude') === p) return;
+                        setCliProv((prev) => ({ ...prev, [activeKey]: p }));
+                        setCliModel((prev) => ({ ...prev, [activeKey]: '' }));
+                        relaunchCli({ provider: p, continue: true, permissionMode: (cliMode[activeKey] as PtyLaunch['permissionMode']) });
+                      }}
+                    >
+                      {p === 'claude' ? 'Claude' : 'GLM'}
+                    </button>
+                  ))}
+                </div>
+                {(cliProv[activeKey] ?? 'claude') === 'claude' && (
+                  <ModelSelect
+                    models={active.models}
+                    current={cliModel[activeKey] ?? ''}
+                    onChange={(m) => {
+                      setCliModel((prev) => ({ ...prev, [activeKey]: m }));
+                      cliInput.current?.(`/model ${m}\r`);
+                    }}
+                  />
+                )}
+                <select
+                  className="effort-select"
+                  title={t('effortTitle')}
+                  value={cliEffort[activeKey] ?? ''}
+                  onChange={(e) => {
+                    setCliEffort((prev) => ({ ...prev, [activeKey]: e.target.value }));
+                    cliInput.current?.(`/effort ${e.target.value}\r`);
+                  }}
+                >
+                  <option value="" disabled>
+                    effort…
+                  </option>
+                  <option value="low">low</option>
+                  <option value="medium">medium</option>
+                  <option value="high">high</option>
+                  <option value="xhigh">xhigh</option>
+                </select>
+                <div className="provider-toggle" title={t('cliModeTitle')}>
+                  {(
+                    [
+                      ['plan', 'Plan'],
+                      ['bypassPermissions', 'Bypass'],
+                    ] as const
+                  ).map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      className={(cliMode[activeKey] ?? 'bypassPermissions') === mode ? 'prov on' : 'prov'}
+                      onClick={() => {
+                        setCliMode((prev) => ({ ...prev, [activeKey]: mode }));
+                        relaunchCli({ permissionMode: mode, continue: true, provider: cliProv[activeKey] ?? 'claude' });
+                      }}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="view-toggle" title={t('viewToggleTitle')}>
               {(['cli', 'chat'] as const).map((v) => (
                 <button key={v} className={view === v ? 'on' : ''} onClick={() => setView(v)}>
@@ -805,6 +887,7 @@ export function App() {
                 project={activeKey}
                 cmd="claude"
                 subscribe={(fn) => client.current!.subscribe(fn)}
+                launch={cliLaunch[activeKey]}
                 inputRef={cliInput}
                 onExit={() => setCliExited((p) => ({ ...p, [activeKey]: true }))}
               />

@@ -178,6 +178,7 @@ const IT = {
   defaultModeLbl: 'Modalità permessi delle nuove sessioni',
   restartCli: 'Riavvia il CLI',
   viewToggleTitle: 'Vista della scheda: CLI nativo di Claude Code o Chat',
+  cliModeTitle: 'Modalità permessi del CLI (il cambio rilancia il CLI riprendendo la conversazione)',
 };
 
 const EN: typeof IT = {
@@ -355,6 +356,7 @@ const EN: typeof IT = {
   defaultModeLbl: 'Permission mode for new sessions',
   restartCli: 'Restart the CLI',
   viewToggleTitle: 'Tab view: native Claude Code CLI or Chat',
+  cliModeTitle: 'CLI permission mode (switching relaunches the CLI resuming the conversation)',
 };
 
 export const t = <K extends keyof typeof IT>(k: K): (typeof IT)[K] => (LANG === 'it' ? IT : EN)[k];

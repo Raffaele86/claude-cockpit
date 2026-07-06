@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.14.0
+- CLI toolbar: provider (Anthropic/GLM), model, effort and Plan/Bypass permission-mode controls right in the tab bar. Model/effort are typed into the CLI (`/model`, `/effort`); provider and mode relaunch the CLI with the proper flags and `claude -c`, resuming the same conversation
+- `pty_attach` accepts launch options (provider env, --model, --effort, --permission-mode, -c)
+
+
 ## 0.13.0
 - The app and every new chat/tab now always open in the CLI view; switching to Chat is a manual, session-only choice (not persisted)
 - Chat view redesigned in the style of claude.ai (dark): warm palette (#262624 / coral #D97757), serif prose for Claude's replies with no bubble and a ✳ marker, rounded user cards, a single rounded composer with the mic and a circular send button inside, quiet tool cards — whole app re-skinned on the same warm tokens
