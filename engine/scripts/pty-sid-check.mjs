@@ -27,8 +27,16 @@ function attach(extra) {
     setTimeout(() => rej(new Error('attach timeout')), 15000);
   });
 }
+// Solo i processi claude con cwd = .smoke: nella macchina girano anche altri pty (altre schede/utente).
 const argvOf = (pat) => {
-  try { return execSync(`pgrep -fa -- '${pat}'`, { encoding: 'utf8' }).trim().split('\n').filter((l) => !l.includes('pgrep')); } catch { return []; }
+  try {
+    return execSync(`pgrep -fa -- '${pat}'`, { encoding: 'utf8' }).trim().split('\n')
+      .filter((l) => !l.includes('pgrep'))
+      .filter((l) => {
+        const pid = l.split(' ')[0];
+        try { return execSync(`readlink /proc/${pid}/cwd`, { encoding: 'utf8' }).trim() === smoke; } catch { return false; }
+      });
+  } catch { return []; }
 };
 
 // 1) attach fresh → argv con --session-id

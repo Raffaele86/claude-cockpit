@@ -10,8 +10,9 @@ interface Props {
   project: string;
   cmd: 'claude' | 'shell';
   subscribe: (fn: (m: ServerMsg) => void) => () => void;
-  /** Flag di lancio (provider/model/effort/mode): con questo il pty viene RICREATO coi flag. */
-  launch?: PtyLaunch;
+  /** Chiamata UNA volta all'attach: flag di lancio pendenti (provider/model/effort/mode) → il pty
+   *  viene ricreato coi flag. One-shot: i mount successivi (cambio scheda) non toccano il processo. */
+  takeLaunch?: () => PtyLaunch | undefined;
   /** Chiamata al momento dell'attach: true = chiedi un pty pulito (sessione nuova). */
   takeFresh?: () => boolean;
   /** Iniezione testo nel pty (es. quick actions in vista CLI). */
@@ -24,7 +25,7 @@ const enc = new TextEncoder();
 const toB64 = (s: string) => btoa(String.fromCharCode(...enc.encode(s)));
 const fromB64 = (b: string) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
 
-export function TerminalPanel({ client, project, cmd, subscribe, launch, takeFresh, inputRef, onExit }: Props) {
+export function TerminalPanel({ client, project, cmd, subscribe, takeLaunch, takeFresh, inputRef, onExit }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -58,8 +59,9 @@ export function TerminalPanel({ client, project, cmd, subscribe, launch, takeFre
     });
 
     // Attach: riusa il pty persistente della chiave (con replay scrollback) o lo crea;
-    // con launch il pty viene ricreato coi flag richiesti; fresh (primo attach della run)
-    // scarta il pty di run precedenti → il cockpit apre sempre una sessione pulita.
+    // launch/fresh sono one-shot (consumati qui): un semplice cambio scheda rimonta il
+    // Terminal ma fa attach puro — il processo in corso non viene MAI toccato.
+    const launch = takeLaunch?.();
     const fresh = (!launch && takeFresh?.()) || undefined;
     client.send({ op: 'pty_attach', project, cmd, cols: term.cols, rows: term.rows, launch, fresh });
 

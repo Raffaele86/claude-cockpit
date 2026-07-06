@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.16.1
+- Switching tabs no longer restarts a chat's CLI: the toolbar relaunch flags were re-sent on every terminal re-mount (any tab switch back), killing the running process each time. Launch flags are now one-shot — tab switches are pure detach/attach, VS Code style
+
 ## 0.16.0
 - Deterministic per-tab sessions: every CLI pty is spawned with an engine-assigned `--session-id`; relaunches (provider/mode switch) resume EXACTLY that id (`--resume`, copying the jsonl across stores on provider switch). `-c` and mtime heuristics are gone — they grabbed conversations belonging to OTHER processes running in the same cwd (schedulers, bots, external terminals), which could even end with two claude processes writing the same session file and freezing a chat
 

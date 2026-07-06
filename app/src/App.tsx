@@ -71,7 +71,7 @@ export function App() {
   const [cliModel, setCliModel] = useState<Record<string, string>>({});
   const [cliEffort, setCliEffort] = useState<Record<string, string>>({});
   const [cliMode, setCliMode] = useState<Record<string, string>>({});
-  const [cliLaunch, setCliLaunch] = useState<Record<string, PtyLaunch | undefined>>({});
+  const cliLaunchRef = useRef<Record<string, PtyLaunch | undefined>>({}); // one-shot: consumato al mount, mai ri-applicato al cambio scheda
   const cliInput = useRef<((text: string) => void) | null>(null);
   // Dettatura nella vista CLI: il testo trascritto viene digitato nel terminale (senza invio).
   const cliDict = useDictation(
@@ -580,15 +580,23 @@ export function App() {
     setActiveTabByProject((prev) => ({ ...prev, [activeProject]: id }));
   }, [activeProject, setTabs]);
 
-  /** Rilancia il CLI della scheda coi flag scelti (claude -c riprende la conversazione). */
+  /** Rilancia il CLI della scheda coi flag scelti (l'engine riprende la sessione con --resume). */
   const relaunchCli = useCallback(
     (launch: PtyLaunch) => {
-      setCliLaunch((p) => ({ ...p, [activeKey]: launch }));
+      cliLaunchRef.current[activeKey] = launch;
       setCliExited((p) => ({ ...p, [activeKey]: false }));
       setCliNonce((p) => ({ ...p, [activeKey]: (p[activeKey] ?? 0) + 1 }));
     },
     [activeKey],
   );
+
+  /** Consuma il launch pendente della scheda (one-shot): i mount successivi — es. semplice
+   *  cambio scheda — fanno attach puro senza MAI toccare il processo in corso. */
+  const takeCliLaunch = useCallback(() => {
+    const l = cliLaunchRef.current[activeKey];
+    cliLaunchRef.current[activeKey] = undefined;
+    return l;
+  }, [activeKey]);
 
   const active = projects[activeKey] ?? emptyProject();
   // Modelli selezionabili con provider GLM (da providers.json; fallback = il model configurato).
@@ -951,7 +959,7 @@ export function App() {
                 project={activeKey}
                 cmd="claude"
                 subscribe={(fn) => client.current!.subscribe(fn)}
-                launch={cliLaunch[activeKey]}
+                takeLaunch={takeCliLaunch}
                 takeFresh={takeCliFresh}
                 inputRef={cliInput}
                 onExit={() => setCliExited((p) => ({ ...p, [activeKey]: true }))}
