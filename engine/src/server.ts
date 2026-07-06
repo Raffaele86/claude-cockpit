@@ -17,7 +17,7 @@ import { startTelegramGateway, type TelegramGateway } from './telegram.js';
 import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 
-const ENGINE_VERSION = '0.14.0';
+const ENGINE_VERSION = '0.14.1';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -157,6 +157,17 @@ function forwardSdkMessage(project: string, msg: SDKMessage): void {
     default:
       // Altri tipi (status, hook, task, ...) non servono alla UI per ora.
       break;
+  }
+}
+
+/** C'è almeno una conversazione per questa cwd nel config dir indicato (default ~/.claude)? */
+function hasCliConversation(cwd: string, configDir?: string): boolean {
+  try {
+    const slug = cwd.replace(/[/.]/g, '-');
+    const dir = join(configDir ?? join(homedir(), '.claude'), 'projects', slug);
+    return readdirSync(dir).some((f) => f.endsWith('.jsonl'));
+  } catch {
+    return false;
   }
 }
 
@@ -716,7 +727,9 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
             model = model ?? cfg.model;
           }
         }
-        if (l.continue) args.push('-c');
+        // -c solo se nel config dir di destinazione ESISTE una conversazione per questa cwd:
+        // altrimenti il CLI esce con "No conversation found to continue" (es. primo avvio GLM).
+        if (l.continue && hasCliConversation(cwdOf(key), env?.CLAUDE_CONFIG_DIR)) args.push('-c');
         if (model) args.push('--model', model);
         if (l.effort) args.push('--effort', l.effort);
         if (l.permissionMode) args.push('--permission-mode', l.permissionMode);

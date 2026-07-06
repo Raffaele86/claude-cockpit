@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.14.1
+- Fix: switching the CLI to GLM (or any relaunch) on a project with no prior conversation died with "No conversation found to continue" — `-c` is now added only when a conversation actually exists in the target provider's store; otherwise the CLI starts fresh
+
+
 ## 0.14.0
 - CLI toolbar: provider (Anthropic/GLM), model, effort and Plan/Bypass permission-mode controls right in the tab bar. Model/effort are typed into the CLI (`/model`, `/effort`); provider and mode relaunch the CLI with the proper flags and `claude -c`, resuming the same conversation
 - `pty_attach` accepts launch options (provider env, --model, --effort, --permission-mode, -c)
