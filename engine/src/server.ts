@@ -17,7 +17,7 @@ import { startTelegramGateway, type TelegramGateway } from './telegram.js';
 import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 
-const ENGINE_VERSION = '0.15.1';
+const ENGINE_VERSION = '0.15.2';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -728,11 +728,16 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
           const l = msg.launch;
           const args: string[] = [];
           let env: Record<string, string> | undefined;
+          let model = l.model;
           if (l.provider === 'glm') {
             const cfg = loadProviderConfig('glm');
-            // Solo la config dir: il modello di default lo decide il mapping ANTHROPIC_DEFAULT_*
-            // del settings.json del provider (un --model stantio da providers.json = API 400).
-            if (cfg) env = { CLAUDE_CONFIG_DIR: cfg.configDir };
+            if (cfg) {
+              env = { CLAUDE_CONFIG_DIR: cfg.configDir };
+              // --model esplicito SEMPRE per glm: il flag CLI batte il `model` delle settings di
+              // progetto (`<cwd>/.claude/settings.json` — con cwd=home è il config Claude principale,
+              // che inietterebbe un id Claude → API 400 Unknown Model su z.ai).
+              model = model ?? cfg.model;
+            }
           }
           // Continue: riprende SOLO la conversazione nata in questa scheda (mtime > spawn del pty),
           // mai l'ultima chat generica della cwd (es. terminali esterni). Cambio store (provider):
@@ -755,7 +760,7 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
               }
             }
           }
-          if (l.model) args.push('--model', l.model);
+          if (model) args.push('--model', model);
           if (l.effort) args.push('--effort', l.effort);
           if (l.permissionMode) args.push('--permission-mode', l.permissionMode);
           launchOpts = { extraArgs: args, env };

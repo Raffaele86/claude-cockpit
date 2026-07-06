@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.15.2
+- GLM launches always pass an explicit `--model` (the provider default from providers.json, or the one picked in the toolbar): the CLI flag overrides a `model` set in the project's `.claude/settings.json` — with cwd = home that file IS the main Claude config, whose Anthropic model id leaked into GLM sessions as API 400 Unknown Model
+
 ## 0.15.1
 - GLM model selector: with the GLM provider active, both the CLI toolbar and the chat topbar now show a model dropdown fed by `providers.json` `models` (editable in Settings -> Provider, comma-separated); picking one types `/model <id>` in the CLI or calls set_model in chat
 - Docs note: map ALL the CLI model aliases in the GLM install's settings.json (including `ANTHROPIC_DEFAULT_FABLE_MODEL`) — an unmapped alias sends the raw Anthropic model id to the alternate gateway, which rejects it with 400 Unknown Model
