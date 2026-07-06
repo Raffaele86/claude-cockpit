@@ -1826,6 +1826,21 @@ body {
   flex: 1;
   border-bottom: none;
 }
+/* v0.16.2: riga controlli separata sotto le schede — le chat hanno tutta la larghezza */
+.ctrl-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 8px;
+  border-bottom: 1px solid var(--border);
+}
+.ctrl-row .cli-toolbar {
+  flex: 1;
+  padding: 0;
+}
+.ctrl-row .view-toggle {
+  margin-left: auto;
+}
 .view-toggle {
   display: flex;
   gap: 2px;

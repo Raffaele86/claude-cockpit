@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.16.2
+- Tabs get their own full-width row; the CLI toolbar (provider/model/effort/mode/New chat/History) and the CLI|Chat toggle move to a second row below — more room to keep many chats open
+
 ## 0.16.1
 - Switching tabs no longer restarts a chat's CLI: the toolbar relaunch flags were re-sent on every terminal re-mount (any tab switch back), killing the running process each time. Launch flags are now one-shot — tab switches are pure detach/attach, VS Code style
 

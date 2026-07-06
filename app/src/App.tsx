@@ -834,6 +834,8 @@ export function App() {
                 setActiveTabByProject((prev) => ({ ...prev, [activeProject]: 'main' }));
               }}
             />
+          </div>
+          <div className="ctrl-row">
             {view === 'cli' && conn === 'authed' && (
               <div className="cli-toolbar">
                 <div className="provider-toggle" title={t('providerTitle')}>
