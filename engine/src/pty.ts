@@ -9,10 +9,14 @@ export class PtyChannel {
   private readonly p: IPty;
   private chunks: Buffer[] = [];
   private bufBytes = 0;
-  /** Timestamp spawn: serve a capire se una conversazione è nata in QUESTA scheda. */
+  /** Timestamp spawn. */
   readonly startedAt = Date.now();
   /** CLAUDE_CONFIG_DIR con cui è partito claude (undefined = ~/.claude): lo store delle sue conversazioni. */
   readonly configDir?: string;
+  /** Id sessione ASSEGNATO dall'engine allo spawn (--session-id / --resume): l'unico modo
+   *  deterministico di riprendere la conversazione della scheda — mai euristiche su mtime o -c,
+   *  nella stessa cwd girano anche scheduler/Telegram/CLI esterni. */
+  readonly sessionId?: string;
 
   constructor(
     cwd: string,
@@ -21,9 +25,10 @@ export class PtyChannel {
     rows: number,
     onData: (b64: string) => void,
     onExit: (code: number) => void,
-    opts: { extraArgs?: string[]; env?: Record<string, string> } = {},
+    opts: { extraArgs?: string[]; env?: Record<string, string>; sessionId?: string } = {},
   ) {
     this.configDir = opts.env?.CLAUDE_CONFIG_DIR;
+    this.sessionId = opts.sessionId;
     const shell = process.env.SHELL || '/bin/bash';
     // Login shell → eredita PATH del profilo (claude sta in ~/.local/bin).
     // extraArgs (es. --permission-mode plan, -c) quotati singolarmente.

@@ -17,7 +17,7 @@ import { startTelegramGateway, type TelegramGateway } from './telegram.js';
 import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 
-const ENGINE_VERSION = '0.15.3';
+const ENGINE_VERSION = '0.16.0';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -157,24 +157,6 @@ function forwardSdkMessage(project: string, msg: SDKMessage): void {
     default:
       // Altri tipi (status, hook, task, ...) non servono alla UI per ora.
       break;
-  }
-}
-
-/** Conversazione più recente per questa cwd nello store indicato (default ~/.claude). */
-function newestConversation(cwd: string, configDir?: string): { id: string; path: string; mtimeMs: number } | null {
-  try {
-    const slug = cwd.replace(/[/.]/g, '-');
-    const dir = join(configDir ?? join(homedir(), '.claude'), 'projects', slug);
-    let best: { id: string; path: string; mtimeMs: number } | null = null;
-    for (const f of readdirSync(dir)) {
-      if (!f.endsWith('.jsonl')) continue;
-      const p = join(dir, f);
-      const mtimeMs = statSync(p).mtimeMs;
-      if (!best || mtimeMs > best.mtimeMs) best = { id: f.slice(0, -6), path: p, mtimeMs };
-    }
-    return best;
-  } catch {
-    return null;
   }
 }
 
@@ -714,9 +696,9 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       let channel = ptyId ? ptys.get(ptyId) : undefined;
       // launch esplicito = cambio impostazioni (provider/modello/effort/mode); fresh = sessione pulita.
       // In entrambi i casi: via il pty vecchio, il nuovo parte coi flag richiesti.
-      let launchOpts: { extraArgs?: string[]; env?: Record<string, string> } | undefined;
+      let launchOpts: { extraArgs?: string[]; env?: Record<string, string>; sessionId?: string } | undefined;
       if (msg.cmd === 'claude' && (msg.launch || msg.fresh)) {
-        const prev = channel; // pty precedente: da lui capiamo se la scheda ha una conversazione da riprendere
+        const prev = channel; // pty precedente: il SUO sessionId è l'unica conversazione riprendibile
         if (channel && ptyId) {
           ptys.delete(ptyId);
           ptyByKey.delete(mapKey);
@@ -739,34 +721,49 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
               model = model ?? cfg.model;
             }
           }
-          // Continue: riprende SOLO la conversazione nata in questa scheda (mtime > spawn del pty),
-          // mai l'ultima chat generica della cwd (es. terminali esterni). Cambio store (provider):
-          // il jsonl viene copiato nello store di destinazione e ripreso con --resume.
-          if (l.continue && prev) {
-            const src = newestConversation(cwdOf(key), prev.configDir);
-            if (src && src.mtimeMs > prev.startedAt) {
-              if ((prev.configDir ?? '') === (env?.CLAUDE_CONFIG_DIR ?? '')) {
-                args.push('-c');
-              } else {
-                try {
-                  const slug = cwdOf(key).replace(/[/.]/g, '-');
-                  const destDir = join(env?.CLAUDE_CONFIG_DIR ?? join(homedir(), '.claude'), 'projects', slug);
+          // Continue DETERMINISTICO: si riprende SOLO il sessionId assegnato al pty precedente
+          // (se il suo jsonl esiste = la scheda ha davvero una conversazione). MAI `-c` o euristiche
+          // su mtime: nella stessa cwd girano anche scheduler/Telegram/CLI esterni e si aggancerebbe
+          // la conversazione di qualcun altro (bug 2026-07-06: due chat sullo stesso jsonl → freeze).
+          // Limite accettato: /clear o /resume manuali nel CLI cambiano la sessione reale del pty;
+          // il relaunch riprende l'id dello spawn (comunque della scheda giusta, mai di terzi).
+          let sessionId: string | undefined;
+          if (l.continue && prev?.sessionId) {
+            const slug = cwdOf(key).replace(/[/.]/g, '-');
+            const srcPath = join(prev.configDir ?? join(homedir(), '.claude'), 'projects', slug, `${prev.sessionId}.jsonl`);
+            if (existsSync(srcPath)) {
+              const targetDir = env?.CLAUDE_CONFIG_DIR;
+              try {
+                if ((prev.configDir ?? '') !== (targetDir ?? '')) {
+                  // Cambio store (provider): la conversazione segue — copia del jsonl ESATTO.
+                  const destDir = join(targetDir ?? join(homedir(), '.claude'), 'projects', slug);
                   mkdirSync(destDir, { recursive: true });
-                  copyFileSync(src.path, join(destDir, `${src.id}.jsonl`));
-                  args.push('--resume', src.id);
-                } catch {
-                  /* copia fallita → parte pulito */
+                  copyFileSync(srcPath, join(destDir, `${prev.sessionId}.jsonl`));
                 }
+                args.push('--resume', prev.sessionId);
+                sessionId = prev.sessionId;
+              } catch {
+                /* copia fallita → parte pulito */
               }
             }
+          }
+          if (!sessionId) {
+            sessionId = randomUUID();
+            args.push('--session-id', sessionId);
           }
           if (model) args.push('--model', model);
           if (l.effort) args.push('--effort', l.effort);
           if (l.permissionMode) args.push('--permission-mode', l.permissionMode);
-          launchOpts = { extraArgs: args, env };
+          launchOpts = { extraArgs: args, env, sessionId };
         }
       }
       if (!ptyId || !channel) {
+        // Anche l'attach semplice di claude (senza launch) riceve un session-id assegnato:
+        // è ciò che rende riprendibile la conversazione della scheda senza indovinare.
+        if (msg.cmd === 'claude' && !launchOpts) {
+          const sessionId = randomUUID();
+          launchOpts = { extraArgs: ['--session-id', sessionId], sessionId };
+        }
         // Pty nuovo, persistente: sopravvive al detach (reload/cambio scheda); muore solo
         // a pty_kill o all'uscita del processo.
         const id = randomUUID();

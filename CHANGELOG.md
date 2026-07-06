@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.16.0
+- Deterministic per-tab sessions: every CLI pty is spawned with an engine-assigned `--session-id`; relaunches (provider/mode switch) resume EXACTLY that id (`--resume`, copying the jsonl across stores on provider switch). `-c` and mtime heuristics are gone — they grabbed conversations belonging to OTHER processes running in the same cwd (schedulers, bots, external terminals), which could even end with two claude processes writing the same session file and freezing a chat
+
 ## 0.15.3
 - Every chat is now truly independent: "New chat" opens a NEW tab with a fresh CLI session (it no longer /clear-ed the current conversation); tab ids are unique forever (a recycled id could re-attach to a closed tab's terminal); closing a tab also kills its terminal processes (new op `pty_kill_project`)
 
