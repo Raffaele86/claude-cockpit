@@ -659,6 +659,16 @@ export function App() {
                   </button>
                 </>
               )}
+              {view === 'cli' && (
+                <>
+                  <button className="mini ghost" title={t('cliNewChatTitle')} onClick={addTab}>
+                    {t('cliNewChat')}
+                  </button>
+                  <button className="mini ghost" title={t('cliHistoryTitle')} onClick={() => cliInput.current?.('/resume\r')}>
+                    {t('cliHistory')}
+                  </button>
+                </>
+              )}
               <button
                 className={ttsOn ? 'mini on' : 'mini ghost'}
                 title={t('ttsTitle')}
@@ -730,6 +740,93 @@ export function App() {
                     <option value="high">high</option>
                     <option value="xhigh">xhigh</option>
                   </select>
+                </>
+              )}
+              {view === 'cli' && (
+                <>
+                  <div className="provider-toggle" title={t('providerTitle')}>
+                    {(['claude', 'glm'] as const).map((p) => (
+                      <button
+                        key={p}
+                        className={(cliProv[activeKey] ?? 'claude') === p ? 'prov on' : 'prov'}
+                        onClick={() => {
+                          if ((cliProv[activeKey] ?? 'claude') === p) return;
+                          setCliProv((prev) => ({ ...prev, [activeKey]: p }));
+                          setCliModel((prev) => ({ ...prev, [activeKey]: '' }));
+                          relaunchCli({ provider: p, continue: true, permissionMode: (cliMode[activeKey] as PtyLaunch['permissionMode']) });
+                        }}
+                      >
+                        {p === 'claude' ? 'Claude' : 'GLM'}
+                      </button>
+                    ))}
+                  </div>
+                  {(cliProv[activeKey] ?? 'claude') === 'claude' ? (
+                    <ModelSelect
+                      models={active.models}
+                      current={cliModel[activeKey] ?? ''}
+                      onChange={(m) => {
+                        setCliModel((prev) => ({ ...prev, [activeKey]: m }));
+                        cliInput.current?.(`/model ${m}\r`);
+                      }}
+                    />
+                  ) : (
+                    glmModels.length > 0 && (
+                      <select
+                        className="effort-select"
+                        title={t('glmModelTitle')}
+                        value={cliModel[activeKey] ?? ''}
+                        onChange={(e) => {
+                          setCliModel((prev) => ({ ...prev, [activeKey]: e.target.value }));
+                          cliInput.current?.(`/model ${e.target.value}\r`);
+                        }}
+                      >
+                        <option value="" disabled>
+                          model…
+                        </option>
+                        {glmModels.map((m) => (
+                          <option key={m} value={m}>
+                            {m}
+                          </option>
+                        ))}
+                      </select>
+                    )
+                  )}
+                  <select
+                    className="effort-select"
+                    title={t('effortTitle')}
+                    value={cliEffort[activeKey] ?? ''}
+                    onChange={(e) => {
+                      setCliEffort((prev) => ({ ...prev, [activeKey]: e.target.value }));
+                      cliInput.current?.(`/effort ${e.target.value}\r`);
+                    }}
+                  >
+                    <option value="" disabled>
+                      effort…
+                    </option>
+                    <option value="low">low</option>
+                    <option value="medium">medium</option>
+                    <option value="high">high</option>
+                    <option value="xhigh">xhigh</option>
+                  </select>
+                  <div className="provider-toggle" title={t('cliModeTitle')}>
+                    {(
+                      [
+                        ['plan', 'Plan'],
+                        ['bypassPermissions', 'Bypass'],
+                      ] as const
+                    ).map(([mode, label]) => (
+                      <button
+                        key={mode}
+                        className={(cliMode[activeKey] ?? 'bypassPermissions') === mode ? 'prov on' : 'prov'}
+                        onClick={() => {
+                          setCliMode((prev) => ({ ...prev, [activeKey]: mode }));
+                          relaunchCli({ permissionMode: mode, continue: true, provider: cliProv[activeKey] ?? 'claude' });
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
                 </>
               )}
             </>
@@ -834,101 +931,6 @@ export function App() {
                 setActiveTabByProject((prev) => ({ ...prev, [activeProject]: 'main' }));
               }}
             />
-          </div>
-          <div className="ctrl-row">
-            {view === 'cli' && conn === 'authed' && (
-              <div className="cli-toolbar">
-                <div className="provider-toggle" title={t('providerTitle')}>
-                  {(['claude', 'glm'] as const).map((p) => (
-                    <button
-                      key={p}
-                      className={(cliProv[activeKey] ?? 'claude') === p ? 'prov on' : 'prov'}
-                      onClick={() => {
-                        if ((cliProv[activeKey] ?? 'claude') === p) return;
-                        setCliProv((prev) => ({ ...prev, [activeKey]: p }));
-                        setCliModel((prev) => ({ ...prev, [activeKey]: '' }));
-                        relaunchCli({ provider: p, continue: true, permissionMode: (cliMode[activeKey] as PtyLaunch['permissionMode']) });
-                      }}
-                    >
-                      {p === 'claude' ? 'Claude' : 'GLM'}
-                    </button>
-                  ))}
-                </div>
-                {(cliProv[activeKey] ?? 'claude') === 'claude' ? (
-                  <ModelSelect
-                    models={active.models}
-                    current={cliModel[activeKey] ?? ''}
-                    onChange={(m) => {
-                      setCliModel((prev) => ({ ...prev, [activeKey]: m }));
-                      cliInput.current?.(`/model ${m}\r`);
-                    }}
-                  />
-                ) : (
-                  glmModels.length > 0 && (
-                    <select
-                      className="effort-select"
-                      title={t('glmModelTitle')}
-                      value={cliModel[activeKey] ?? ''}
-                      onChange={(e) => {
-                        setCliModel((prev) => ({ ...prev, [activeKey]: e.target.value }));
-                        cliInput.current?.(`/model ${e.target.value}\r`);
-                      }}
-                    >
-                      <option value="" disabled>
-                        model…
-                      </option>
-                      {glmModels.map((m) => (
-                        <option key={m} value={m}>
-                          {m}
-                        </option>
-                      ))}
-                    </select>
-                  )
-                )}
-                <select
-                  className="effort-select"
-                  title={t('effortTitle')}
-                  value={cliEffort[activeKey] ?? ''}
-                  onChange={(e) => {
-                    setCliEffort((prev) => ({ ...prev, [activeKey]: e.target.value }));
-                    cliInput.current?.(`/effort ${e.target.value}\r`);
-                  }}
-                >
-                  <option value="" disabled>
-                    effort…
-                  </option>
-                  <option value="low">low</option>
-                  <option value="medium">medium</option>
-                  <option value="high">high</option>
-                  <option value="xhigh">xhigh</option>
-                </select>
-                <div className="provider-toggle" title={t('cliModeTitle')}>
-                  {(
-                    [
-                      ['plan', 'Plan'],
-                      ['bypassPermissions', 'Bypass'],
-                    ] as const
-                  ).map(([mode, label]) => (
-                    <button
-                      key={mode}
-                      className={(cliMode[activeKey] ?? 'bypassPermissions') === mode ? 'prov on' : 'prov'}
-                      onClick={() => {
-                        setCliMode((prev) => ({ ...prev, [activeKey]: mode }));
-                        relaunchCli({ permissionMode: mode, continue: true, provider: cliProv[activeKey] ?? 'claude' });
-                      }}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-                <button className="prov cli-act" title={t('cliNewChatTitle')} onClick={addTab}>
-                  ＋ {t('cliNewChat')}
-                </button>
-                <button className="prov cli-act" title={t('cliHistoryTitle')} onClick={() => cliInput.current?.('/resume\r')}>
-                  ↺ {t('cliHistory')}
-                </button>
-              </div>
-            )}
             <div className="view-toggle" title={t('viewToggleTitle')}>
               {(['cli', 'chat'] as const).map((v) => (
                 <button key={v} className={view === v ? 'on' : ''} onClick={() => setView(v)}>

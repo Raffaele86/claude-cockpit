@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.16.4
+- CLI controls (provider, model, effort, Plan/Bypass, New chat, History) moved into the top bar — same placement as the Chat view; the tabs row now holds only tabs + the CLI|Chat toggle
+
 ## 0.16.3
 - Closing a tab right after opening it no longer flashes a "models_list: Query closed before response received" error banner: a request aborted by an intentional session close is an expected outcome, not an error
 
