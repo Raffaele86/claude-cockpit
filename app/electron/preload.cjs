@@ -6,4 +6,5 @@ contextBridge.exposeInMainWorld('cockpit', {
   notify: (payload) => ipcRenderer.invoke('notify', payload),
   getConfig: () => ipcRenderer.invoke('get-config'),
   setConfig: (patch) => ipcRenderer.invoke('set-config', patch),
+  doctor: () => ipcRenderer.invoke('doctor'),
 });

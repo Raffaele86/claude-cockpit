@@ -1,8 +1,8 @@
 {
   "name": "claude-cockpit",
-  "version": "0.16.4",
+  "version": "0.17.0",
   "private": true,
-  "description": "Claude Cockpit — pilota Claude Code da un'app desktop",
+  "description": "Claude Cockpit \u2014 pilota Claude Code da un'app desktop",
   "author": "Raffaele",
   "main": "electron/main.cjs",
   "scripts": {
@@ -12,7 +12,8 @@
     "dist:win": "vite build && electron-builder --win --config electron-builder.yml",
     "dist:win:installer": "vite build && electron-builder --win nsis --config electron-builder.yml",
     "dev": "concurrently -k -n vite,electron \"vite\" \"wait-on tcp:127.0.0.1:5173 && cross-env COCKPIT_RENDERER_URL=http://127.0.0.1:5173 electron . --no-sandbox\"",
-    "electron": "electron . --no-sandbox"
+    "electron": "electron . --no-sandbox",
+    "dist:mac": "vite build && electron-builder --mac --config electron-builder.yml"
   },
   "devDependencies": {
     "@types/react": "^18.3.12",

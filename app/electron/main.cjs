@@ -114,6 +114,62 @@ function startEngine() {
   });
 }
 
+/** Un check del doctor: esegue un comando e riporta esito + output (mai eccezioni). */
+function check(id, cmd, args, validate) {
+  return new Promise((resolve) => {
+    try {
+      const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], timeout: 15000 });
+      let out = '';
+      child.stdout.on('data', (d) => (out += d.toString()));
+      child.stderr.on('data', (d) => (out += d.toString()));
+      child.on('error', (err) => resolve({ id, ok: false, detail: err.message }));
+      child.on('close', (code) => {
+        const detail = out.replace(/\0/g, '').trim().split('\n')[0] || `exit ${code}`;
+        const ok = code === 0 && (!validate || validate(out.replace(/\0/g, '')));
+        resolve({ id, ok, detail });
+      });
+    } catch (err) {
+      resolve({ id, ok: false, detail: String(err) });
+    }
+  });
+}
+
+/** Il WS dell'engine risponde su 127.0.0.1:8130? */
+function checkPort() {
+  return new Promise((resolve) => {
+    const net = require('node:net');
+    const sock = net.connect({ host: '127.0.0.1', port: 8130, timeout: 3000 });
+    sock.on('connect', () => { sock.destroy(); resolve({ id: 'port', ok: true, detail: '127.0.0.1:8130' }); });
+    sock.on('timeout', () => { sock.destroy(); resolve({ id: 'port', ok: false, detail: 'timeout 127.0.0.1:8130' }); });
+    sock.on('error', (err) => resolve({ id: 'port', ok: false, detail: err.message }));
+  });
+}
+
+/** Doctor: verifica i prerequisiti della macchina (WSL/Node/Claude CLI/engine/porta). */
+async function runDoctor() {
+  const inWsl = (args) => ['wsl.exe', ['-d', WSL_DISTRO, '-e', 'bash', '-lc', args]];
+  const sh = (args) => ['bash', ['-lc', args]];
+  const nodeOk = (out) => Number((out.match(/v(\d+)/) || [])[1] || 0) >= 20;
+  const checks = [];
+  if (process.platform === 'win32') {
+    checks.push(await check('wsl', 'wsl.exe', ['--status']));
+    checks.push({ id: 'wsluser', ok: !!WSL_USER, detail: WSL_USER || 'utente WSL non rilevato' });
+    checks.push(await check('node', ...inWsl('node --version'), nodeOk));
+    checks.push(await check('claude', ...inWsl('claude --version')));
+    checks.push(await check('engine', ...inWsl('systemctl --user is-active claude-cockpit-engine'), (o) => o.includes('active')));
+  } else {
+    checks.push(await check('node', ...sh('node --version'), nodeOk));
+    checks.push(await check('claude', ...sh('claude --version')));
+    checks.push(
+      process.platform === 'darwin'
+        ? await check('engine', ...sh('launchctl list | grep -q claude-cockpit && echo loaded'))
+        : await check('engine', 'systemctl', ['--user', 'is-active', 'claude-cockpit-engine'], (o) => o.includes('active')),
+    );
+  }
+  checks.push(await checkPort());
+  return { platform: process.platform, checks };
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -159,6 +215,7 @@ ipcMain.handle('start-engine', () => startEngine());
 ipcMain.handle('notify', (_e, payload) => doNotify(payload || {}));
 ipcMain.handle('get-config', () => readConfig());
 ipcMain.handle('set-config', (_e, patch) => writeConfig(patch || {}));
+ipcMain.handle('doctor', () => runDoctor());
 
 app.whenReady().then(() => {
   // Microfono per la dettatura (Whisper via engine): consenti esplicitamente il permesso media.

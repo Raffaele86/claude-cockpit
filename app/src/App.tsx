@@ -17,6 +17,7 @@ import { MdViewer, type ViewerState } from './components/MdViewer';
 import { Settings, type SettingsSnapshot } from './components/Settings';
 import { FileNav } from './components/FileNav';
 import { Tabs } from './components/Tabs';
+import { Doctor } from './components/Doctor';
 import { useDictation } from './components/useDictation';
 import { t, LOCALE } from './strings';
 
@@ -83,6 +84,20 @@ export function App() {
   const [sideOpen, setSideOpen] = useState(() => localStorage.getItem('cockpit-side') === '1');
   const [viewer, setViewer] = useState<ViewerState | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [mcpImportMsg, setMcpImportMsg] = useState<string | null>(null);
+  const [doctorOpen, setDoctorOpen] = useState(false);
+  const activeProjectRef = useRef(''); // per gli handler WS (chiusura stabile)
+  const connRef = useRef<ConnState>('connecting');
+
+  // Doctor automatico: nell'app desktop, se dopo qualche secondo non siamo connessi
+  // all'engine c'è quasi certamente un prerequisito mancante → apri la verifica.
+  useEffect(() => {
+    if (!navigator.userAgent.includes('Electron')) return;
+    const id = setTimeout(() => {
+      if (connRef.current !== 'authed') setDoctorOpen(true);
+    }, 6000);
+    return () => clearTimeout(id);
+  }, []);
   const [settingsSnap, setSettingsSnap] = useState<SettingsSnapshot | null>(null);
   const [engineVersion, setEngineVersion] = useState('');
   const [ttsOn, setTtsOn] = useState(() => localStorage.getItem('cockpit-tts') === '1');
@@ -99,6 +114,8 @@ export function App() {
     }
   });
   const [activeTabByProject, setActiveTabByProject] = useState<Record<string, string>>({});
+  activeProjectRef.current = activeProject;
+  connRef.current = conn;
   const tabs = tabsByProject[activeProject] ?? ['main'];
   const activeTab = tabs.includes(activeTabByProject[activeProject] ?? 'main') ? (activeTabByProject[activeProject] ?? 'main') : tabs[0];
   const activeKey = activeTab === 'main' ? activeProject : `${activeProject}##${activeTab}`;
@@ -413,6 +430,22 @@ export function App() {
             branch: msg.branch,
           }));
           break;
+        case 'mcp_export': {
+          // Scarica il file: stesso formato di ~/.claude.json (chiave mcpServers) → reimportabile ovunque.
+          const blob = new Blob([JSON.stringify({ mcpServers: msg.servers }, null, 2)], { type: 'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'cockpit-mcp-export.json';
+          a.click();
+          URL.revokeObjectURL(a.href);
+          break;
+        }
+        case 'mcp_import_done': {
+          const errs = Object.keys(msg.errors);
+          setMcpImportMsg(t('mcpImportDone')(msg.added.length, errs.length) + (errs.length ? ` (${errs.join(', ')})` : ''));
+          if (msg.added.length && activeProjectRef.current) client.current?.send({ op: 'mcp_status', project: activeProjectRef.current });
+          break;
+        }
         case 'mcp_op_done':
           updateProject(msg.project, (s) => ({ ...s, mcpOp: { busy: false, error: msg.error ?? null } }));
           break;
@@ -846,6 +879,9 @@ export function App() {
               ⚙️
             </button>
           )}
+          <button className={doctorOpen ? 'mini on' : 'mini ghost'} title={t('docOpen')} onClick={() => setDoctorOpen((o) => !o)}>
+            🩺
+          </button>
           <button
             className={sideOpen ? 'mini on' : 'mini ghost'}
             title={t('sidePanelTitle')}
@@ -874,10 +910,16 @@ export function App() {
           <button className="mini" onClick={() => resetSession()}>
             {t('newSession')}
           </button>
+          <button className="mini ghost" onClick={() => setDoctorOpen(true)}>
+            {t('docOpen')}
+          </button>
           <button className="mini ghost" onClick={() => setEngineError(null)}>
             ✕
           </button>
         </div>
+      )}
+      {doctorOpen && (
+        <Doctor connected={conn === 'authed'} onStartEngine={() => void window.cockpit?.startEngine()} onClose={() => setDoctorOpen(false)} />
       )}
 
       <div className="body">
@@ -1068,6 +1110,7 @@ export function App() {
           <McpStatus
             servers={active.mcpServers}
             op={active.mcpOp}
+            importMsg={mcpImportMsg}
             onRefresh={refreshMcp}
             onAdd={(server) => {
               updateProject(activeProject, (s) => ({ ...s, mcpOp: { busy: true, error: null } }));
@@ -1076,6 +1119,11 @@ export function App() {
             onRemove={(name) => {
               updateProject(activeProject, (s) => ({ ...s, mcpOp: { busy: true, error: null } }));
               client.current?.send({ op: 'mcp_remove', project: activeProject, name });
+            }}
+            onExport={() => client.current?.send({ op: 'mcp_export' })}
+            onImport={(servers) => {
+              setMcpImportMsg('…');
+              client.current?.send({ op: 'mcp_import', project: activeProject, servers });
             }}
           />
         </aside>

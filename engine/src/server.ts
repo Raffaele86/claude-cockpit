@@ -17,7 +17,7 @@ import { startTelegramGateway, type TelegramGateway } from './telegram.js';
 import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 
-const ENGINE_VERSION = '0.16.4';
+const ENGINE_VERSION = '0.17.0';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -649,6 +649,32 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
     }
     case 'mcp_remove': {
       await handleMcpOp(ws, msg.project, msg.name, ['mcp', 'remove', msg.name]);
+      break;
+    }
+    case 'mcp_export': {
+      // Server MCP user-scope: vivono in ~/.claude.json -> file portabile da importare altrove.
+      try {
+        const cfg = JSON.parse(readFileSync(join(homedir(), '.claude.json'), 'utf8')) as { mcpServers?: Record<string, unknown> };
+        send(ws, { ev: 'mcp_export', servers: cfg.mcpServers ?? {} });
+      } catch (err) {
+        send(ws, { ev: 'error', message: `mcp_export: ${String(err)}` });
+      }
+      break;
+    }
+    case 'mcp_import': {
+      const project = normalizeProject(msg.project);
+      const added: string[] = [];
+      const errors: Record<string, string> = {};
+      for (const [name, def] of Object.entries(msg.servers)) {
+        try {
+          await runClaudeCli(['mcp', 'add-json', name, JSON.stringify(def), '-s', 'user'], cwdOf(project));
+          added.push(name);
+        } catch (err) {
+          errors[name] = String(err instanceof Error ? err.message : err);
+        }
+      }
+      if (added.length) restartSessionKeepingConversation(project); // la sessione rilegge la config
+      send(ws, { ev: 'mcp_import_done', added, errors });
       break;
     }
     case 'set_provider': {

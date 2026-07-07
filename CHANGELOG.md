@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.17.0
+- Built-in **System check** (doctor): stethoscope button in the top bar, opens automatically when the engine can't be reached. Verifies WSL (Windows), Node >= 20, the Claude Code CLI, the engine service and port 8130 — with a fix hint for every failing item. In the browser it lists the requirements (checks need the desktop app)
+- **MCP export/import**: MCP panel gains Export (downloads your user-scope servers as JSON) and Import (adds them on another machine via `claude mcp add-json`). The exported file may contain tokens — treat it like a password
+- **macOS support**: `npm run dist:mac` builds unsigned arm64/x64 zips; new `scripts/install-engine-macos.sh` installs the engine as a launchd agent; full walkthrough in docs/install-macos.md
+
 ## 0.16.4
 - CLI controls (provider, model, effort, Plan/Bypass, New chat, History) moved into the top bar — same placement as the Chat view; the tabs row now holds only tabs + the CLI|Chat toggle
 

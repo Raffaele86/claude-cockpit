@@ -14,14 +14,17 @@ const COLOR: Record<string, string> = {
 interface Props {
   servers: McpServer[];
   op: { busy: boolean; error: string | null };
+  importMsg: string | null;
   onRefresh: () => void;
   onAdd: (server: McpAddRequest) => void;
   onRemove: (name: string) => void;
+  onExport: () => void;
+  onImport: (servers: Record<string, unknown>) => void;
 }
 
 const EMPTY_FORM = { name: '', transport: 'http' as McpAddRequest['transport'], target: '', headers: '', env: '', scope: 'user' as McpAddRequest['scope'] };
 
-export function McpStatus({ servers, op, onRefresh, onAdd, onRemove }: Props) {
+export function McpStatus({ servers, op, importMsg, onRefresh, onAdd, onRemove, onExport, onImport }: Props) {
   const [open, setOpen] = useState(false);
   const [adding, setAdding] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
@@ -118,6 +121,37 @@ export function McpStatus({ servers, op, onRefresh, onAdd, onRemove }: Props) {
             <button onClick={() => setAdding(false)}>{t('cancel')}</button>
           </div>
           <div className="mcp-note">{t('mcpRestartNote')}</div>
+        </div>
+      )}
+      {open && (
+        <div className="mcp-transfer">
+          <button title={t('mcpExportTitle')} onClick={onExport}>
+            ⤓ {t('mcpExport')}
+          </button>
+          <label title={t('mcpImportTitle')}>
+            ⤒ {t('mcpImport')}
+            <input
+              type="file"
+              accept=".json,application/json"
+              style={{ display: 'none' }}
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                e.target.value = '';
+                if (!file) return;
+                void file.text().then((text) => {
+                  try {
+                    const data = JSON.parse(text) as Record<string, unknown>;
+                    // Accetta sia il file esportato ({mcpServers:{...}}) sia una mappa nuda.
+                    const servers = (data.mcpServers as Record<string, unknown> | undefined) ?? data;
+                    onImport(servers);
+                  } catch {
+                    alert(t('mcpImportBadFile'));
+                  }
+                });
+              }}
+            />
+          </label>
+          {importMsg && <span className="mcp-import-msg">{importMsg}</span>}
         </div>
       )}
     </div>

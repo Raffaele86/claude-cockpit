@@ -52,7 +52,9 @@ cd ../engine && npm start      # ws+http on 127.0.0.1:8130
 
 Open `http://127.0.0.1:8130/?token=$(cat ~/.claude-cockpit/token)` in a browser — or build the desktop app with `cd app && npm run dist:win` (see below).
 
-Run the engine as a service (Linux/WSL systemd): `scripts/install-engine-service.sh`. On macOS use a LaunchAgent that runs `node engine/dist/server.js`.
+Run the engine as a service: `scripts/install-engine-service.sh` (Linux/WSL, systemd) or `scripts/install-engine-macos.sh` (macOS, launchd) — see [docs/install-macos.md](docs/install-macos.md) for the full macOS walkthrough.
+
+**Is my machine ready?** The app ships with a built-in **System check** (🩺 in the top bar; it also opens automatically when the engine can't be reached): it verifies WSL (on Windows), Node ≥ 20, the Claude Code CLI, the engine service and the port, with a fix hint for every red item.
 
 ## Configuration (`~/.claude-cockpit/`)
 
@@ -71,6 +73,8 @@ Everything below is editable from the **⚙️ Settings panel** in the top bar �
 
 Cockpit ships with **no MCP servers** and never connects to anything preconfigured: sessions inherit the MCP configuration of *your* Claude Code install (`settingSources: user/project/local`). The side panel (☰) shows their status, and lets you **connect your own**: ＋ opens a form (HTTP / SSE / stdio command, optional headers or env vars, scope "all projects" or "this project") that wraps `claude mcp add`; ✕ removes one. The session restarts to load the change — the conversation is kept.
 
+**Migrating to another machine**: MCP panel → **Export** downloads your user-scope servers as a JSON file; **Import** on the new machine adds them all (via `claude mcp add-json`). The file can contain access tokens — treat it like a password.
+
 ## Security notes
 
 - The engine binds to `127.0.0.1` only, by default. Adding other hosts (LAN/VPN IPs) is opt-in via `engine.json`; the WS is protected by the bearer token, but traffic is plain `ws://` — only expose it on networks you trust (a VPN like Tailscale is the intended path).
@@ -78,13 +82,16 @@ Cockpit ships with **no MCP servers** and never connects to anything preconfigur
 - The Telegram gateway answers a single configured chat id and ignores everyone else.
 - Deleting folders from the file explorer only works on empty ones by design.
 
-## Building the Windows app
+## Building the desktop app
 
-From WSL (cross-build, needs wine64 + wine32:i386 for the NSIS installer):
+From WSL/Linux (Windows cross-build needs wine64 + wine32:i386 for the NSIS installer):
 
 ```bash
 cd app && npm run dist:win   # → app/dist-win/ClaudeCockpit-{portable,setup}-<version>.exe
+cd app && npm run dist:mac   # → app/dist-win/ClaudeCockpit-mac-{arm64,x64}-<version>.zip (unsigned)
 ```
+
+The macOS zips are unsigned: first launch is right-click → Open (see [docs/install-macos.md](docs/install-macos.md)).
 
 ## License
 

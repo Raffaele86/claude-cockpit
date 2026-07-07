@@ -14,6 +14,7 @@ declare global {
       notify: (payload: { title: string; body?: string; phone?: boolean }) => Promise<{ ok: boolean }>;
       getConfig: () => Promise<CockpitConfig>;
       setConfig: (patch: Partial<CockpitConfig>) => Promise<CockpitConfig>;
+      doctor: () => Promise<{ platform: string; checks: { id: string; ok: boolean; detail: string }[] }>;
     };
   }
 }

@@ -1728,6 +1728,36 @@ body {
   max-height: 90px;
   overflow-y: auto;
 }
+
+/* v0.17: esporta/importa MCP */
+.mcp-transfer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+}
+.mcp-transfer button,
+.mcp-transfer label {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-dim);
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.mcp-transfer button:hover,
+.mcp-transfer label:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.mcp-import-msg {
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
 .mcp-note {
   font-size: 11px;
   color: var(--text-dim);
@@ -2071,3 +2101,19 @@ body {
 }
 
 /* ---- v0.14: toolbar CLI (provider/modello/effort/mode) ---- */
+
+/* v0.17: doctor (verifica prerequisiti) */
+.float-win.doctor { width: min(560px, 92vw); }
+.doctor-body { padding: 10px 14px 14px; display: flex; flex-direction: column; gap: 8px; }
+.doc-conn { font-size: 11px; color: var(--red); margin-left: auto; margin-right: 8px; }
+.doc-conn.ok { color: var(--green); }
+.doc-check { display: flex; gap: 8px; align-items: flex-start; }
+.doc-dot { font-weight: 700; }
+.doc-dot.ok { color: var(--green); }
+.doc-dot.bad { color: var(--red); }
+.doc-check-txt { display: flex; flex-direction: column; gap: 2px; font-size: 13px; }
+.doc-label code { color: var(--text-dim); font-size: 11px; }
+.doc-hint { color: var(--amber); font-size: 12px; }
+.doc-note { color: var(--text-dim); font-size: 13px; }
+.doc-reqs { margin: 0; padding-left: 18px; font-size: 13px; color: var(--text-dim); }
+.doc-actions { display: flex; gap: 8px; margin-top: 4px; }

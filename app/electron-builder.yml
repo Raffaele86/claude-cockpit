@@ -20,6 +20,16 @@ win:
     - portable
     - nsis
 
+# Build macOS da Linux: solo zip, NON firmata/notarizzata → al primo avvio serve
+# tasto destro → Apri (o `xattr -cr` sull'app). dmg richiede macOS per il packaging.
+mac:
+  icon: build/icon.icns
+  category: public.app-category.developer-tools
+  target:
+    - target: zip
+      arch: [arm64, x64]
+  artifactName: ClaudeCockpit-mac-${arch}-${version}.zip
+
 portable:
   artifactName: ClaudeCockpit-portable-${version}.exe
 

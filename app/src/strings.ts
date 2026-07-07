@@ -168,6 +168,12 @@ const IT = {
   mcpConfirmRemove: 'rimuovere?',
   mcpEmpty: 'Nessun server MCP configurato in Claude Code.',
   mcpRestartNote: 'La sessione si riavvia per caricare la modifica (la chat resta).',
+  mcpExport: 'Esporta',
+  mcpExportTitle: 'Scarica i server MCP (scope utente) in un file JSON riutilizzabile su un\'altra macchina. Attenzione: il file contiene anche eventuali token.',
+  mcpImport: 'Importa',
+  mcpImportTitle: 'Importa i server MCP da un file esportato (scope utente).',
+  mcpImportBadFile: 'File non valido: serve il JSON esportato da Cockpit (o una mappa {nome: config}).',
+  mcpImportDone: (ok: number, err: number) => (err ? `importati ${ok}, falliti ${err}` : `importati ${ok} ✓`),
   // Dettatura
   micNeedsHttps: 'Microfono non disponibile su http: apri il Cockpit dall’app desktop o da un indirizzo https:// (es. tailscale serve — vedi README).',
   micTranscribing: 'Trascrizione in corso…',
@@ -184,6 +190,28 @@ const IT = {
   cliNewChatTitle: 'Apre una nuova chat indipendente in una scheda nuova',
   cliHistory: 'Cronologia',
   cliHistoryTitle: 'Riapri una sessione precedente (/resume)',
+  // Doctor (verifica prerequisiti)
+  docOpen: 'Verifica sistema',
+  docTitle: 'Verifica sistema',
+  docConnected: 'engine connesso',
+  docDisconnected: 'engine NON connesso',
+  docRunning: 'Verifica in corso…',
+  docRerun: 'Riprova',
+  docStartEngine: 'Avvia engine',
+  docLabel: (id: string) =>
+    ((({ wsl: 'WSL', wsluser: 'Utente WSL', node: 'Node.js ≥ 20', claude: 'Claude Code CLI', engine: 'Servizio engine', port: 'Porta 8130' }) as Record<string, string>)[id] ?? id),
+  docHintWsl: 'WSL non trovato. In PowerShell (admin): wsl --install, poi riavvia.',
+  docHintWslUser: 'Nessuna distro/utente WSL rilevati. Installa Ubuntu: wsl --install -d Ubuntu.',
+  docHintNodeWsl: 'Node ≥ 20 manca in WSL. Dentro Ubuntu: sudo apt update && sudo apt install -y nodejs npm (o usa nvm).',
+  docHintNode: 'Node ≥ 20 non trovato. Installalo da nodejs.org o con brew install node.',
+  docHintClaude: 'Claude Code CLI mancante: npm install -g @anthropic-ai/claude-code, poi lancia claude una volta per il login.',
+  docHintEngine: 'Engine non attivo. Dal repo: bash scripts/install-engine-service.sh (WSL/Linux).',
+  docHintEngineMac: 'Engine non attivo. Dal repo: bash scripts/install-engine-macos.sh.',
+  docHintPort: "L'engine non risponde su 127.0.0.1:8130: avvialo (bottone sotto) o controlla i check precedenti.",
+  docBrowserNote: 'Nel browser i controlli automatici non sono disponibili (usa l\'app desktop). Requisiti della macchina che ospita l\'engine:',
+  docReqEngine: 'Engine Cockpit in esecuzione (systemd su Linux/WSL, launchd su macOS) sulla porta 8130',
+  docReqClaude: 'Claude Code CLI installato e loggato (comando claude)',
+  docReqNode: 'Node.js ≥ 20',
 };
 
 const EN: typeof IT = {
@@ -351,6 +379,12 @@ const EN: typeof IT = {
   mcpConfirmRemove: 'remove?',
   mcpEmpty: 'No MCP servers configured in Claude Code.',
   mcpRestartNote: 'The session restarts to load the change (the chat is kept).',
+  mcpExport: 'Export',
+  mcpExportTitle: 'Download the user-scope MCP servers as a JSON file reusable on another machine. Warning: the file also contains any tokens.',
+  mcpImport: 'Import',
+  mcpImportTitle: 'Import MCP servers from an exported file (user scope).',
+  mcpImportBadFile: 'Invalid file: expected the JSON exported by Cockpit (or a {name: config} map).',
+  mcpImportDone: (ok: number, err: number) => (err ? `imported ${ok}, failed ${err}` : `imported ${ok} ✓`),
   // Dictation
   micNeedsHttps: 'Microphone unavailable over http: open Cockpit from the desktop app or an https:// address (e.g. tailscale serve — see README).',
   micTranscribing: 'Transcribing…',
@@ -367,6 +401,28 @@ const EN: typeof IT = {
   cliNewChatTitle: 'Open an independent new chat in a new tab',
   cliHistory: 'History',
   cliHistoryTitle: 'Reopen a previous session (/resume)',
+  // Doctor (prerequisites check)
+  docOpen: 'System check',
+  docTitle: 'System check',
+  docConnected: 'engine connected',
+  docDisconnected: 'engine NOT connected',
+  docRunning: 'Checking…',
+  docRerun: 'Retry',
+  docStartEngine: 'Start engine',
+  docLabel: (id: string) =>
+    ((({ wsl: 'WSL', wsluser: 'WSL user', node: 'Node.js ≥ 20', claude: 'Claude Code CLI', engine: 'Engine service', port: 'Port 8130' }) as Record<string, string>)[id] ?? id),
+  docHintWsl: 'WSL not found. In PowerShell (admin): wsl --install, then reboot.',
+  docHintWslUser: 'No WSL distro/user detected. Install Ubuntu: wsl --install -d Ubuntu.',
+  docHintNodeWsl: 'Node ≥ 20 missing inside WSL. In Ubuntu: sudo apt update && sudo apt install -y nodejs npm (or use nvm).',
+  docHintNode: 'Node ≥ 20 not found. Install from nodejs.org or brew install node.',
+  docHintClaude: 'Claude Code CLI missing: npm install -g @anthropic-ai/claude-code, then run claude once to log in.',
+  docHintEngine: 'Engine not active. From the repo: bash scripts/install-engine-service.sh (WSL/Linux).',
+  docHintEngineMac: 'Engine not active. From the repo: bash scripts/install-engine-macos.sh.',
+  docHintPort: 'The engine is not answering on 127.0.0.1:8130: start it (button below) or fix the checks above.',
+  docBrowserNote: 'Automatic checks are not available in the browser (use the desktop app). Requirements on the machine hosting the engine:',
+  docReqEngine: 'Cockpit engine running (systemd on Linux/WSL, launchd on macOS) on port 8130',
+  docReqClaude: 'Claude Code CLI installed and logged in (claude command)',
+  docReqNode: 'Node.js ≥ 20',
 };
 
 export const t = <K extends keyof typeof IT>(k: K): (typeof IT)[K] => (LANG === 'it' ? IT : EN)[k];

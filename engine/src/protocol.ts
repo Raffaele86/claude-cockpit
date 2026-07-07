@@ -54,7 +54,9 @@ export type ClientMsg =
   | { op: 'settings_set'; patch: Partial<CockpitSettings> }
   | { op: 'stt'; audio: string; mime: string } // audio base64 (≤2MB) → trascrizione Whisper (lingua da config)
   | { op: 'mcp_add'; project: string; server: McpAddRequest }
-  | { op: 'mcp_remove'; project: string; name: string };
+  | { op: 'mcp_remove'; project: string; name: string }
+  | { op: 'mcp_export' } // → ev mcp_export coi server MCP user-scope (~/.claude.json)
+  | { op: 'mcp_import'; project: string; servers: Record<string, unknown> }; // importa via `claude mcp add-json` (scope user)
 
 // Aggiunta server MCP (wrapper di `claude mcp add`): target = URL (http/sse) o comando completo (stdio);
 // headers = righe "Chiave: valore" (http/sse), env = righe "KEY=VALUE" (stdio).
@@ -189,6 +191,8 @@ export type ServerMsg =
   | { ev: 'settings'; data: CockpitSettings; restartRequired?: boolean; telegramActive: boolean }
   | { ev: 'stt_result'; text?: string; error?: string } // solo al richiedente
   | { ev: 'mcp_op_done'; project: string; name: string; error?: string }
+  | { ev: 'mcp_export'; servers: Record<string, unknown> }
+  | { ev: 'mcp_import_done'; added: string[]; errors: Record<string, string> }
   | { ev: 'permission_mode'; project: string; mode: PermissionModeName } // cambio modalità lato engine (es. fine plan)
   | { ev: 'permission_resolved'; project: string; requestId: string } // richiesta decisa altrove/annullata: chiudere il prompt
   | { ev: 'context'; project: string; totalTokens: number; maxTokens: number; percentage: number; branch?: string }
