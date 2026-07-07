@@ -17,7 +17,7 @@ import { startTelegramGateway, type TelegramGateway } from './telegram.js';
 import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 
-const ENGINE_VERSION = '0.16.2';
+const ENGINE_VERSION = '0.16.3';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -158,6 +158,12 @@ function forwardSdkMessage(project: string, msg: SDKMessage): void {
       // Altri tipi (status, hook, task, ...) non servono alla UI per ora.
       break;
   }
+}
+
+/** Errore atteso quando una richiesta era in volo su una sessione chiusa di proposito
+ *  (chiusura scheda / reset): non è un problema da mostrare all'utente. */
+function isBenignClosed(err: unknown): boolean {
+  return String(err).includes('Query closed before response received');
 }
 
 /** Branch git corrente di una dir (da .git/HEAD, senza spawnare git). */
@@ -502,7 +508,9 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
         const models = await session.models();
         send(ws, { ev: 'models', project: normalizeProject(msg.project), models });
       } catch (err) {
-        send(ws, { ev: 'error', message: `models_list: ${String(err)}` });
+        // Sessione chiusa mentre la richiesta era in volo (es. scheda chiusa subito dopo
+        // l'apertura): esito atteso, nessun banner d'errore.
+        if (!isBenignClosed(err)) send(ws, { ev: 'error', message: `models_list: ${String(err)}` });
       }
       break;
     }
@@ -540,7 +548,7 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
         const servers = await session.mcpStatus();
         send(ws, { ev: 'mcp_status', project: normalizeProject(msg.project), servers });
       } catch (err) {
-        send(ws, { ev: 'error', message: `mcp_status: ${String(err)}` });
+        if (!isBenignClosed(err)) send(ws, { ev: 'error', message: `mcp_status: ${String(err)}` });
       }
       break;
     }

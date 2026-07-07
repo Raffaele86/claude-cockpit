@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.16.3
+- Closing a tab right after opening it no longer flashes a "models_list: Query closed before response received" error banner: a request aborted by an intentional session close is an expected outcome, not an error
+
 ## 0.16.2
 - Tabs get their own full-width row; the CLI toolbar (provider/model/effort/mode/New chat/History) and the CLI|Chat toggle move to a second row below — more room to keep many chats open
 
