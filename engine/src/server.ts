@@ -17,7 +17,7 @@ import { startTelegramGateway, type TelegramGateway } from './telegram.js';
 import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 
-const ENGINE_VERSION = '0.17.0';
+const ENGINE_VERSION = '0.18.0';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -54,7 +54,52 @@ const authed = new Set<WebSocket>();
 const busy = new Map<string, boolean>(); // project → turno in corso (per /status del gateway)
 const providerByProject = new Map<string, import('./protocol.js').ProviderName>(); // default 'claude'
 
-// providers.json opzionale: { "glm": { "configDir": "...", "model": "glm-5.1" } }
+// providers.json opzionale: { "<nome>": { "configDir": "...", "model": "...", "models": [...] } }
+function loadProviders(): Record<string, { configDir: string; model?: string; models?: string[]; modelsUrl?: string; modelPrefix?: string }> {
+  try {
+    const cfg = JSON.parse(readFileSync(join(COCKPIT_DIR, 'providers.json'), 'utf8')) as Record<
+      string,
+      { configDir: string; model?: string; models?: string[]; modelsUrl?: string; modelPrefix?: string }
+    >;
+    return Object.fromEntries(Object.entries(cfg).filter(([, v]) => v?.configDir));
+  } catch {
+    return {};
+  }
+}
+
+// Catalogo modelli live di un provider (per il selettore con ricerca). Se `modelsUrl` è
+// impostato (endpoint stile OpenRouter: { data: [{ id, name, pricing }] }) lo interroga e
+// antepone `modelPrefix` agli id; i modelli free (id `:free` o prompt price 0) vanno in cima.
+// Cache 5 min per non martellare l'endpoint a ogni selezione del provider.
+const catalogCache = new Map<string, { at: number; models: import('./protocol.js').CatalogModel[] }>();
+async function providerCatalog(name: string): Promise<import('./protocol.js').CatalogModel[]> {
+  const cfg = loadProviders()[name];
+  if (!cfg) return [];
+  const prefix = cfg.modelPrefix ?? '';
+  if (!cfg.modelsUrl) {
+    // Nessun catalogo live: usa la lista statica (già coi prefissi in providers.json).
+    return (cfg.models ?? (cfg.model ? [cfg.model] : [])).map((id) => ({ id, free: id.endsWith(':free'), label: id }));
+  }
+  const cached = catalogCache.get(name);
+  if (cached && Date.now() - cached.at < 5 * 60_000) return cached.models;
+  try {
+    const res = await fetch(cfg.modelsUrl, { signal: AbortSignal.timeout(15_000) });
+    const json = (await res.json()) as { data?: { id: string; name?: string; pricing?: { prompt?: string } }[] };
+    const rows = json.data ?? [];
+    const models: import('./protocol.js').CatalogModel[] = rows.map((m) => {
+      const free = m.id.endsWith(':free') || m.pricing?.prompt === '0';
+      return { id: prefix + m.id, free, label: m.name ? `${m.name} · ${m.id}` : m.id };
+    });
+    // Free in cima, poi alfabetico.
+    models.sort((a, b) => (a.free === b.free ? a.id.localeCompare(b.id) : a.free ? -1 : 1));
+    catalogCache.set(name, { at: Date.now(), models });
+    return models;
+  } catch (err) {
+    console.error('[engine] provider_catalog', name, String(err));
+    return (cfg.models ?? []).map((id) => ({ id, free: id.endsWith(':free'), label: id }));
+  }
+}
+
 function loadProviderConfig(name: string): { configDir: string; model?: string } | null {
   try {
     const cfg = JSON.parse(readFileSync(join(COCKPIT_DIR, 'providers.json'), 'utf8')) as Record<
@@ -677,6 +722,11 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       send(ws, { ev: 'mcp_import_done', added, errors });
       break;
     }
+    case 'provider_catalog': {
+      const models = await providerCatalog(msg.provider);
+      send(ws, { ev: 'provider_catalog', provider: msg.provider, models });
+      break;
+    }
     case 'set_provider': {
       const project = normalizeProject(msg.project);
       const targetCfg = msg.provider === 'claude' ? { configDir: join(homedir(), '.claude') } : loadProviderConfig(msg.provider);
@@ -690,7 +740,7 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       const sid = getStoredSession(project);
       if (sid) {
         const slug = cwdOf(project).replace(/[/.]/g, '-');
-        const dirs = [join(homedir(), '.claude'), loadProviderConfig('glm')?.configDir].filter(Boolean) as string[];
+        const dirs = [join(homedir(), '.claude'), ...Object.values(loadProviders()).map((c) => c.configDir)];
         const src = dirs.map((d) => join(d, 'projects', slug, `${sid}.jsonl`)).find((p) => existsSync(p));
         const dst = join(targetCfg.configDir, 'projects', slug, `${sid}.jsonl`);
         if (src && src !== dst && !existsSync(dst)) {
@@ -745,8 +795,8 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
           const args: string[] = [];
           let env: Record<string, string> | undefined;
           let model = l.model;
-          if (l.provider === 'glm') {
-            const cfg = loadProviderConfig('glm');
+          if (l.provider && l.provider !== 'claude') {
+            const cfg = loadProviderConfig(l.provider);
             if (cfg) {
               env = { CLAUDE_CONFIG_DIR: cfg.configDir };
               // --model esplicito SEMPRE per glm: il flag CLI batte il `model` delle settings di

@@ -2117,3 +2117,25 @@ body {
 .doc-note { color: var(--text-dim); font-size: 13px; }
 .doc-reqs { margin: 0; padding-left: 18px; font-size: 13px; color: var(--text-dim); }
 .doc-actions { display: flex; gap: 8px; margin-top: 4px; }
+
+/* v0.18: editor provider multipli */
+.prov-row { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
+.prov-row-head { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }
+.prov-name { flex: 1; font-weight: 600; }
+
+/* v0.18: combobox modelli con ricerca (cataloghi grandi, OpenRouter) */
+.model-combo { position: relative; display: inline-block; }
+.model-combo-btn { cursor: pointer; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model-combo-pop { position: absolute; top: calc(100% + 4px); left: 0; z-index: 50; width: 360px; max-width: 80vw;
+  background: var(--bg-elev); border: 1px solid var(--border); border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.4); overflow: hidden; }
+.model-combo-search { width: 100%; border: none; border-bottom: 1px solid var(--border); background: var(--bg-input);
+  color: var(--text); padding: 8px 10px; font-size: 13px; outline: none; box-sizing: border-box; }
+.model-combo-list { max-height: 320px; overflow-y: auto; }
+.model-combo-item { display: flex; align-items: center; gap: 6px; width: 100%; text-align: left; background: none;
+  border: none; color: var(--text); padding: 6px 10px; font-size: 12px; cursor: pointer; }
+.model-combo-item:hover { background: var(--user); }
+.model-combo-item.on { color: var(--accent); }
+.model-combo-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model-free { flex: none; font-size: 10px; font-weight: 700; color: var(--green); border: 1px solid var(--green);
+  border-radius: 4px; padding: 0 4px; text-transform: uppercase; }
+.model-combo-empty { padding: 10px; color: var(--text-dim); font-size: 12px; }

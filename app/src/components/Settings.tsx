@@ -28,7 +28,7 @@ const IS_ELECTRON = navigator.userAgent.includes('Electron');
 export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Props) {
   // Stato editabile, inizializzato quando arriva lo snapshot dall'engine.
   const [tg, setTg] = useState<CockpitSettings['telegram']>({});
-  const [glm, setGlm] = useState<{ configDir: string; model: string; models: string }>({ configDir: '', model: '', models: '' });
+  const [provs, setProvs] = useState<{ name: string; configDir: string; model: string; models: string; modelsUrl: string; modelPrefix: string }[]>([]);
   const [hosts, setHosts] = useState('');
   const [defaultMode, setDefaultMode] = useState('default');
   const [qa, setQa] = useState<QuickActionEntry[]>([]);
@@ -41,11 +41,16 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
   useEffect(() => {
     if (!snapshot || loaded) return;
     setTg(snapshot.data.telegram);
-    setGlm({
-      configDir: snapshot.data.providers.glm?.configDir ?? '',
-      model: snapshot.data.providers.glm?.model ?? '',
-      models: (snapshot.data.providers.glm?.models ?? []).join(', '),
-    });
+    setProvs(
+      Object.entries(snapshot.data.providers).map(([name, p]) => ({
+        name,
+        configDir: p.configDir ?? '',
+        model: p.model ?? '',
+        models: (p.models ?? []).join(', '),
+        modelsUrl: p.modelsUrl ?? '',
+        modelPrefix: p.modelPrefix ?? '',
+      })),
+    );
     setHosts(snapshot.data.engine.hosts.join('\n'));
     setDefaultMode(snapshot.data.engine.defaultPermissionMode ?? 'default');
     setQa(snapshot.data.quickactions);
@@ -59,15 +64,20 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
   function save() {
     onSave({
       telegram: { ...tg, chatId: tg.chatId ? Number(tg.chatId) : undefined },
-      providers: glm.configDir.trim()
-        ? {
-            glm: {
-              configDir: glm.configDir,
-              model: glm.model || undefined,
-              models: glm.models.split(',').map((m) => m.trim()).filter(Boolean),
+      providers: Object.fromEntries(
+        provs
+          .filter((p) => p.name.trim() && p.configDir.trim())
+          .map((p) => [
+            p.name.trim(),
+            {
+              configDir: p.configDir,
+              model: p.model || undefined,
+              models: p.models.split(',').map((m) => m.trim()).filter(Boolean),
+              modelsUrl: p.modelsUrl || undefined,
+              modelPrefix: p.modelPrefix || undefined,
             },
-          }
-        : {},
+          ]),
+      ),
       engine: {
         hosts: hosts.split('\n').map((h) => h.trim()).filter(Boolean),
         defaultPermissionMode: defaultMode as CockpitSettings['engine']['defaultPermissionMode'],
@@ -179,18 +189,44 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
 
               <section>
                 <h3>{t('secProvider')}</h3>
-                <label className="set-field">
-                  {t('glmConfigDir')}
-                  <input value={glm.configDir} onChange={(e) => setGlm({ ...glm, configDir: e.target.value })} />
-                </label>
-                <label className="set-field">
-                  {t('glmModel')}
-                  <input value={glm.model} onChange={(e) => setGlm({ ...glm, model: e.target.value })} />
-                </label>
-                <label className="set-field">
-                  {t('glmModels')}
-                  <input value={glm.models} onChange={(e) => setGlm({ ...glm, models: e.target.value })} />
-                </label>
+                {provs.map((p, i) => (
+                  <div key={i} className="prov-row">
+                    <div className="prov-row-head">
+                      <input
+                        className="prov-name"
+                        placeholder={t('provName')}
+                        value={p.name}
+                        onChange={(e) => setProvs(provs.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
+                      />
+                      <button className="mini ghost" title={t('provRemove')} onClick={() => setProvs(provs.filter((_, j) => j !== i))}>
+                        ✕
+                      </button>
+                    </div>
+                    <label className="set-field">
+                      {t('glmConfigDir')}
+                      <input value={p.configDir} onChange={(e) => setProvs(provs.map((x, j) => (j === i ? { ...x, configDir: e.target.value } : x)))} />
+                    </label>
+                    <label className="set-field">
+                      {t('glmModel')}
+                      <input value={p.model} onChange={(e) => setProvs(provs.map((x, j) => (j === i ? { ...x, model: e.target.value } : x)))} />
+                    </label>
+                    <label className="set-field">
+                      {t('glmModels')}
+                      <input value={p.models} onChange={(e) => setProvs(provs.map((x, j) => (j === i ? { ...x, models: e.target.value } : x)))} />
+                    </label>
+                    <label className="set-field">
+                      {t('provModelsUrl')}
+                      <input placeholder="https://openrouter.ai/api/v1/models" value={p.modelsUrl} onChange={(e) => setProvs(provs.map((x, j) => (j === i ? { ...x, modelsUrl: e.target.value } : x)))} />
+                    </label>
+                    <label className="set-field">
+                      {t('provModelPrefix')}
+                      <input placeholder="openrouter," value={p.modelPrefix} onChange={(e) => setProvs(provs.map((x, j) => (j === i ? { ...x, modelPrefix: e.target.value } : x)))} />
+                    </label>
+                  </div>
+                ))}
+                <button className="mini ghost" onClick={() => setProvs([...provs, { name: '', configDir: '', model: '', models: '', modelsUrl: '', modelPrefix: '' }])}>
+                  ＋ {t('provAdd')}
+                </button>
                 <p className="set-hint">{t('glmHint')}</p>
               </section>
 

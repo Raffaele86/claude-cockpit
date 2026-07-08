@@ -55,7 +55,7 @@ export interface ProjectState {
   busy: boolean;
   model: string;
   effort: string; // '' = default sessione
-  provider: 'claude' | 'glm';
+  provider: string; // 'claude' o una chiave di providers.json
   permissionMode: string;
   activeAssistantId: string | null;
   slashCommands: string[];

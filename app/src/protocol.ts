@@ -7,7 +7,7 @@ export type PermissionDecision = 'allow-once' | 'allow-always' | 'deny' | 'edit'
 
 export type EffortName = 'low' | 'medium' | 'high' | 'xhigh';
 
-export type ProviderName = 'claude' | 'glm';
+export type ProviderName = string; // 'claude' = Anthropic diretto; altri nomi = chiavi di providers.json
 
 export interface DirEntry {
   name: string;
@@ -50,6 +50,7 @@ export type ClientMsg =
   | { op: 'dir_list'; path: string }
   | { op: 'file_op'; kind: 'mkdir' | 'rename' | 'delete' | 'reveal'; path: string; newName?: string }
   | { op: 'set_provider'; project: string; provider: ProviderName }
+  | { op: 'provider_catalog'; provider: string } // catalogo modelli live del provider (per il selettore)
   | { op: 'settings_get' }
   | { op: 'settings_set'; patch: Partial<CockpitSettings> }
   | { op: 'stt'; audio: string; mime: string } // audio base64 (≤2MB) → trascrizione Whisper (lingua da config)
@@ -89,7 +90,7 @@ export interface CockpitSettings {
     sttProvider?: 'groq' | 'openai';
     sttLanguage?: string; // 'auto' | codice ISO (es. 'it') — dettatura E vocali Telegram
   };
-  providers: { glm?: { configDir: string; model?: string; models?: string[] } }; // models = scelte del selettore (CLI /model, chat set_model)
+  providers: Record<string, { configDir: string; model?: string; models?: string[]; modelsUrl?: string; modelPrefix?: string }>; // chiave = nome provider; models = lista statica; modelsUrl = catalogo live (OpenRouter-style .data[].id), modelPrefix anteposto agli id
   engine: { hosts: string[]; defaultPermissionMode?: PermissionModeName };
   quickactions: QuickActionEntry[];
 }
@@ -108,6 +109,12 @@ export interface ProjectEntry {
 export interface QuickActionEntry {
   label: string;
   text: string;
+}
+
+export interface CatalogModel {
+  id: string; // gia' col prefisso (es. 'openrouter,qwen/qwen3-coder:free')
+  free: boolean;
+  label: string;
 }
 
 export interface ModelEntry {
@@ -188,6 +195,7 @@ export type ServerMsg =
   | { ev: 'dir_entries'; path: string; entries: DirEntry[] }
   | { ev: 'file_op_done'; kind: string; path: string; error?: string }
   | { ev: 'provider'; project: string; provider: ProviderName }
+  | { ev: 'provider_catalog'; provider: string; models: CatalogModel[]; error?: string }
   | { ev: 'settings'; data: CockpitSettings; restartRequired?: boolean; telegramActive: boolean }
   | { ev: 'stt_result'; text?: string; error?: string } // solo al richiedente
   | { ev: 'mcp_op_done'; project: string; name: string; error?: string }

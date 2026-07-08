@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CockpitClient, type ConnState } from './ws';
-import type { ProjectEntry, PtyLaunch, QuickActionEntry, ServerMsg } from './protocol';
+import type { CatalogModel, ProjectEntry, PtyLaunch, QuickActionEntry, ServerMsg } from './protocol';
 import type { PermissionDecision } from './protocol';
 import { buildItemsFromMessages, emptyProject, toolResultText, type PendingPermission, type ProjectState, type QueuedPrompt, type Todo } from './model';
 import { ChatView } from './components/ChatView';
@@ -10,6 +10,7 @@ import { PermissionPrompt } from './components/PermissionPrompt';
 import { ProjectSwitcher } from './components/ProjectSwitcher';
 import { QuickActions } from './components/QuickActions';
 import { ModelSelect } from './components/ModelSelect';
+import { ModelCombo } from './components/ModelCombo';
 import { TerminalPanel } from './components/Terminal';
 import { McpStatus } from './components/McpStatus';
 import { SessionPicker } from './components/SessionPicker';
@@ -68,7 +69,7 @@ export function App() {
   const [cliNonce, setCliNonce] = useState<Record<string, number>>({}); // remount dopo /exit o relaunch
   const [cliExited, setCliExited] = useState<Record<string, boolean>>({});
   // Toolbar CLI: provider/modello/effort/mode scelti per scheda (solo per la sessione UI).
-  const [cliProv, setCliProv] = useState<Record<string, 'claude' | 'glm'>>({});
+  const [cliProv, setCliProv] = useState<Record<string, string>>({});
   const [cliModel, setCliModel] = useState<Record<string, string>>({});
   const [cliEffort, setCliEffort] = useState<Record<string, string>>({});
   const [cliMode, setCliMode] = useState<Record<string, string>>({});
@@ -86,6 +87,8 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mcpImportMsg, setMcpImportMsg] = useState<string | null>(null);
   const [doctorOpen, setDoctorOpen] = useState(false);
+  const [catalog, setCatalog] = useState<Record<string, CatalogModel[]>>({});
+  const [catalogLoading, setCatalogLoading] = useState<Record<string, boolean>>({});
   const activeProjectRef = useRef(''); // per gli handler WS (chiusura stabile)
   const connRef = useRef<ConnState>('connecting');
 
@@ -479,6 +482,10 @@ export function App() {
         case 'sessions':
           updateProject(msg.project, (s) => ({ ...s, sessions: msg.sessions }));
           break;
+        case 'provider_catalog':
+          setCatalog((p) => ({ ...p, [msg.provider]: msg.models }));
+          setCatalogLoading((p) => ({ ...p, [msg.provider]: false }));
+          break;
         case 'provider':
           // La sessione viene ricreata dal provider nuovo: azzera modello/effort e ri-warma per mostrare il modello reale.
           updateProject(msg.project, (s) => ({ ...s, provider: msg.provider, model: '', models: [], effort: '' }));
@@ -632,11 +639,25 @@ export function App() {
   }, [activeKey]);
 
   const active = projects[activeKey] ?? emptyProject();
-  // Modelli selezionabili con provider GLM (da providers.json; fallback = il model configurato).
-  const glmModels = useMemo(() => {
-    const g = settingsSnap?.data.providers.glm;
-    return g?.models?.length ? g.models : g?.model ? [g.model] : [];
-  }, [settingsSnap]);
+  // Provider disponibili (da providers.json, caricati all'auth_ok) e modelli per provider.
+  const providerNames = useMemo(() => ['claude', ...Object.keys(settingsSnap?.data.providers ?? {})], [settingsSnap]);
+  const providerModels = useCallback(
+    (prov: string): string[] => {
+      const g = settingsSnap?.data.providers[prov];
+      return g?.models?.length ? g.models : g?.model ? [g.model] : [];
+    },
+    [settingsSnap],
+  );
+  // Provider con catalogo live (modelsUrl): chiedi/aggiorna la lista ogni volta che lo selezioni.
+  const hasCatalog = useCallback((prov: string) => !!settingsSnap?.data.providers[prov]?.modelsUrl, [settingsSnap]);
+  const requestCatalog = useCallback(
+    (prov: string) => {
+      if (prov === 'claude' || !hasCatalog(prov)) return;
+      setCatalogLoading((p) => ({ ...p, [prov]: true }));
+      client.current?.send({ op: 'provider_catalog', provider: prov });
+    },
+    [hasCatalog],
+  );
   const shortProject = activeProject.split('/').filter(Boolean).at(-1) || '~';
   const req = pending.find((p) => p.project === activeProject) ?? pending[0];
   const busyMap = useMemo(() => {
@@ -722,30 +743,40 @@ export function App() {
               {view === 'chat' && (
                 <>
                   <div className="provider-toggle" title={t('providerTitle')}>
-                    {(['claude', 'glm'] as const).map((p) => (
+                    {providerNames.map((p) => (
                       <button
                         key={p}
                         className={active.provider === p ? 'prov on' : 'prov'}
                         onClick={() => {
-                          if (active.provider !== p) client.current?.send({ op: 'set_provider', project: activeKey, provider: p });
+                          if (active.provider !== p) {
+                            client.current?.send({ op: 'set_provider', project: activeKey, provider: p });
+                            requestCatalog(p);
+                          }
                         }}
                       >
-                        {p === 'claude' ? 'Claude' : 'GLM'}
+                        {p === 'claude' ? 'Claude' : p === 'glm' ? 'GLM' : p.charAt(0).toUpperCase() + p.slice(1)}
                       </button>
                     ))}
                   </div>
-                  {active.provider === 'glm' ? (
-                    glmModels.length > 0 ? (
+                  {active.provider !== 'claude' ? (
+                    hasCatalog(active.provider) ? (
+                      <ModelCombo
+                        models={catalog[active.provider] ?? []}
+                        current={active.model}
+                        loading={catalogLoading[active.provider]}
+                        onChange={changeModel}
+                      />
+                    ) : providerModels(active.provider).length > 0 ? (
                       <select
                         className="effort-select"
                         title={t('glmModelTitle')}
-                        value={glmModels.includes(active.model) ? active.model : ''}
+                        value={providerModels(active.provider).includes(active.model) ? active.model : ''}
                         onChange={(e) => changeModel(e.target.value)}
                       >
                         <option value="" disabled>
-                          {active.model || 'glm…'}
+                          {active.model || 'model…'}
                         </option>
-                        {glmModels.map((m) => (
+                        {providerModels(active.provider).map((m) => (
                           <option key={m} value={m}>
                             {m}
                           </option>
@@ -753,7 +784,7 @@ export function App() {
                       </select>
                     ) : (
                       <span className="model-static" title={t('glmModelTitle')}>
-                        {active.model || 'glm…'}
+                        {active.model || 'model…'}
                       </span>
                     )
                   ) : (
@@ -778,7 +809,7 @@ export function App() {
               {view === 'cli' && (
                 <>
                   <div className="provider-toggle" title={t('providerTitle')}>
-                    {(['claude', 'glm'] as const).map((p) => (
+                    {providerNames.map((p) => (
                       <button
                         key={p}
                         className={(cliProv[activeKey] ?? 'claude') === p ? 'prov on' : 'prov'}
@@ -786,10 +817,11 @@ export function App() {
                           if ((cliProv[activeKey] ?? 'claude') === p) return;
                           setCliProv((prev) => ({ ...prev, [activeKey]: p }));
                           setCliModel((prev) => ({ ...prev, [activeKey]: '' }));
+                          requestCatalog(p);
                           relaunchCli({ provider: p, continue: true, permissionMode: (cliMode[activeKey] as PtyLaunch['permissionMode']) });
                         }}
                       >
-                        {p === 'claude' ? 'Claude' : 'GLM'}
+                        {p === 'claude' ? 'Claude' : p === 'glm' ? 'GLM' : p.charAt(0).toUpperCase() + p.slice(1)}
                       </button>
                     ))}
                   </div>
@@ -802,8 +834,18 @@ export function App() {
                         cliInput.current?.(`/model ${m}\r`);
                       }}
                     />
+                  ) : hasCatalog(cliProv[activeKey] ?? '') ? (
+                    <ModelCombo
+                      models={catalog[cliProv[activeKey] ?? ''] ?? []}
+                      current={cliModel[activeKey] ?? ''}
+                      loading={catalogLoading[cliProv[activeKey] ?? '']}
+                      onChange={(m) => {
+                        setCliModel((prev) => ({ ...prev, [activeKey]: m }));
+                        cliInput.current?.(`/model ${m}\r`);
+                      }}
+                    />
                   ) : (
-                    glmModels.length > 0 && (
+                    providerModels(cliProv[activeKey] ?? '').length > 0 && (
                       <select
                         className="effort-select"
                         title={t('glmModelTitle')}
@@ -816,7 +858,7 @@ export function App() {
                         <option value="" disabled>
                           model…
                         </option>
-                        {glmModels.map((m) => (
+                        {providerModels(cliProv[activeKey] ?? '').map((m) => (
                           <option key={m} value={m}>
                             {m}
                           </option>

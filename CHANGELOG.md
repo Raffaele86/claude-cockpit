@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.18.0
+- **Dynamic providers**: the provider chips (Claude / GLM / …) and the model selector are now built from `providers.json`, not hardcoded. Add any number of alternative providers; each gets its config dir, default model and selector model list. Settings → Providers is a per-provider editor (add/remove rows)
+- **OpenRouter support** (all models, free included) via a local claude-code-router bridge: docs/providers.md has the full recipe (ccr on 127.0.0.1:3456 translating Claude Code ↔ OpenRouter). The native OpenRouter Anthropic endpoint only serves Anthropic models, hence the bridge
+- **Live model catalog with search**: a provider can set `modelsUrl` (OpenRouter-style `/models`); selecting it fetches the full up-to-date model list (free ones first, marked) into a searchable dropdown — type to filter among hundreds of models. Cached 5 min engine-side
+
 ## 0.17.0
 - Built-in **System check** (doctor): stethoscope button in the top bar, opens automatically when the engine can't be reached. Verifies WSL (Windows), Node >= 20, the Claude Code CLI, the engine service and port 8130 — with a fix hint for every failing item. In the browser it lists the requirements (checks need the desktop app)
 - **MCP export/import**: MCP panel gains Export (downloads your user-scope servers as JSON) and Import (adds them on another machine via `claude mcp add-json`). The exported file may contain tokens — treat it like a password
