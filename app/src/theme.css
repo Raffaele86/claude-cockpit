@@ -2164,6 +2164,11 @@ body {
 /* v0.23: drag&drop nel composer */
 .composer-wrap.drop-hover .composer { outline: 2px dashed var(--accent, #D97757); outline-offset: -2px; border-radius: 8px; }
 
+/* v0.25: rinomina/pin schede */
+.tab-rename { width: 140px; background: var(--bg-soft, transparent); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 12px; padding: 1px 4px; }
+.tab-pinned { font-size: 10px; }
+.tab-x.on { opacity: 1; color: var(--accent, #D97757); }
+
 /* v0.24: badge progetto nei risultati di ricerca globale */
 .session-proj { display: inline-block; background: var(--bg-soft, rgba(128,128,128,0.15)); border: 1px solid var(--border); border-radius: 6px; font-size: 11px; padding: 0 6px; margin-right: 6px; color: var(--text-dim); }
 

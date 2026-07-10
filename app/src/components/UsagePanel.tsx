@@ -21,14 +21,16 @@ export function UsagePanel({ days, onClose }: Props) {
   const [provider, setProvider] = useState('');
   const [project, setProject] = useState('');
   const [origin, setOrigin] = useState('');
+  const [model, setModel] = useState('');
   const providers = useMemo(() => [...new Set((days ?? []).map((d) => d.provider))].sort(), [days]);
   const projects = useMemo(() => [...new Set((days ?? []).map((d) => d.project))].sort(), [days]);
   const origins = useMemo(() => [...new Set((days ?? []).map((d) => d.origin))].sort(), [days]);
+  const models = useMemo(() => [...new Set((days ?? []).map((d) => d.model).filter(Boolean))].sort(), [days]);
 
   const byDate = useMemo(() => {
     const m = new Map<string, { inTok: number; cacheTok: number; outTok: number; costUsd: number; hasCost: boolean }>();
     for (const d of days ?? []) {
-      if ((provider && d.provider !== provider) || (project && d.project !== project) || (origin && d.origin !== origin)) continue;
+      if ((provider && d.provider !== provider) || (project && d.project !== project) || (origin && d.origin !== origin) || (model && d.model !== model)) continue;
       const row = m.get(d.date) ?? { inTok: 0, cacheTok: 0, outTok: 0, costUsd: 0, hasCost: false };
       row.inTok += d.inTok;
       row.cacheTok += d.cacheTok;
@@ -40,7 +42,7 @@ export function UsagePanel({ days, onClose }: Props) {
       m.set(d.date, row);
     }
     return [...m.entries()].sort((a, b) => (a[0] < b[0] ? 1 : -1));
-  }, [days, provider, project, origin]);
+  }, [days, provider, project, origin, model]);
 
   const tot = byDate.reduce(
     (a, [, r]) => ({ inTok: a.inTok + r.inTok, cacheTok: a.cacheTok + r.cacheTok, outTok: a.outTok + r.outTok, costUsd: a.costUsd + r.costUsd }),
@@ -79,7 +81,14 @@ export function UsagePanel({ days, onClose }: Props) {
                   <option key={o} value={o}>{o}</option>
                 ))}
               </select>
+              <select value={model} onChange={(e) => setModel(e.target.value)}>
+                <option value="">{t('usageAllModels')}</option>
+                {models.map((m2) => (
+                  <option key={m2} value={m2}>{m2}</option>
+                ))}
+              </select>
             </div>
+            {model && <p className="doc-note">{t('usageModelCostNote')}</p>}
             <p className="doc-note">
               {t('usageTotals')(fmtTok(tot.inTok), fmtTok(tot.cacheTok), fmtTok(tot.outTok), tot.costUsd)}
             </p>

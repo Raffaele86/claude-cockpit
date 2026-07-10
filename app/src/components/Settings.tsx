@@ -14,6 +14,7 @@ interface Props {
   engineVersion: string;
   home: string;
   configMsg: string | null; // esito ultimo import/export config
+  projects: { name: string; path: string }[]; // registry (per le quick actions per-progetto)
   onConfigExport: () => void;
   onConfigImport: (files: Record<string, unknown>) => void;
   onSave: (patch: Partial<CockpitSettings>) => void;
@@ -28,7 +29,7 @@ interface NotifyCfg {
 
 const IS_ELECTRON = navigator.userAgent.includes('Electron');
 
-export function Settings({ snapshot, engineVersion, home, configMsg, onConfigExport, onConfigImport, onSave, onClose }: Props) {
+export function Settings({ snapshot, engineVersion, home, configMsg, projects, onConfigExport, onConfigImport, onSave, onClose }: Props) {
   // Stato editabile, inizializzato quando arriva lo snapshot dall'engine.
   const [tg, setTg] = useState<CockpitSettings['telegram']>({});
   const [provs, setProvs] = useState<{ name: string; configDir: string; model: string; models: string; modelsUrl: string; modelPrefix: string }[]>([]);
@@ -250,6 +251,16 @@ export function Settings({ snapshot, engineVersion, home, configMsg, onConfigExp
                       value={q.text}
                       onChange={(e) => setQa(qa.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))}
                     />
+                    <select
+                      title={t('qaProjectTitle')}
+                      value={q.project ?? ''}
+                      onChange={(e) => setQa(qa.map((x, j) => (j === i ? { ...x, project: e.target.value || undefined } : x)))}
+                    >
+                      <option value="">{t('qaGlobal')}</option>
+                      {projects.map((p) => (
+                        <option key={p.path} value={p.path}>{p.name}</option>
+                      ))}
+                    </select>
                     <button onClick={() => setQa(qa.filter((_, j) => j !== i))}>×</button>
                   </div>
                 ))}

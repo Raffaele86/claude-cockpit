@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.25.0
+- **Per-project quick actions**: each quick action can now be scoped to a single project (new selector in Settings → Quick actions, default "global") — project-specific shortcuts appear only where they belong
+- **Rename & pin tabs**: double-click a tab title to rename it (local override of the AI title, persisted); 📌 on the active tab pins it to the first position. Renames also show in the inbox
+- **Model dimension in the usage dashboard**: 📊 gains a model filter (fed by `message.model` from the transcripts) — see how many tokens each model burned, e.g. paid Anthropic vs free OpenRouter routes. Recorded $ costs have no model attached and are excluded while the filter is active
+
 ## 0.24.1
 - Fix: the Checkpoints/Usage/Inbox/System-check panels had a transparent background (the backdrop came from a class they didn't use) and all opened stacked dead-center. Panels now have their own solid background and bar styling, and each opens at a slightly different position so they don't pile up
 

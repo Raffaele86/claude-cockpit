@@ -101,6 +101,23 @@ export function App() {
   const [cliActive, setCliActive] = useState<Record<string, boolean>>({}); // ev pty_activity: schede CLI con output recente
   const [ptySession, setPtySession] = useState<Record<string, string>>({}); // chiave → sessionId del pty claude (per i titoli)
   const [globalResults, setGlobalResults] = useState<GlobalSearchResult[] | null>(null); // ricerca cross-progetto
+  // Meta locali delle schede (rinomina manuale + pin), persistite per chiave-canale.
+  const [tabMeta, setTabMeta] = useState<Record<string, { name?: string; pin?: boolean }>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('cockpit-tab-meta') ?? '{}') as Record<string, { name?: string; pin?: boolean }>;
+    } catch {
+      return {};
+    }
+  });
+  const updateTabMeta = useCallback((key: string, patch: { name?: string; pin?: boolean }) => {
+    setTabMeta((prev) => {
+      const merged = { ...prev[key], ...patch };
+      const next = { ...prev, [key]: merged };
+      if (!merged.name && !merged.pin) delete next[key];
+      localStorage.setItem('cockpit-tab-meta', JSON.stringify(next));
+      return next;
+    });
+  }, []);
   const [cfgMsg, setCfgMsg] = useState<string | null>(null); // esito import/export config
   const sessionsReqAt = useRef<Record<string, number>>({}); // base → ts ultima sessions_list (throttle titoli)
   const [catalog, setCatalog] = useState<Record<string, CatalogModel[]>>({});
@@ -788,7 +805,7 @@ export function App() {
         return {
           key,
           name: shortOf(key),
-          title: titleByKey[key],
+          title: tabMeta[key]?.name ?? titleByKey[key],
           busy: s.busy || !!cliActive[key],
           hasPermission: pending.some((p) => p.project === key),
           snippet: (last && 'text' in last ? last.text : '').replace(/\s+/g, ' ').slice(0, 80) || (cliActive[key] ? t('inboxCliActive') : ''),
@@ -798,10 +815,10 @@ export function App() {
     // Schede CLI attive mai aperte in questo client (nessuno stato locale): voce minima.
     for (const [key, active] of Object.entries(cliActive)) {
       if (active && !projects[key])
-        entries.push({ key, name: shortOf(key), title: titleByKey[key], busy: true, hasPermission: false, snippet: t('inboxCliActive'), costUsd: 0 });
+        entries.push({ key, name: shortOf(key), title: tabMeta[key]?.name ?? titleByKey[key], busy: true, hasPermission: false, snippet: t('inboxCliActive'), costUsd: 0 });
     }
     return entries.sort((a, b) => Number(b.hasPermission) - Number(a.hasPermission) || Number(b.busy) - Number(a.busy));
-  }, [projects, cliActive, titleByKey, pending]);
+  }, [projects, cliActive, titleByKey, pending, tabMeta]);
   const busyCount = inboxEntries.filter((e) => e.busy).length;
   const openFromInbox = useCallback((key: string) => {
     const [base, tab] = key.split('##');
@@ -820,11 +837,22 @@ export function App() {
   const tabTitles = useMemo(() => {
     const m: Record<string, string> = {};
     for (const t of tabs) {
-      const title = titleByKey[t === 'main' ? activeProject : `${activeProject}##${t}`];
+      const key = t === 'main' ? activeProject : `${activeProject}##${t}`;
+      const title = tabMeta[key]?.name ?? titleByKey[key]; // rinomina manuale > titolo AI
       if (title) m[t] = title;
     }
     return m;
-  }, [tabs, activeProject, titleByKey]);
+  }, [tabs, activeProject, titleByKey, tabMeta]);
+  // Ordine schede: le pinnate davanti (ordine relativo conservato).
+  const displayTabs = useMemo(() => {
+    const pinOf = (t: string) => (tabMeta[t === 'main' ? activeProject : `${activeProject}##${t}`]?.pin ? 0 : 1);
+    return [...tabs].sort((a, b) => pinOf(a) - pinOf(b));
+  }, [tabs, activeProject, tabMeta]);
+  const tabPins = useMemo(() => {
+    const m: Record<string, boolean> = {};
+    for (const t of tabs) m[t] = !!tabMeta[t === 'main' ? activeProject : `${activeProject}##${t}`]?.pin;
+    return m;
+  }, [tabs, activeProject, tabMeta]);
 
   return (
     <div className="app">
@@ -1218,10 +1246,16 @@ export function App() {
         <div className="main">
           <div className="tabs-row">
             <Tabs
-              tabs={tabs}
+              tabs={displayTabs}
               active={activeTab}
               busy={tabBusy}
               titles={tabTitles}
+              pins={tabPins}
+              onRename={(tb, name) => updateTabMeta(tb === 'main' ? activeProject : `${activeProject}##${tb}`, { name: name.trim() || undefined })}
+              onTogglePin={(tb) => {
+                const key = tb === 'main' ? activeProject : `${activeProject}##${tb}`;
+                updateTabMeta(key, { pin: !tabMeta[key]?.pin });
+              }}
               onSelect={(t) => setActiveTabByProject((prev) => ({ ...prev, [activeProject]: t }))}
               onAdd={addTab}
               onClose={(t) => {
@@ -1330,7 +1364,7 @@ export function App() {
             </div>
           )}
           <QuickActions
-            actions={quickActions}
+            actions={quickActions.filter((q) => !q.project || q.project === activeProject)}
             disabled={conn !== 'authed' || (view === 'chat' && active.busy)}
             onRun={(text) => {
               if (view === 'cli') cliInput.current?.(text + '\r');
@@ -1409,6 +1443,7 @@ export function App() {
             engineVersion={engineVersion}
             home={home.current}
             configMsg={cfgMsg}
+            projects={registry}
             onConfigExport={() => client.current?.send({ op: 'config_export' })}
             onConfigImport={(files) => {
               setCfgMsg(null);

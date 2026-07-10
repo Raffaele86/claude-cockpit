@@ -116,6 +116,7 @@ export interface ProjectEntry {
 export interface QuickActionEntry {
   label: string;
   text: string;
+  project?: string; // path base: azione visibile solo su quel progetto (assente = globale)
 }
 
 export interface CatalogModel {
@@ -230,6 +231,7 @@ export interface UsageDay {
   provider: string; // 'claude' o chiave providers.json
   project: string; // slug (~/.claude/projects/<slug>)
   origin: SessionCategory; // origine sessione: cockpit | cli | scheduler | tech
+  model: string; // id modello ('' = non noto, es. righe costo registrate)
   inTok: number; // input non-cache
   cacheTok: number; // cache read + creation
   outTok: number;

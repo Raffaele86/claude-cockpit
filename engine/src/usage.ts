@@ -29,6 +29,7 @@ export function logUsage(rec: UsageRecord): void {
 }
 
 type DayTokens = { inTok: number; cacheTok: number; outTok: number };
+// days: chiave "YYYY-MM-DD|modello" (modello per riga assistant: message.model)
 type FileScan = { days: Map<string, DayTokens>; origin: SessionCategory };
 // Cache per-file: rilegge solo i transcript cambiati (mtime/size) — la prima scansione è quella costosa.
 const fileCache = new Map<string, { mtimeMs: number; size: number; scan: FileScan }>();
@@ -59,16 +60,17 @@ async function scanFile(path: string): Promise<FileScan> {
     }
     if (!line.includes('"type":"assistant"')) continue;
     try {
-      const row = JSON.parse(line) as { type?: string; timestamp?: string; message?: { usage?: Record<string, number> } };
+      const row = JSON.parse(line) as { type?: string; timestamp?: string; message?: { usage?: Record<string, number>; model?: string } };
       if (row.type !== 'assistant' || !row.message?.usage) continue;
       const date = String(row.timestamp ?? '').slice(0, 10);
       if (!date) continue;
+      const key = `${date}|${row.message.model ?? ''}`;
       const u = row.message.usage;
-      const d = days.get(date) ?? { inTok: 0, cacheTok: 0, outTok: 0 };
+      const d = days.get(key) ?? { inTok: 0, cacheTok: 0, outTok: 0 };
       d.inTok += u.input_tokens || 0;
       d.cacheTok += (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
       d.outTok += u.output_tokens || 0;
-      days.set(date, d);
+      days.set(key, d);
     } catch {
       /* riga malformata: salta */
     }
@@ -82,11 +84,11 @@ export async function usageReport(providers: Record<string, { configDir: string 
   const cutoffMs = Date.now() - WINDOW_DAYS * 86_400_000;
   const cutoffDate = new Date(cutoffMs).toISOString().slice(0, 10);
   const agg = new Map<string, UsageDay>();
-  const bump = (date: string, provider: string, project: string, origin: SessionCategory): UsageDay => {
-    const key = `${date}|${provider}|${project}|${origin}`;
+  const bump = (date: string, provider: string, project: string, origin: SessionCategory, model: string): UsageDay => {
+    const key = `${date}|${provider}|${project}|${origin}|${model}`;
     let d = agg.get(key);
     if (!d) {
-      d = { date, provider, project, origin, inTok: 0, cacheTok: 0, outTok: 0 };
+      d = { date, provider, project, origin, model, inTok: 0, cacheTok: 0, outTok: 0 };
       agg.set(key, d);
     }
     return d;
@@ -111,9 +113,10 @@ export async function usageReport(providers: Record<string, { configDir: string 
         try {
           if (statSync(path).mtimeMs < cutoffMs) continue;
           const scan = await scanFile(path);
-          for (const [date, tok] of scan.days) {
+          for (const [dm, tok] of scan.days) {
+            const [date, model] = [dm.slice(0, 10), dm.slice(11)];
             if (date < cutoffDate) continue;
-            const d = bump(date, provider, slug, scan.origin);
+            const d = bump(date, provider, slug, scan.origin, model);
             d.inTok += tok.inTok;
             d.cacheTok += tok.cacheTok;
             d.outTok += tok.outTok;
@@ -133,8 +136,8 @@ export async function usageReport(providers: Record<string, { configDir: string 
         const r = JSON.parse(line) as UsageRecord;
         const date = r.ts.slice(0, 10);
         if (date < cutoffDate) continue;
-        // I costi registrati vengono dai task passati dall'engine → origine cockpit.
-        const d = bump(date, r.provider, r.project, 'cockpit');
+        // I costi registrati vengono dai task passati dall'engine → origine cockpit, modello non noto.
+        const d = bump(date, r.provider, r.project, 'cockpit', '');
         d.costUsd = (d.costUsd ?? 0) + (r.costUsd || 0);
       } catch {
         /* riga malformata: salta */
