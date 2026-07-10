@@ -4,6 +4,15 @@ A self-hosted desktop + mobile cockpit for [Claude Code](https://claude.com/clau
 
 > Unofficial project. Not affiliated with or endorsed by Anthropic. "Claude" is a trademark of Anthropic, PBC. You need your own Claude Code installation and subscription/API access.
 
+## Download
+
+Grab the [latest release](https://github.com/Raffaele86/claude-cockpit/releases/latest):
+
+- **Windows** — `ClaudeCockpit-setup-<version>.exe` (installer, **auto-updates** from GitHub Releases) or `ClaudeCockpit-portable-<version>.exe` (single file, notifies you when a new version is out)
+- **macOS** — `ClaudeCockpit-mac-{arm64,x64}-<version>.zip` (unsigned: first launch is right-click → Open; full walkthrough in [docs/install-macos.md](docs/install-macos.md))
+
+The app is the shell — the engine must run where your `claude` CLI lives (see [Quickstart](#quickstart)); in a browser you can skip the app entirely.
+
 ## Features
 
 - **Native CLI as the main view** — the real Claude Code TUI in a persistent per-tab terminal (survives reloads); toggle to a chat-style view per tab
@@ -15,7 +24,10 @@ A self-hosted desktop + mobile cockpit for [Claude Code](https://claude.com/clau
 - **Mobile browser access** — the engine serves the UI over HTTP; open it from your phone (e.g. via Tailscale), fully responsive
 - **File explorer** — navigate local drives, mark folders as projects, context menu (rename, delete, open terminal here, ask Claude about a file), integrated Markdown reader with clean-copy
 - **Voice** — dictation via server-side Whisper (Groq/OpenAI key, same as Telegram voice memos): works in the desktop app, in the CLI view (text typed into the terminal) and on mobile over https; spoken replies (TTS) in chat view
-- **Multi-provider** — switch between Anthropic and any Claude-Code-compatible endpoint (e.g. GLM via `CLAUDE_CONFIG_DIR`), keeping the conversation
+- **Multi-provider** — switch between Anthropic, any Claude-Code-compatible endpoint (e.g. GLM via `CLAUDE_CONFIG_DIR`) or every OpenRouter model through a local bridge, keeping the conversation; live searchable model catalog (see [docs/providers.md](docs/providers.md))
+- **File checkpoints** — 📸 snapshot the project files before a risky task and restore any snapshot in one click (automatic pre-restore safety copy, last 5 kept per project)
+- **Transcript export** — download the current chat as a Markdown file (the CLI view has Claude Code's native `/export`)
+- **Auto-update** — Windows installs update themselves from GitHub Releases; portable and macOS builds show a notice with a download link when a new version is out
 - **Images** — paste screenshots straight into the composer
 - **Settings panel** — configure everything (Telegram, notifications, providers, quick actions, engine hosts, language) from the ⚙️ menu; the Telegram bot hot-reloads on save
 
@@ -43,7 +55,7 @@ A self-hosted desktop + mobile cockpit for [Claude Code](https://claude.com/clau
 ## Quickstart
 
 ```bash
-git clone https://github.com/<you>/claude-cockpit
+git clone https://github.com/Raffaele86/claude-cockpit
 cd claude-cockpit/engine && npm install && npm run build
 cd ../app && npm install && npm run build:renderer
 cp -r dist ../engine/ui        # let the engine serve the UI
@@ -54,7 +66,7 @@ Open `http://127.0.0.1:8130/?token=$(cat ~/.claude-cockpit/token)` in a browser 
 
 Run the engine as a service: `scripts/install-engine-service.sh` (Linux/WSL, systemd) or `scripts/install-engine-macos.sh` (macOS, launchd) — see [docs/install-macos.md](docs/install-macos.md) for the full macOS walkthrough.
 
-**Is my machine ready?** The app ships with a built-in **System check** (🩺 in the top bar; it also opens automatically when the engine can't be reached): it verifies WSL (on Windows), Node ≥ 20, the Claude Code CLI, the engine service and the port, with a fix hint for every red item.
+**Is my machine ready?** The app ships with a built-in **System check** (🩺 in the top bar; it also opens automatically when the engine can't be reached): it verifies WSL (on Windows), Node ≥ 20, the Claude Code CLI, the engine service, the port and the update channel, with a fix hint for every red item.
 
 ## Configuration (`~/.claude-cockpit/`)
 
