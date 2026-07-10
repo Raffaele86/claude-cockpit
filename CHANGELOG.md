@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.19.0
+- **Auto-update** (Windows installer): the app checks GitHub Releases on startup via electron-updater, downloads new versions in the background and offers to restart when ready. Update errors are logged and never block startup
+- **Update notice** (portable & macOS builds): these builds can't update themselves (portable by nature, mac zips are unsigned), so on startup they compare their version with the latest GitHub release and, if newer, offer to open the download page
+- Releases now ship `latest.yml` + blockmap next to the installers so the updater has a feed to read
+
 ## 0.18.0
 - **Dynamic providers**: the provider chips (Claude / GLM / …) and the model selector are now built from `providers.json`, not hardcoded. Add any number of alternative providers; each gets its config dir, default model and selector model list. Settings → Providers is a per-provider editor (add/remove rows)
 - **OpenRouter support** (all models, free included) via a local claude-code-router bridge: docs/providers.md has the full recipe (ccr on 127.0.0.1:3456 translating Claude Code ↔ OpenRouter). The native OpenRouter Anthropic endpoint only serves Anthropic models, hence the bridge

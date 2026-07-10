@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, session, Menu, Notification } = require('electron');
+const { app, BrowserWindow, ipcMain, session, Menu, Notification, dialog, shell } = require('electron');
 const { spawn, execFileSync } = require('node:child_process');
 const { existsSync, readFileSync, writeFileSync } = require('node:fs');
 const { homedir } = require('node:os');
@@ -210,6 +210,48 @@ function createWindow() {
   }
 }
 
+// Auto-update: install nsis su Windows → electron-updater (GitHub Releases);
+// portable e mac (zip non firmata) non possono auto-applicare l'update → solo avviso con link.
+// Mai bloccante: offline o API giù = silenzio.
+function setupAutoUpdate() {
+  if (!app.isPackaged) return;
+  const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR;
+  if (process.platform === 'win32' && !isPortable) {
+    try {
+      const { autoUpdater } = require('electron-updater');
+      autoUpdater.on('error', (err) => process.stdout.write(`[updater] ${err?.message || err}\n`));
+      autoUpdater.on('update-downloaded', (info) => {
+        dialog.showMessageBox({
+          type: 'info',
+          buttons: ['Restart now', 'Later'],
+          defaultId: 0,
+          message: `Update v${info.version} ready`,
+          detail: 'It will be installed when the app restarts.',
+        }).then((r) => { if (r.response === 0) autoUpdater.quitAndInstall(); });
+      });
+      autoUpdater.checkForUpdates().catch(() => {});
+    } catch { /* electron-updater non pacchettizzato: nessun auto-update */ }
+    return;
+  }
+  fetch('https://api.github.com/repos/Raffaele86/claude-cockpit/releases/latest', {
+    headers: { accept: 'application/vnd.github+json' },
+  })
+    .then((r) => (r.ok ? r.json() : null))
+    .then((rel) => {
+      const latest = rel?.tag_name?.replace(/^v/, '');
+      const current = app.getVersion();
+      if (!latest || latest.localeCompare(current, undefined, { numeric: true }) <= 0) return;
+      dialog.showMessageBox({
+        type: 'info',
+        buttons: ['Open download page', 'Ignore'],
+        defaultId: 0,
+        message: `Claude Cockpit v${latest} is available`,
+        detail: 'This build cannot update itself — download the new version from the releases page.',
+      }).then((r) => { if (r.response === 0) shell.openExternal(rel.html_url); });
+    })
+    .catch(() => {});
+}
+
 ipcMain.handle('get-token', () => readToken());
 ipcMain.handle('start-engine', () => startEngine());
 ipcMain.handle('notify', (_e, payload) => doNotify(payload || {}));
@@ -237,6 +279,7 @@ app.whenReady().then(() => {
     });
   }
   createWindow();
+  setupAutoUpdate();
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

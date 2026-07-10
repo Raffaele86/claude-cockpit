@@ -6,12 +6,19 @@ directories:
   output: dist-win
   buildResources: build
 
-# main.cjs usa solo built-in Electron; React/marked/xterm sono già in dist/ (bundle Vite).
-# Nessuna dependency runtime → niente node_modules nel pacchetto (pacchetto snello, zero native deps).
+# main.cjs usa built-in Electron + electron-updater (unica dependency runtime, inclusa
+# automaticamente da electron-builder); React/marked/xterm sono già in dist/ (bundle Vite).
 files:
   - electron/**
   - dist/**
   - package.json
+
+# Genera latest.yml + blockmap per l'auto-update (electron-updater legge le GitHub Releases).
+# L'upload NON parte da qui (default --publish never): lo fa scripts/build-raffa.sh --release.
+publish:
+  provider: github
+  owner: Raffaele86
+  repo: claude-cockpit
 
 # portable + nsis (nsis richiede wine + wine32:i386 per makensis a 32 bit).
 win:
