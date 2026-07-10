@@ -22,7 +22,7 @@ interface Props {
 export function Inbox({ entries, onOpen, onStop, onClose }: Props) {
   const { ref, style, onBarMouseDown } = useDragWin();
   return (
-    <div className="float-win doctor" ref={ref} style={style}>
+    <div className="float-win doctor inbox-win" ref={ref} style={style}>
       <div className="float-bar" onMouseDown={onBarMouseDown}>
         <strong>{t('inboxTitle')}</strong>
         <button className="mini ghost" onClick={onClose}>

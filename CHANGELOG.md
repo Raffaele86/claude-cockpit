@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.24.1
+- Fix: the Checkpoints/Usage/Inbox/System-check panels had a transparent background (the backdrop came from a class they didn't use) and all opened stacked dead-center. Panels now have their own solid background and bar styling, and each opens at a slightly different position so they don't pile up
+
 ## 0.24.0
 - **Operational inbox**: each 📥 row now shows a 🔐 icon when that session is waiting for a permission decision (rows with pending permissions float to the top) and gets a ⏹ stop button while working — interrupt any session without leaving the panel. Also fixed: permission prompts raised by secondary tabs now surface correctly when you switch to that tab
 - **1-click config backup**: Settings → Engine gains Export/Import for the whole `~/.claude-cockpit` configuration (providers, Telegram, quick actions, projects, notifications). Import is whitelisted server-side — the engine token and runtime state are never exported nor accepted. The backup contains secrets: treat it like a password

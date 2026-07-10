@@ -1133,11 +1133,31 @@ body {
   transform: translate(-50%, -50%);
   z-index: 50;
   box-shadow: 0 16px 48px rgba(0, 0, 0, 0.55);
+  /* v0.24.1: sfondo/bordo sulla classe base — i pannelli senza .md-viewer erano trasparenti */
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
 }
 .float-win .md-viewer-bar {
   cursor: move;
   user-select: none;
 }
+/* v0.24.1: barra dei pannelli doctor/checkpoint/uso/inbox (prima non stilizzata) */
+.float-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  cursor: move;
+  user-select: none;
+}
+.float-bar button:last-child { margin-left: auto; }
+/* Offset di apertura diversi: pannelli aperti insieme non si impilano nello stesso punto */
+.float-win.usage-win { left: 53%; top: 46%; }
+.float-win.inbox-win { left: 47%; top: 54%; }
+.float-win.cp-win { left: 50%; top: 58%; }
 .md-viewer {
   width: min(900px, 95vw);
   max-height: 90vh;

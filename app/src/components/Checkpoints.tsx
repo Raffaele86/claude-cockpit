@@ -25,7 +25,7 @@ export function Checkpoints({ checkpoints, busy, error, onCreate, onRestore, onC
   const [armed, setArmed] = useState<string | null>(null); // file in attesa di conferma restore
 
   return (
-    <div className="float-win doctor" ref={ref} style={style}>
+    <div className="float-win doctor cp-win" ref={ref} style={style}>
       <div className="float-bar" onMouseDown={onBarMouseDown}>
         <strong>{t('cpTitle')}</strong>
         <button className="mini ghost" onClick={onClose}>

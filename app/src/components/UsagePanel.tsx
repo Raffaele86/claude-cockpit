@@ -48,7 +48,7 @@ export function UsagePanel({ days, onClose }: Props) {
   );
 
   return (
-    <div className="float-win doctor" ref={ref} style={style}>
+    <div className="float-win doctor usage-win" ref={ref} style={style}>
       <div className="float-bar" onMouseDown={onBarMouseDown}>
         <strong>{t('usageTitle')}</strong>
         <button className="mini ghost" onClick={onClose}>
