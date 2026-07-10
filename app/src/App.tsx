@@ -99,6 +99,8 @@ export function App() {
   const [usageDays, setUsageDays] = useState<UsageDay[] | null>(null);
   const [inboxOpen, setInboxOpen] = useState(false);
   const [cliActive, setCliActive] = useState<Record<string, boolean>>({}); // ev pty_activity: schede CLI con output recente
+  const [ptySession, setPtySession] = useState<Record<string, string>>({}); // chiave → sessionId del pty claude (per i titoli)
+  const sessionsReqAt = useRef<Record<string, number>>({}); // base → ts ultima sessions_list (throttle titoli)
   const [catalog, setCatalog] = useState<Record<string, CatalogModel[]>>({});
   const [catalogLoading, setCatalogLoading] = useState<Record<string, boolean>>({});
   const activeProjectRef = useRef(''); // per gli handler WS (chiusura stabile)
@@ -108,6 +110,15 @@ export function App() {
   useEffect(() => {
     if (cpOpen && activeProject) client.current?.send({ op: 'checkpoint_list', project: activeProject });
   }, [cpOpen, activeProject]);
+
+  // Titoli sessione: al cambio progetto carica la cronologia (fonte dei summary), con throttle.
+  useEffect(() => {
+    if (!activeProject) return;
+    if (Date.now() - (sessionsReqAt.current[activeProject] ?? 0) > 15_000) {
+      sessionsReqAt.current[activeProject] = Date.now();
+      client.current?.send({ op: 'sessions_list', project: activeProject });
+    }
+  }, [activeProject]);
 
   // Report uso: richiesto a ogni apertura del pannello (l'engine ha la sua cache incrementale).
   useEffect(() => {
@@ -441,6 +452,14 @@ export function App() {
               msg.subtype === 'success' ? `${msg.result?.slice(0, 140) ?? t('completed')}\n${summary}` : t('resultError')(msg.subtype),
             );
           }
+          {
+            // Titoli sessione: a fine task il summary può essere nato/cambiato (throttle 15s per base).
+            const base = msg.project.split('##')[0];
+            if (Date.now() - (sessionsReqAt.current[base] ?? 0) > 15_000) {
+              sessionsReqAt.current[base] = Date.now();
+              client.current?.send({ op: 'sessions_list', project: base });
+            }
+          }
           if (SMOKE === '1') {
             const st = projectsRef.current[msg.project];
             const last = st?.items.filter((i) => i.kind === 'assistant').at(-1);
@@ -483,6 +502,9 @@ export function App() {
           break;
         case 'pty_activity':
           setCliActive((m) => ({ ...m, [msg.project]: msg.active }));
+          break;
+        case 'pty_attach_ok':
+          if (msg.cmd === 'claude' && msg.sessionId) setPtySession((m) => ({ ...m, [msg.project]: msg.sessionId! }));
           break;
         case 'mcp_export': {
           // Scarica il file: stesso formato di ~/.claude.json (chiave mcpServers) → reimportabile ovunque.
@@ -722,6 +744,19 @@ export function App() {
     }
     return m;
   }, [projects, cliActive]);
+  // Titolo sessione per chiave-canale: sessionId (chat o pty) → summary dalla cronologia del progetto base.
+  const titleByKey = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const key of new Set([...Object.keys(projects), ...Object.keys(ptySession)])) {
+      const base = key.split('##')[0];
+      const sid = projects[key]?.sessionId ?? ptySession[key];
+      if (!sid) continue;
+      const s = projects[base]?.sessions.find((x) => x.sessionId === sid);
+      if (s?.summary && s.summary !== '(senza titolo)') m[key] = s.summary;
+    }
+    return m;
+  }, [projects, ptySession]);
+
   // Inbox: una voce per ogni sessione con attività — chat (items/busy) o CLI (pty con output recente).
   const inboxEntries = useMemo(() => {
     const entries = Object.entries(projects)
@@ -731,6 +766,7 @@ export function App() {
         return {
           key,
           name: shortOf(key),
+          title: titleByKey[key],
           busy: s.busy || !!cliActive[key],
           snippet: (last && 'text' in last ? last.text : '').replace(/\s+/g, ' ').slice(0, 80) || (cliActive[key] ? t('inboxCliActive') : ''),
           costUsd: s.costUsd,
@@ -738,10 +774,10 @@ export function App() {
       });
     // Schede CLI attive mai aperte in questo client (nessuno stato locale): voce minima.
     for (const [key, active] of Object.entries(cliActive)) {
-      if (active && !projects[key]) entries.push({ key, name: shortOf(key), busy: true, snippet: t('inboxCliActive'), costUsd: 0 });
+      if (active && !projects[key]) entries.push({ key, name: shortOf(key), title: titleByKey[key], busy: true, snippet: t('inboxCliActive'), costUsd: 0 });
     }
     return entries.sort((a, b) => Number(b.busy) - Number(a.busy));
-  }, [projects, cliActive]);
+  }, [projects, cliActive, titleByKey]);
   const busyCount = inboxEntries.filter((e) => e.busy).length;
   const openFromInbox = useCallback((key: string) => {
     const [base, tab] = key.split('##');
@@ -757,6 +793,14 @@ export function App() {
     }
     return m;
   }, [projects, tabs, activeProject, cliActive]);
+  const tabTitles = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const t of tabs) {
+      const title = titleByKey[t === 'main' ? activeProject : `${activeProject}##${t}`];
+      if (title) m[t] = title;
+    }
+    return m;
+  }, [tabs, activeProject, titleByKey]);
 
   return (
     <div className="app">
@@ -1148,6 +1192,7 @@ export function App() {
               tabs={tabs}
               active={activeTab}
               busy={tabBusy}
+              titles={tabTitles}
               onSelect={(t) => setActiveTabByProject((prev) => ({ ...prev, [activeProject]: t }))}
               onAdd={addTab}
               onClose={(t) => {

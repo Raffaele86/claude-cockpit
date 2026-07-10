@@ -1,12 +1,12 @@
 // Gateway Telegram: chatta col Cockpit da Telegram (testo + memo vocali),
 // permessi con bottoni inline, notifiche risultato. Config in ~/.claude-cockpit/telegram.json;
 // file assente = gateway spento. Solo il chatId configurato è autorizzato.
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { COCKPIT_DIR } from './auth.js';
 import { transcribeAudio } from './stt.js';
-import type { ServerMsg } from './protocol.js';
+import type { ProjectEntry, ServerMsg } from './protocol.js';
 
 interface TelegramConfig {
   botToken: string;
@@ -25,6 +25,8 @@ export interface GatewayDeps {
   decidePermission: (requestId: string, decision: 'allow-once' | 'allow-always' | 'deny') => boolean;
   /** Registra un listener sugli eventi broadcast dell'engine; ritorna la funzione di unsubscribe. */
   subscribe: (fn: (msg: ServerMsg) => void) => () => void;
+  /** Registry progetti della sidebar (per /project). */
+  listProjects: () => ProjectEntry[];
 }
 
 /** Handle del gateway: stop() ferma polling e listener (per l'hot-reload da impostazioni). */
@@ -46,7 +48,19 @@ export function startTelegramGateway(deps: GatewayDeps): TelegramGateway | null 
   const cfg = loadConfig();
   if (!cfg) return null;
   const api = `https://api.telegram.org/bot${cfg.botToken}`;
-  const project = cfg.project ?? homedir();
+  let project = cfg.project ?? homedir(); // cambia a runtime con /project
+  let projectMenu: ProjectEntry[] = []; // lista mostrata dall'ultimo /project (i callback usano l'indice)
+
+  // Persisti il progetto scelto (il file contiene segreti → mode 0600, merge non distruttivo).
+  function persistProject(path: string): void {
+    try {
+      const raw = JSON.parse(readFileSync(join(COCKPIT_DIR, 'telegram.json'), 'utf8')) as Record<string, unknown>;
+      raw.project = path;
+      writeFileSync(join(COCKPIT_DIR, 'telegram.json'), JSON.stringify(raw, null, 2) + '\n', { mode: 0o600 });
+    } catch (err) {
+      console.error('[telegram] persistenza progetto fallita:', String(err));
+    }
+  }
 
   async function call(method: string, payload: Record<string, unknown>, signal?: AbortSignal): Promise<unknown> {
     const res = await fetch(`${api}/${method}`, {
@@ -112,8 +126,17 @@ export function startTelegramGateway(deps: GatewayDeps): TelegramGateway | null 
     } else if (text === '/status') {
       const s = deps.status(project);
       sendText(`Progetto: ${project}\nStato: ${s.busy ? '⏳ al lavoro' : '✅ libero'}\nModello: ${s.model ?? 'default'}`);
+    } else if (text === '/project') {
+      projectMenu = deps.listProjects();
+      if (!projectMenu.length) {
+        sendText('Nessun progetto nel registry.');
+      } else {
+        // callback_data max 64 byte → indice nella lista appena mostrata, mai il path.
+        const rows = projectMenu.map((p, i) => [{ text: `${p.icon ?? '📁'} ${p.name}${p.path === project ? ' ✓' : ''}`, callback_data: `proj|${i}` }]);
+        sendText('Scegli il progetto attivo:', { reply_markup: { inline_keyboard: rows } });
+      }
     } else if (text === '/start') {
-      sendText(`Cockpit pronto su ${project}. Scrivi (o manda un vocale) e rispondo. Comandi: /stop /nuova /status`);
+      sendText(`Cockpit pronto su ${project}. Scrivi (o manda un vocale) e rispondo. Comandi: /stop /nuova /status /project`);
     } else {
       deps.prompt(project, text);
     }
@@ -121,8 +144,19 @@ export function startTelegramGateway(deps: GatewayDeps): TelegramGateway | null 
 
   async function handleCallback(cb: { id: string; from: { id: number }; data?: string }): Promise<void> {
     if (cb.from.id !== cfg!.chatId || !cb.data) return;
-    const [decision, requestId] = cb.data.split('|') as ['allow-once' | 'allow-always' | 'deny', string];
-    const ok = deps.decidePermission(requestId, decision);
+    const [kind, arg] = cb.data.split('|');
+    if (kind === 'proj') {
+      const entry = projectMenu[Number(arg)];
+      if (entry) {
+        project = entry.path;
+        persistProject(entry.path);
+        sendText(`📁 Progetto attivo: ${entry.name} (${entry.path})`);
+      }
+      await call('answerCallbackQuery', { callback_query_id: cb.id, text: entry ? entry.name : 'Lista scaduta, rifai /project' });
+      return;
+    }
+    const decision = kind as 'allow-once' | 'allow-always' | 'deny';
+    const ok = deps.decidePermission(arg, decision);
     await call('answerCallbackQuery', {
       callback_query_id: cb.id,
       text: ok ? (decision === 'deny' ? 'Negato' : 'Consentito') : 'Richiesta scaduta',

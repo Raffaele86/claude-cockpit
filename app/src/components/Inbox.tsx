@@ -4,6 +4,7 @@ import { useDragWin } from './useDragWin';
 export interface InboxEntry {
   key: string; // chiave canale (path o path##tab)
   name: string;
+  title?: string; // titolo sessione (summary), se noto
   busy: boolean;
   snippet: string; // ultimo testo assistant, troncato
   costUsd: number;
@@ -27,6 +28,7 @@ export function Inbox({ entries, onOpen, onClose }: { entries: InboxEntry[]; onO
           <button key={e.key} className="inbox-row" onClick={() => onOpen(e.key)}>
             <span>{e.busy ? '⏳' : '✓'}</span>
             <span className="inbox-name">{e.name}</span>
+            {e.title && <span className="inbox-title">{e.title}</span>}
             <span className="inbox-snippet">{e.snippet}</span>
             {e.costUsd > 0 && <span className="inbox-cost">${e.costUsd.toFixed(2)}</span>}
           </button>

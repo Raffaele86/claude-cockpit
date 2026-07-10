@@ -18,7 +18,7 @@ import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 import { logUsage, usageReport } from './usage.js';
 
-const ENGINE_VERSION = '0.22.0';
+const ENGINE_VERSION = '0.23.0';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -1009,7 +1009,7 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       } else {
         channel.resize(msg.cols, msg.rows);
       }
-      send(ws, { ev: 'pty_attach_ok', ptyId, project: key, cmd: msg.cmd, scrollback: channel.scrollback() });
+      send(ws, { ev: 'pty_attach_ok', ptyId, project: key, cmd: msg.cmd, scrollback: channel.scrollback(), sessionId: channel.sessionId });
       break;
     }
     case 'pty_input':
@@ -1114,6 +1114,7 @@ function launchTelegram(): TelegramGateway | null {
       eventListeners.add(fn);
       return () => eventListeners.delete(fn);
     },
+    listProjects: () => loadProjects(),
   });
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type KeyboardEvent } from 'react';
+import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent, type KeyboardEvent } from 'react';
 import { t } from '../strings';
 import type { CockpitClient } from '../ws';
 import { useDictation } from './useDictation';
@@ -17,10 +17,15 @@ interface Props {
 }
 
 const IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp']);
+const TEXT_EXTS = new Set(['md', 'txt', 'log', 'json', 'csv', 'yml', 'yaml']);
+const TEXT_FILE_CAP = 100 * 1024; // oltre: rifiutato con messaggio
+const DROP_FILES_CAP = 5;
 
 export function Composer({ disabled, busy, queued, slashCommands, client, onSend, onInterrupt, insertRef }: Props) {
   const [text, setText] = useState('');
   const [images, setImages] = useState<ImageAttachment[]>([]);
+  const [dragOver, setDragOver] = useState(false);
+  const [dropMsg, setDropMsg] = useState<string | null>(null);
   const ref = useRef<HTMLTextAreaElement>(null);
   const clientRef = useRef(client);
   clientRef.current = client;
@@ -58,6 +63,33 @@ export function Composer({ disabled, busy, queued, slashCommands, client, onSend
     setImages([]);
   }
 
+  // Condiviso da incolla e drag&drop: immagini → allegati; file di testo → blocco citato nel testo.
+  function addFiles(files: File[]): void {
+    for (const f of files.slice(0, DROP_FILES_CAP)) {
+      if (IMAGE_TYPES.has(f.type)) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const dataUrl = String(reader.result); // "data:image/png;base64,...."
+          const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
+          setImages((prev) => [...prev, { media_type: f.type as ImageAttachment['media_type'], data: base64 }]);
+        };
+        reader.readAsDataURL(f);
+      } else if (f.type.startsWith('text/') || TEXT_EXTS.has(f.name.split('.').at(-1)?.toLowerCase() ?? '')) {
+        if (f.size > TEXT_FILE_CAP) {
+          setDropMsg(t('dropTooBig')(f.name));
+          continue;
+        }
+        const reader = new FileReader();
+        reader.onload = () => {
+          setText((prev) => `${prev}${prev ? '\n\n' : ''}[${f.name}]\n\`\`\`\n${String(reader.result)}\n\`\`\`\n`);
+        };
+        reader.readAsText(f);
+      } else {
+        setDropMsg(t('dropUnsupported')(f.name));
+      }
+    }
+  }
+
   function onPaste(e: ClipboardEvent<HTMLTextAreaElement>) {
     const files = Array.from(e.clipboardData?.items ?? [])
       .filter((it) => it.kind === 'file' && IMAGE_TYPES.has(it.type))
@@ -65,15 +97,15 @@ export function Composer({ disabled, busy, queued, slashCommands, client, onSend
       .filter((f): f is File => f !== null);
     if (files.length === 0) return;
     e.preventDefault();
-    for (const f of files) {
-      const reader = new FileReader();
-      reader.onload = () => {
-        const dataUrl = String(reader.result); // "data:image/png;base64,...."
-        const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
-        setImages((prev) => [...prev, { media_type: f.type as ImageAttachment['media_type'], data: base64 }]);
-      };
-      reader.readAsDataURL(f);
-    }
+    addFiles(files);
+  }
+
+  function onDrop(e: DragEvent<HTMLDivElement>) {
+    e.preventDefault();
+    setDragOver(false);
+    if (disabled) return;
+    addFiles(Array.from(e.dataTransfer?.files ?? []));
+    ref.current?.focus();
   }
 
   function pick(cmd: string) {
@@ -95,7 +127,15 @@ export function Composer({ disabled, busy, queued, slashCommands, client, onSend
   }
 
   return (
-    <div className="composer-wrap">
+    <div
+      className={dragOver ? 'composer-wrap drop-hover' : 'composer-wrap'}
+      onDragOver={(e) => {
+        e.preventDefault();
+        setDragOver(true);
+      }}
+      onDragLeave={() => setDragOver(false)}
+      onDrop={onDrop}
+    >
       {matches.length > 0 && (
         <div className="slash-palette">
           {matches.map((c) => (
@@ -109,6 +149,12 @@ export function Composer({ disabled, busy, queued, slashCommands, client, onSend
         <div className="mic-msg">
           {mic.msg}
           <button onClick={() => mic.setMsg(null)}>✕</button>
+        </div>
+      )}
+      {dropMsg && (
+        <div className="mic-msg">
+          {dropMsg}
+          <button onClick={() => setDropMsg(null)}>✕</button>
         </div>
       )}
       {(images.length > 0 || queued > 0) && (

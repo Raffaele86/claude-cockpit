@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.23.0
+- **Telegram `/project`**: the gateway is no longer pinned to one project — `/project` lists your sidebar projects as buttons, switching applies immediately (prompts, /status, result notifications) and persists across engine restarts
+- **Session titles everywhere**: tabs show the session's real title (the same AI title you see in History) instead of "Chat 2", and the inbox rows show it too. Works for CLI tabs as well (the engine now reports which session each terminal owns)
+- **Drag & drop in the composer**: drop screenshots/images to attach them (same pipeline as paste) and drop text files (.md .txt .log .json .csv, max 100 kB) to quote their content in the message; drop target highlights while dragging
+
 ## 0.22.0
 - **CLI tabs in the inbox**: the engine now tracks pty output and broadcasts a working/idle state (recent output = working, 3s idle window) — CLI tabs finally show up in the 📥 inbox, in the badge count, and get busy dots on tabs and in the project rail
 - **Panels are phone-friendly**: every floating window (Settings, System check, Checkpoints, Usage, Inbox) goes full-screen on small screens with a scrollable body, like the Markdown reader already did

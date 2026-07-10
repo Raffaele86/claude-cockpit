@@ -2141,6 +2141,13 @@ body {
 .inbox-name { font-weight: 600; flex-shrink: 0; }
 .inbox-snippet { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .inbox-cost { color: var(--text-dim); font-size: 11px; flex-shrink: 0; }
+/* v0.23: drag&drop nel composer */
+.composer-wrap.drop-hover .composer { outline: 2px dashed var(--accent, #D97757); outline-offset: -2px; border-radius: 8px; }
+
+/* v0.23: titoli sessione su schede/inbox */
+.tab-label { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; vertical-align: bottom; }
+.inbox-title { color: var(--text-dim); flex-shrink: 0; max-width: 30%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
 .has-badge { position: relative; }
 .badge-busy { position: absolute; top: -4px; right: -4px; min-width: 14px; height: 14px; border-radius: 7px; background: var(--accent, #D97757); color: #fff; font-size: 10px; line-height: 14px; text-align: center; padding: 0 3px; }
 

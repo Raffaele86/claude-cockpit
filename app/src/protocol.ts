@@ -182,7 +182,7 @@ export type ServerMsg =
       input: unknown;
       suggestions?: unknown[];
     }
-  | { ev: 'pty_attach_ok'; ptyId: string; project: string; cmd: 'claude' | 'shell'; scrollback: string } // scrollback base64
+  | { ev: 'pty_attach_ok'; ptyId: string; project: string; cmd: 'claude' | 'shell'; scrollback: string; sessionId?: string } // scrollback base64; sessionId = sessione assegnata al pty claude (per i titoli)
   | { ev: 'pty_data'; ptyId: string; data: string } // base64
   | { ev: 'pty_exit'; ptyId: string; exitCode: number }
   | { ev: 'pty_activity'; project: string; active: boolean } // output pty negli ultimi secondi (euristica "sta lavorando" per inbox/badge)
