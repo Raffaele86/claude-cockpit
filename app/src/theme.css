@@ -2122,6 +2122,19 @@ body {
 .cp-label { flex: 1; min-width: 0; background: var(--bg-soft, transparent); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 13px; padding: 4px 8px; }
 .doc-check > .mini { margin-left: auto; flex-shrink: 0; }
 
+/* v0.21: pannello uso/costi + inbox */
+.usage-scroll { max-height: 40vh; overflow-y: auto; }
+.usage-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.usage-table th, .usage-table td { text-align: right; padding: 3px 8px; border-bottom: 1px solid var(--border); }
+.usage-table th:first-child, .usage-table td:first-child { text-align: left; }
+.inbox-row { display: flex; gap: 8px; align-items: center; width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--border); color: var(--text); padding: 6px 4px; cursor: pointer; font-size: 13px; }
+.inbox-row:hover { background: var(--bg-soft, rgba(128,128,128,0.08)); }
+.inbox-name { font-weight: 600; flex-shrink: 0; }
+.inbox-snippet { color: var(--text-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.inbox-cost { color: var(--text-dim); font-size: 11px; flex-shrink: 0; }
+.has-badge { position: relative; }
+.badge-busy { position: absolute; top: -4px; right: -4px; min-width: 14px; height: 14px; border-radius: 7px; background: var(--accent, #D97757); color: #fff; font-size: 10px; line-height: 14px; text-align: center; padding: 0 3px; }
+
 /* v0.18: editor provider multipli */
 .prov-row { border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; margin-bottom: 8px; }
 .prov-row-head { display: flex; gap: 6px; align-items: center; margin-bottom: 4px; }

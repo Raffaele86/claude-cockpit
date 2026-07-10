@@ -133,7 +133,11 @@ export function startTelegramGateway(deps: GatewayDeps): TelegramGateway | null 
   const unsubscribe = deps.subscribe((msg) => {
     if (!('project' in msg) || msg.project !== project) return;
     if (msg.ev === 'result') {
-      sendText(msg.is_error ? `⚠️ errore: ${msg.subtype}` : (msg.result ?? 'completato'));
+      sendText(
+        msg.is_error
+          ? `⚠️ errore: ${msg.subtype}`
+          : `${msg.result ?? 'completato'}\n\n💰 $${(msg.cost_usd || 0).toFixed(2)} · ${msg.num_turns} turni`,
+      );
     } else if (msg.ev === 'permission_request') {
       const input = JSON.stringify(msg.input ?? {}).slice(0, 500);
       sendText(`🔐 Permesso: ${msg.toolName}\n${input}`, {

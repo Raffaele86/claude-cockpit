@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.21.0
+- **Automatic file checkpoints** (opt-in, Settings → Engine): with the toggle on, the engine snapshots the project files before every chat prompt (at most one every 10 minutes) — if a task goes wrong, the rewind is always there in the 📸 panel
+- **Usage dashboard** (📊): tokens per day/provider/project over the last 30 days, read from the real session transcripts of every configured provider. Dollar costs are shown only where the engine recorded them at task end (recording starts with this release — no per-model price estimates). First open scans the transcripts and can take a few seconds; later opens use an incremental cache
+- **Richer task-done notifications**: desktop/ntfy notifications now include cost, turn count and the files edited (up to 3 + count); Telegram adds cost and turns to the result message
+- **Sessions inbox** (📥): one panel listing every open chat session across projects and tabs — busy state, last reply snippet, cumulative cost; click a row to jump there. The button badge counts the sessions currently working. CLI tabs are not tracked (their prompts don't go through the engine)
+
 ## 0.20.0
 - **Export transcript**: new button in the Chat view downloads the current conversation as a Markdown file (user/assistant text, tools compacted to one line; in the CLI view use the native `/export`)
 - **File checkpoints**: new 📸 panel snapshots the project files (tar.gz, node_modules/.git/build dirs excluded) and restores any snapshot with one click. A `pre-restore` safety snapshot is taken before every restore; the engine keeps the last 5 per project. Restoring brings files back to the snapshot state but does not delete files created afterwards

@@ -31,6 +31,7 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
   const [provs, setProvs] = useState<{ name: string; configDir: string; model: string; models: string; modelsUrl: string; modelPrefix: string }[]>([]);
   const [hosts, setHosts] = useState('');
   const [defaultMode, setDefaultMode] = useState('default');
+  const [autoCheckpoint, setAutoCheckpoint] = useState(false);
   const [qa, setQa] = useState<QuickActionEntry[]>([]);
   const [notifyCfg, setNotifyCfg] = useState<NotifyCfg | null>(null);
   const [lang, setLang] = useState(() => localStorage.getItem('cockpit-lang') ?? '');
@@ -53,6 +54,7 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
     );
     setHosts(snapshot.data.engine.hosts.join('\n'));
     setDefaultMode(snapshot.data.engine.defaultPermissionMode ?? 'default');
+    setAutoCheckpoint(snapshot.data.engine.autoCheckpoint ?? false);
     setQa(snapshot.data.quickactions);
     setLoaded(true);
   }, [snapshot, loaded]);
@@ -81,6 +83,7 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
       engine: {
         hosts: hosts.split('\n').map((h) => h.trim()).filter(Boolean),
         defaultPermissionMode: defaultMode as CockpitSettings['engine']['defaultPermissionMode'],
+        autoCheckpoint,
       },
       quickactions: qa,
     });
@@ -262,6 +265,11 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
                     <option value="bypassPermissions">Bypass</option>
                   </select>
                 </label>
+                <label className="set-check">
+                  <input type="checkbox" checked={autoCheckpoint} onChange={(e) => setAutoCheckpoint(e.target.checked)} />
+                  {t('autoCheckpointLbl')}
+                </label>
+                <p className="set-hint">{t('autoCheckpointHint')}</p>
                 <label className="set-field">
                   {t('engineHosts')}
                   <textarea rows={3} value={hosts} onChange={(e) => setHosts(e.target.value)} />

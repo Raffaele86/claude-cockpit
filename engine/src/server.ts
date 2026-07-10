@@ -16,8 +16,9 @@ import { randomUUID } from 'node:crypto';
 import { startTelegramGateway, type TelegramGateway } from './telegram.js';
 import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
+import { logUsage, usageReport } from './usage.js';
 
-const ENGINE_VERSION = '0.20.0';
+const ENGINE_VERSION = '0.21.0';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -186,7 +187,7 @@ function forwardSdkMessage(project: string, msg: SDKMessage): void {
     case 'user':
       broadcast({ ev: 'tool_result', project, message: msg.message });
       break;
-    case 'result':
+    case 'result': {
       broadcast({
         ev: 'result',
         project,
@@ -197,8 +198,18 @@ function forwardSdkMessage(project: string, msg: SDKMessage): void {
         num_turns: msg.num_turns,
         result: msg.subtype === 'success' ? msg.result : undefined,
       });
+      const u = (msg.usage ?? {}) as Record<string, number>;
+      logUsage({
+        ts: new Date().toISOString(),
+        project: cwdOf(project).replace(/[/.]/g, '-'),
+        provider: providerByProject.get(project) ?? 'claude',
+        costUsd: msg.total_cost_usd || 0,
+        inTok: (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0),
+        outTok: u.output_tokens || 0,
+      });
       void emitContext(project);
       break;
+    }
     default:
       // Altri tipi (status, hook, task, ...) non servono alla UI per ora.
       break;
@@ -427,9 +438,31 @@ function getOrCreateSession(projectPath: string, model?: string): CockpitSession
   return session;
 }
 
+// engine.json: checkpoint automatico pre-prompt (riletto a ogni prompt, come il default mode).
+function autoCheckpointEnabled(): boolean {
+  try {
+    const cfg = JSON.parse(readFileSync(join(COCKPIT_DIR, 'engine.json'), 'utf8')) as { autoCheckpoint?: boolean };
+    return cfg.autoCheckpoint === true;
+  } catch {
+    return false;
+  }
+}
+
+const AUTO_CHECKPOINT_DEBOUNCE_MS = 10 * 60_000;
+const lastAutoCheckpoint = new Map<string, number>(); // cwd → epoch ms ultimo snapshot auto
+
 /** Riusabili anche dal gateway Telegram. */
 function promptProject(projectPath: string, text: string, images?: import('./protocol.js').PromptImage[], model?: string): void {
   const project = normalizeProject(projectPath);
+  if (autoCheckpointEnabled()) {
+    const cwd = cwdOf(project);
+    const last = lastAutoCheckpoint.get(cwd) ?? 0;
+    if (Date.now() - last > AUTO_CHECKPOINT_DEBOUNCE_MS) {
+      lastAutoCheckpoint.set(cwd, Date.now());
+      // Fire-and-forget: non ritardare il prompt; la home viene rifiutata da checkpointCreate.
+      void checkpointCreate(cwd, 'auto', true).catch(() => {});
+    }
+  }
   busy.set(project, true);
   getOrCreateSession(project, model).prompt(text, images);
 }
@@ -775,6 +808,14 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
     case 'checkpoint_list': {
       const project = normalizeProject(msg.project);
       send(ws, { ev: 'checkpoint_list', project, checkpoints: checkpointList(cwdOf(project)) });
+      break;
+    }
+    case 'usage_report': {
+      try {
+        send(ws, { ev: 'usage_report', days: await usageReport(loadProviders()) });
+      } catch (err) {
+        send(ws, { ev: 'error', message: `usage_report: ${String(err)}` });
+      }
       break;
     }
     case 'checkpoint_restore': {

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CockpitClient, type ConnState } from './ws';
-import type { CatalogModel, CheckpointEntry, ProjectEntry, PtyLaunch, QuickActionEntry, ServerMsg } from './protocol';
+import type { CatalogModel, CheckpointEntry, ProjectEntry, PtyLaunch, QuickActionEntry, ServerMsg, UsageDay } from './protocol';
 import type { PermissionDecision } from './protocol';
 import { buildItemsFromMessages, emptyProject, itemsToMarkdown, toolResultText, type PendingPermission, type ProjectState, type QueuedPrompt, type Todo } from './model';
 import { ChatView } from './components/ChatView';
@@ -23,6 +23,8 @@ import { Checkpoints } from './components/Checkpoints';
 // Pannelli on-demand: chunk separati, caricati solo alla prima apertura.
 const Settings = lazy(() => import('./components/Settings').then((m) => ({ default: m.Settings })));
 const Doctor = lazy(() => import('./components/Doctor').then((m) => ({ default: m.Doctor })));
+const UsagePanel = lazy(() => import('./components/UsagePanel').then((m) => ({ default: m.UsagePanel })));
+const Inbox = lazy(() => import('./components/Inbox').then((m) => ({ default: m.Inbox })));
 import { useDictation } from './components/useDictation';
 import { t, LOCALE } from './strings';
 
@@ -93,6 +95,9 @@ export function App() {
   const [doctorOpen, setDoctorOpen] = useState(false);
   const [cpOpen, setCpOpen] = useState(false);
   const [cp, setCp] = useState<{ list: CheckpointEntry[]; busy: boolean; error: string | null }>({ list: [], busy: false, error: null });
+  const [usageOpen, setUsageOpen] = useState(false);
+  const [usageDays, setUsageDays] = useState<UsageDay[] | null>(null);
+  const [inboxOpen, setInboxOpen] = useState(false);
   const [catalog, setCatalog] = useState<Record<string, CatalogModel[]>>({});
   const [catalogLoading, setCatalogLoading] = useState<Record<string, boolean>>({});
   const activeProjectRef = useRef(''); // per gli handler WS (chiusura stabile)
@@ -102,6 +107,14 @@ export function App() {
   useEffect(() => {
     if (cpOpen && activeProject) client.current?.send({ op: 'checkpoint_list', project: activeProject });
   }, [cpOpen, activeProject]);
+
+  // Report uso: richiesto a ogni apertura del pannello (l'engine ha la sua cache incrementale).
+  useEffect(() => {
+    if (usageOpen) {
+      setUsageDays(null);
+      client.current?.send({ op: 'usage_report' });
+    }
+  }, [usageOpen]);
 
   // Doctor automatico: nell'app desktop, se dopo qualche secondo non siamo connessi
   // all'engine c'è quasi certamente un prerequisito mancante → apri la verifica.
@@ -409,10 +422,24 @@ export function App() {
             speechSynthesis.cancel();
             speechSynthesis.speak(u);
           }
-          notifyHidden(
-            t('taskDone')(shortOf(msg.project)),
-            msg.subtype === 'success' ? (msg.result?.slice(0, 140) ?? t('completed')) : t('resultError')(msg.subtype),
-          );
+          {
+            // Notifica ricca: risultato + costo/turni/file toccati (dalla timeline del progetto).
+            const st = projectsRef.current[msg.project];
+            const paths = [
+              ...new Set(
+                (st?.items ?? [])
+                  .filter((i) => i.kind === 'tool' && ['Edit', 'Write', 'MultiEdit', 'NotebookEdit'].includes(i.name) && i.status === 'done')
+                  .map((i) => String((i as { input: Record<string, unknown> }).input.file_path ?? '').split('/').at(-1))
+                  .filter(Boolean),
+              ),
+            ];
+            const files = paths.slice(0, 3).join(', ') + (paths.length > 3 ? ` (+${paths.length - 3})` : '');
+            const summary = t('notifSummary')(`$${(msg.cost_usd || 0).toFixed(2)}`, msg.num_turns, files);
+            notifyHidden(
+              t('taskDone')(shortOf(msg.project)),
+              msg.subtype === 'success' ? `${msg.result?.slice(0, 140) ?? t('completed')}\n${summary}` : t('resultError')(msg.subtype),
+            );
+          }
           if (SMOKE === '1') {
             const st = projectsRef.current[msg.project];
             const last = st?.items.filter((i) => i.kind === 'assistant').at(-1);
@@ -449,6 +476,9 @@ export function App() {
           break;
         case 'checkpoint_done':
           if (msg.project === activeProjectRef.current) setCp((s) => ({ ...s, busy: false, error: msg.error ?? null }));
+          break;
+        case 'usage_report':
+          setUsageDays(msg.days);
           break;
         case 'mcp_export': {
           // Scarica il file: stesso formato di ~/.claude.json (chiave mcpServers) → reimportabile ovunque.
@@ -685,6 +715,31 @@ export function App() {
     }
     return m;
   }, [projects]);
+  // Inbox: una voce per ogni sessione chat con attività (qualsiasi progetto/scheda), busy in testa.
+  const inboxEntries = useMemo(
+    () =>
+      Object.entries(projects)
+        .filter(([, s]) => s.busy || s.items.length > 0)
+        .map(([key, s]) => {
+          const last = s.items.filter((i) => i.kind === 'assistant').at(-1);
+          return {
+            key,
+            name: shortOf(key),
+            busy: s.busy,
+            snippet: (last && 'text' in last ? last.text : '').replace(/\s+/g, ' ').slice(0, 80),
+            costUsd: s.costUsd,
+          };
+        })
+        .sort((a, b) => Number(b.busy) - Number(a.busy)),
+    [projects],
+  );
+  const busyCount = inboxEntries.filter((e) => e.busy).length;
+  const openFromInbox = useCallback((key: string) => {
+    const [base, tab] = key.split('##');
+    setActiveProject(base);
+    setActiveTabByProject((m) => ({ ...m, [base]: tab ?? 'main' }));
+    setInboxOpen(false);
+  }, []);
   const tabBusy = useMemo(() => {
     const m: Record<string, boolean> = {};
     for (const t of tabs) m[t] = projects[t === 'main' ? activeProject : `${activeProject}##${t}`]?.busy ?? false;
@@ -954,6 +1009,13 @@ export function App() {
               ⚙️
             </button>
           )}
+          <button className={`has-badge ${inboxOpen ? 'mini on' : 'mini ghost'}`} title={t('inboxOpen')} onClick={() => setInboxOpen((o) => !o)}>
+            📥
+            {busyCount > 0 && <span className="badge-busy">{busyCount}</span>}
+          </button>
+          <button className={usageOpen ? 'mini on' : 'mini ghost'} title={t('usageOpen')} onClick={() => setUsageOpen((o) => !o)}>
+            📊
+          </button>
           <button
             className={cpOpen ? 'mini on' : 'mini ghost'}
             title={t('cpOpen')}
@@ -1003,6 +1065,16 @@ export function App() {
       {doctorOpen && (
         <Suspense fallback={null}>
           <Doctor connected={conn === 'authed'} onStartEngine={() => void window.cockpit?.startEngine()} onClose={() => setDoctorOpen(false)} />
+        </Suspense>
+      )}
+      {usageOpen && (
+        <Suspense fallback={null}>
+          <UsagePanel days={usageDays} onClose={() => setUsageOpen(false)} />
+        </Suspense>
+      )}
+      {inboxOpen && (
+        <Suspense fallback={null}>
+          <Inbox entries={inboxEntries} onOpen={openFromInbox} onClose={() => setInboxOpen(false)} />
         </Suspense>
       )}
       {cpOpen && (

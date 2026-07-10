@@ -60,7 +60,8 @@ export type ClientMsg =
   | { op: 'mcp_import'; project: string; servers: Record<string, unknown> } // importa via `claude mcp add-json` (scope user)
   | { op: 'checkpoint_create'; project: string; label?: string } // snapshot tar.gz della cwd del progetto
   | { op: 'checkpoint_list'; project: string }
-  | { op: 'checkpoint_restore'; project: string; file: string }; // file = nome archivio restituito da checkpoint_list
+  | { op: 'checkpoint_restore'; project: string; file: string } // file = nome archivio restituito da checkpoint_list
+  | { op: 'usage_report' }; // → ev usage_report (token per giorno/provider/progetto, ultimi 30gg)
 
 // Aggiunta server MCP (wrapper di `claude mcp add`): target = URL (http/sse) o comando completo (stdio);
 // headers = righe "Chiave: valore" (http/sse), env = righe "KEY=VALUE" (stdio).
@@ -94,7 +95,7 @@ export interface CockpitSettings {
     sttLanguage?: string; // 'auto' | codice ISO (es. 'it') — dettatura E vocali Telegram
   };
   providers: Record<string, { configDir: string; model?: string; models?: string[]; modelsUrl?: string; modelPrefix?: string }>; // chiave = nome provider; models = lista statica; modelsUrl = catalogo live (OpenRouter-style .data[].id), modelPrefix anteposto agli id
-  engine: { hosts: string[]; defaultPermissionMode?: PermissionModeName };
+  engine: { hosts: string[]; defaultPermissionMode?: PermissionModeName; autoCheckpoint?: boolean }; // autoCheckpoint: snapshot file pre-prompt (vista chat, debounce 10 min)
   quickactions: QuickActionEntry[];
 }
 
@@ -209,7 +210,20 @@ export type ServerMsg =
   | { ev: 'context'; project: string; totalTokens: number; maxTokens: number; percentage: number; branch?: string }
   | { ev: 'checkpoint_list'; project: string; checkpoints: CheckpointEntry[] }
   | { ev: 'checkpoint_done'; project: string; action: 'create' | 'restore'; error?: string }
+  | { ev: 'usage_report'; days: UsageDay[] }
   | { ev: 'error'; message: string; project?: string };
+
+// Una riga di aggregato uso: giorno × provider × progetto (slug). Token dai transcript (storico);
+// costUsd presente solo dove registrato dall'engine a fine task (nessun pricing stimato).
+export interface UsageDay {
+  date: string; // YYYY-MM-DD
+  provider: string; // 'claude' o chiave providers.json
+  project: string; // slug (~/.claude/projects/<slug>)
+  inTok: number; // input non-cache
+  cacheTok: number; // cache read + creation
+  outTok: number;
+  costUsd?: number;
+}
 
 // Snapshot dei file di progetto (tar.gz in ~/.claude-cockpit/checkpoints/<slug>/).
 export interface CheckpointEntry {

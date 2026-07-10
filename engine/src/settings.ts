@@ -26,13 +26,14 @@ type ProvidersFile = CockpitSettings['providers'];
 export function readSettings(): CockpitSettings {
   const tg = readJson<TelegramFile>(TELEGRAM_PATH, {});
   const providers = readJson<ProvidersFile>(PROVIDERS_PATH, {});
-  const engine = readJson<{ hosts?: string[]; host?: string; defaultPermissionMode?: CockpitSettings['engine']['defaultPermissionMode'] }>(ENGINE_PATH, {});
+  const engine = readJson<{ hosts?: string[]; host?: string; defaultPermissionMode?: CockpitSettings['engine']['defaultPermissionMode']; autoCheckpoint?: boolean }>(ENGINE_PATH, {});
   return {
     telegram: { ...tg, botToken: mask(tg.botToken), sttApiKey: mask(tg.sttApiKey) },
     providers,
     engine: {
       hosts: engine.hosts ?? (engine.host ? [engine.host] : ['127.0.0.1']),
       defaultPermissionMode: engine.defaultPermissionMode ?? 'default',
+      autoCheckpoint: engine.autoCheckpoint ?? false,
     },
     quickactions: loadQuickActions(),
   };
@@ -81,6 +82,7 @@ export function applySettings(patch: Partial<CockpitSettings>): { telegram: bool
       ...(patch.engine.defaultPermissionMode && patch.engine.defaultPermissionMode !== 'default'
         ? { defaultPermissionMode: patch.engine.defaultPermissionMode }
         : {}),
+      ...(patch.engine.autoCheckpoint ? { autoCheckpoint: true } : {}),
     });
     changed.engine = true;
   }
