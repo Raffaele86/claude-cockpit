@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CockpitClient, type ConnState } from './ws';
-import type { CatalogModel, ProjectEntry, PtyLaunch, QuickActionEntry, ServerMsg } from './protocol';
+import type { CatalogModel, CheckpointEntry, ProjectEntry, PtyLaunch, QuickActionEntry, ServerMsg } from './protocol';
 import type { PermissionDecision } from './protocol';
-import { buildItemsFromMessages, emptyProject, toolResultText, type PendingPermission, type ProjectState, type QueuedPrompt, type Todo } from './model';
+import { buildItemsFromMessages, emptyProject, itemsToMarkdown, toolResultText, type PendingPermission, type ProjectState, type QueuedPrompt, type Todo } from './model';
 import { ChatView } from './components/ChatView';
 import { Composer } from './components/Composer';
 import { TodoPanel } from './components/TodoPanel';
@@ -15,10 +15,14 @@ import { TerminalPanel } from './components/Terminal';
 import { McpStatus } from './components/McpStatus';
 import { SessionPicker } from './components/SessionPicker';
 import { MdViewer, type ViewerState } from './components/MdViewer';
-import { Settings, type SettingsSnapshot } from './components/Settings';
+import type { SettingsSnapshot } from './components/Settings';
 import { FileNav } from './components/FileNav';
 import { Tabs } from './components/Tabs';
-import { Doctor } from './components/Doctor';
+import { Checkpoints } from './components/Checkpoints';
+
+// Pannelli on-demand: chunk separati, caricati solo alla prima apertura.
+const Settings = lazy(() => import('./components/Settings').then((m) => ({ default: m.Settings })));
+const Doctor = lazy(() => import('./components/Doctor').then((m) => ({ default: m.Doctor })));
 import { useDictation } from './components/useDictation';
 import { t, LOCALE } from './strings';
 
@@ -87,10 +91,17 @@ export function App() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mcpImportMsg, setMcpImportMsg] = useState<string | null>(null);
   const [doctorOpen, setDoctorOpen] = useState(false);
+  const [cpOpen, setCpOpen] = useState(false);
+  const [cp, setCp] = useState<{ list: CheckpointEntry[]; busy: boolean; error: string | null }>({ list: [], busy: false, error: null });
   const [catalog, setCatalog] = useState<Record<string, CatalogModel[]>>({});
   const [catalogLoading, setCatalogLoading] = useState<Record<string, boolean>>({});
   const activeProjectRef = useRef(''); // per gli handler WS (chiusura stabile)
   const connRef = useRef<ConnState>('connecting');
+
+  // Checkpoint: la lista è per-progetto → ricaricala all'apertura del pannello e al cambio progetto.
+  useEffect(() => {
+    if (cpOpen && activeProject) client.current?.send({ op: 'checkpoint_list', project: activeProject });
+  }, [cpOpen, activeProject]);
 
   // Doctor automatico: nell'app desktop, se dopo qualche secondo non siamo connessi
   // all'engine c'è quasi certamente un prerequisito mancante → apri la verifica.
@@ -433,6 +444,12 @@ export function App() {
             branch: msg.branch,
           }));
           break;
+        case 'checkpoint_list':
+          if (msg.project === activeProjectRef.current) setCp((s) => ({ ...s, list: msg.checkpoints }));
+          break;
+        case 'checkpoint_done':
+          if (msg.project === activeProjectRef.current) setCp((s) => ({ ...s, busy: false, error: msg.error ?? null }));
+          break;
         case 'mcp_export': {
           // Scarica il file: stesso formato di ~/.claude.json (chiave mcpServers) → reimportabile ovunque.
           const blob = new Blob([JSON.stringify({ mcpServers: msg.servers }, null, 2)], { type: 'application/json' });
@@ -711,6 +728,22 @@ export function App() {
                   >
                     {t('history')}
                   </button>
+                  <button
+                    className="mini ghost"
+                    title={t('exportChatTitle')}
+                    disabled={!active.items.length}
+                    onClick={() => {
+                      const stamp = new Date().toISOString().slice(0, 16).replace(/[-T:]/g, '');
+                      const blob = new Blob([itemsToMarkdown(active.items)], { type: 'text/markdown' });
+                      const a = document.createElement('a');
+                      a.href = URL.createObjectURL(blob);
+                      a.download = `cockpit-transcript-${stamp}.md`;
+                      a.click();
+                      URL.revokeObjectURL(a.href);
+                    }}
+                  >
+                    {t('exportChat')}
+                  </button>
                 </>
               )}
               {view === 'cli' && (
@@ -921,6 +954,13 @@ export function App() {
               ⚙️
             </button>
           )}
+          <button
+            className={cpOpen ? 'mini on' : 'mini ghost'}
+            title={t('cpOpen')}
+            onClick={() => setCpOpen((o) => !o)}
+          >
+            📸
+          </button>
           <button className={doctorOpen ? 'mini on' : 'mini ghost'} title={t('docOpen')} onClick={() => setDoctorOpen((o) => !o)}>
             🩺
           </button>
@@ -961,7 +1001,27 @@ export function App() {
         </div>
       )}
       {doctorOpen && (
-        <Doctor connected={conn === 'authed'} onStartEngine={() => void window.cockpit?.startEngine()} onClose={() => setDoctorOpen(false)} />
+        <Suspense fallback={null}>
+          <Doctor connected={conn === 'authed'} onStartEngine={() => void window.cockpit?.startEngine()} onClose={() => setDoctorOpen(false)} />
+        </Suspense>
+      )}
+      {cpOpen && (
+        <Checkpoints
+          checkpoints={cp.list}
+          busy={cp.busy}
+          error={cp.error}
+          onCreate={(label) => {
+            if (!activeProject) return;
+            setCp((s) => ({ ...s, busy: true, error: null }));
+            client.current?.send({ op: 'checkpoint_create', project: activeProject, label });
+          }}
+          onRestore={(file) => {
+            if (!activeProject) return;
+            setCp((s) => ({ ...s, busy: true, error: null }));
+            client.current?.send({ op: 'checkpoint_restore', project: activeProject, file });
+          }}
+          onClose={() => setCpOpen(false)}
+        />
       )}
 
       <div className="body">
@@ -1173,13 +1233,15 @@ export function App() {
 
       {viewer && <MdViewer viewer={viewer} onClose={() => setViewer(null)} />}
       {settingsOpen && (
-        <Settings
-          snapshot={settingsSnap}
-          engineVersion={engineVersion}
-          home={home.current}
-          onSave={(patch) => client.current?.send({ op: 'settings_set', patch })}
-          onClose={() => setSettingsOpen(false)}
-        />
+        <Suspense fallback={null}>
+          <Settings
+            snapshot={settingsSnap}
+            engineVersion={engineVersion}
+            home={home.current}
+            onSave={(patch) => client.current?.send({ op: 'settings_set', patch })}
+            onClose={() => setSettingsOpen(false)}
+          />
+        </Suspense>
       )}
       {req && <PermissionPrompt req={req} onDecide={(d, input) => decide(req.requestId, d, input)} />}
     </div>

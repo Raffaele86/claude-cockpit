@@ -17,7 +17,7 @@ import { startTelegramGateway, type TelegramGateway } from './telegram.js';
 import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 
-const ENGINE_VERSION = '0.18.0';
+const ENGINE_VERSION = '0.20.0';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -329,6 +329,44 @@ function normalizeProject(projectPath: string | undefined): string {
 function cwdOf(key: string): string {
   const hash = key.indexOf('##');
   return hash === -1 ? key : key.slice(0, hash);
+}
+
+// ---- checkpoint file di progetto (tar.gz in ~/.claude-cockpit/checkpoints/<slug>/) ----
+const CHECKPOINT_KEEP = 5; // retention per progetto (i pre-restore non potano, ma contano al create successivo)
+const CHECKPOINT_EXCLUDES = ['node_modules', '.git', 'dist', 'dist-win', 'build', '__pycache__', '.venv'];
+
+function checkpointDir(cwd: string): string {
+  return join(COCKPIT_DIR, 'checkpoints', cwd.replace(/[/.]/g, '-'));
+}
+
+function checkpointList(cwd: string): { file: string; ts: number; label: string; size: number }[] {
+  const dir = checkpointDir(cwd);
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir)
+    .filter((f) => f.endsWith('.tar.gz'))
+    .sort()
+    .reverse()
+    .map((f) => {
+      const m = f.match(/^(\d+)(?:-(.*))?\.tar\.gz$/);
+      return { file: f, ts: m ? Number(m[1]) : 0, label: m?.[2] ?? '', size: statSync(join(dir, f)).size };
+    });
+}
+
+function execP(cmd: string, args: string[]): Promise<void> {
+  return new Promise((res, rej) => execFile(cmd, args, (err, _out, stderr) => (err ? rej(new Error(stderr || String(err))) : res())));
+}
+
+async function checkpointCreate(cwd: string, label: string, prune: boolean): Promise<void> {
+  if (resolve(cwd) === homedir()) throw new Error('checkpoint sulla home non supportato: apri un progetto');
+  const dir = checkpointDir(cwd);
+  mkdirSync(dir, { recursive: true });
+  const safe = label.trim().replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40);
+  const file = `${Date.now()}${safe ? '-' + safe : ''}.tar.gz`;
+  await execP('tar', ['-czf', join(dir, file), ...CHECKPOINT_EXCLUDES.flatMap((e) => ['--exclude', e]), '-C', cwd, '.']);
+  if (prune) {
+    const all = readdirSync(dir).filter((f) => f.endsWith('.tar.gz')).sort();
+    for (const old of all.slice(0, Math.max(0, all.length - CHECKPOINT_KEEP))) unlinkSync(join(dir, old));
+  }
 }
 
 function getOrCreateSession(projectPath: string, model?: string): CockpitSession {
@@ -720,6 +758,40 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       }
       if (added.length) restartSessionKeepingConversation(project); // la sessione rilegge la config
       send(ws, { ev: 'mcp_import_done', added, errors });
+      break;
+    }
+    case 'checkpoint_create': {
+      const project = normalizeProject(msg.project);
+      const cwd = cwdOf(project);
+      try {
+        await checkpointCreate(cwd, msg.label ?? '', true);
+        send(ws, { ev: 'checkpoint_done', project, action: 'create' });
+      } catch (err) {
+        send(ws, { ev: 'checkpoint_done', project, action: 'create', error: String(err instanceof Error ? err.message : err) });
+      }
+      send(ws, { ev: 'checkpoint_list', project, checkpoints: checkpointList(cwd) });
+      break;
+    }
+    case 'checkpoint_list': {
+      const project = normalizeProject(msg.project);
+      send(ws, { ev: 'checkpoint_list', project, checkpoints: checkpointList(cwdOf(project)) });
+      break;
+    }
+    case 'checkpoint_restore': {
+      const project = normalizeProject(msg.project);
+      const cwd = cwdOf(project);
+      try {
+        const src = join(checkpointDir(cwd), msg.file);
+        if (!/^[\w-]+(\.tar\.gz)$/.test(msg.file) || !existsSync(src)) throw new Error('checkpoint inesistente');
+        // Rete di sicurezza: snapshot dello stato attuale prima di sovrascrivere (senza retention,
+        // così il checkpoint da ripristinare non può venire potato via).
+        await checkpointCreate(cwd, 'pre-restore', false);
+        await execP('tar', ['-xzf', src, '-C', cwd]);
+        send(ws, { ev: 'checkpoint_done', project, action: 'restore' });
+      } catch (err) {
+        send(ws, { ev: 'checkpoint_done', project, action: 'restore', error: String(err instanceof Error ? err.message : err) });
+      }
+      send(ws, { ev: 'checkpoint_list', project, checkpoints: checkpointList(cwd) });
       break;
     }
     case 'provider_catalog': {

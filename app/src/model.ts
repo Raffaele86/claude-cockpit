@@ -16,6 +16,17 @@ export type Item =
       result?: string;
     };
 
+// Serializza la timeline in Markdown per l'export della chat (thinking omesso, tool compattati).
+export function itemsToMarkdown(items: Item[]): string {
+  const parts: string[] = [];
+  for (const it of items) {
+    if (it.kind === 'user') parts.push(`## User\n\n${it.text}`);
+    else if (it.kind === 'assistant') parts.push(`## Claude\n\n${it.text}`);
+    else if (it.kind === 'tool') parts.push(`\`tool: ${it.name} — ${it.status}\``);
+  }
+  return parts.join('\n\n') + '\n';
+}
+
 export interface Todo {
   content: string;
   status: string;

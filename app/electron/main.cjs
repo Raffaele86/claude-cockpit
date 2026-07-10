@@ -134,6 +134,23 @@ function check(id, cmd, args, validate) {
   });
 }
 
+const RELEASES_LATEST_URL = 'https://api.github.com/repos/Raffaele86/claude-cockpit/releases/latest';
+
+/** Canale update: GitHub raggiungibile? Versione corrente vs ultima release (update disponibile ≠ errore). */
+async function checkUpdate() {
+  const current = app.getVersion();
+  try {
+    const r = await fetch(RELEASES_LATEST_URL, { headers: { accept: 'application/vnd.github+json' }, signal: AbortSignal.timeout(5000) });
+    if (!r.ok) return { id: 'update', ok: false, detail: `api.github.com HTTP ${r.status}` };
+    const latest = String((await r.json())?.tag_name || '').replace(/^v/, '');
+    if (!latest) return { id: 'update', ok: false, detail: 'no release found' };
+    const newer = latest.localeCompare(current, undefined, { numeric: true }) > 0;
+    return { id: 'update', ok: true, detail: newer ? `v${latest} available (running v${current})` : `up to date (v${current})` };
+  } catch {
+    return { id: 'update', ok: false, detail: 'api.github.com unreachable' };
+  }
+}
+
 /** Il WS dell'engine risponde su 127.0.0.1:8130? */
 function checkPort() {
   return new Promise((resolve) => {
@@ -167,6 +184,7 @@ async function runDoctor() {
     );
   }
   checks.push(await checkPort());
+  checks.push(await checkUpdate());
   return { platform: process.platform, checks };
 }
 
@@ -233,7 +251,7 @@ function setupAutoUpdate() {
     } catch { /* electron-updater non pacchettizzato: nessun auto-update */ }
     return;
   }
-  fetch('https://api.github.com/repos/Raffaele86/claude-cockpit/releases/latest', {
+  fetch(RELEASES_LATEST_URL, {
     headers: { accept: 'application/vnd.github+json' },
   })
     .then((r) => (r.ok ? r.json() : null))

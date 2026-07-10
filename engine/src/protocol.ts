@@ -57,7 +57,10 @@ export type ClientMsg =
   | { op: 'mcp_add'; project: string; server: McpAddRequest }
   | { op: 'mcp_remove'; project: string; name: string }
   | { op: 'mcp_export' } // → ev mcp_export coi server MCP user-scope (~/.claude.json)
-  | { op: 'mcp_import'; project: string; servers: Record<string, unknown> }; // importa via `claude mcp add-json` (scope user)
+  | { op: 'mcp_import'; project: string; servers: Record<string, unknown> } // importa via `claude mcp add-json` (scope user)
+  | { op: 'checkpoint_create'; project: string; label?: string } // snapshot tar.gz della cwd del progetto
+  | { op: 'checkpoint_list'; project: string }
+  | { op: 'checkpoint_restore'; project: string; file: string }; // file = nome archivio restituito da checkpoint_list
 
 // Aggiunta server MCP (wrapper di `claude mcp add`): target = URL (http/sse) o comando completo (stdio);
 // headers = righe "Chiave: valore" (http/sse), env = righe "KEY=VALUE" (stdio).
@@ -204,4 +207,14 @@ export type ServerMsg =
   | { ev: 'permission_mode'; project: string; mode: PermissionModeName } // cambio modalità lato engine (es. fine plan)
   | { ev: 'permission_resolved'; project: string; requestId: string } // richiesta decisa altrove/annullata: chiudere il prompt
   | { ev: 'context'; project: string; totalTokens: number; maxTokens: number; percentage: number; branch?: string }
+  | { ev: 'checkpoint_list'; project: string; checkpoints: CheckpointEntry[] }
+  | { ev: 'checkpoint_done'; project: string; action: 'create' | 'restore'; error?: string }
   | { ev: 'error'; message: string; project?: string };
+
+// Snapshot dei file di progetto (tar.gz in ~/.claude-cockpit/checkpoints/<slug>/).
+export interface CheckpointEntry {
+  file: string; // nome archivio (chiave per checkpoint_restore)
+  ts: number; // epoch ms di creazione
+  label: string; // etichetta utente ('' se assente; 'pre-restore' = rete di sicurezza automatica)
+  size: number; // byte
+}

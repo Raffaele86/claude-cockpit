@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.20.0
+- **Export transcript**: new button in the Chat view downloads the current conversation as a Markdown file (user/assistant text, tools compacted to one line; in the CLI view use the native `/export`)
+- **File checkpoints**: new 📸 panel snapshots the project files (tar.gz, node_modules/.git/build dirs excluded) and restores any snapshot with one click. A `pre-restore` safety snapshot is taken before every restore; the engine keeps the last 5 per project. Restoring brings files back to the snapshot state but does not delete files created afterwards
+- **System check knows about updates**: a new "Updates" row verifies the GitHub release channel is reachable and tells whether you're up to date or a newer version exists
+- **Smaller, split bundle**: the renderer is now code-split (react/xterm/marked vendor chunks + on-demand Settings and Doctor) — main chunk down from 561 kB to 84 kB, and differential updates get smaller when only app code changes
+
 ## 0.19.0
 - **Auto-update** (Windows installer): the app checks GitHub Releases on startup via electron-updater, downloads new versions in the background and offers to restart when ready. Update errors are logged and never block startup
 - **Update notice** (portable & macOS builds): these builds can't update themselves (portable by nature, mac zips are unsigned), so on startup they compare their version with the latest GitHub release and, if newer, offer to open the download page

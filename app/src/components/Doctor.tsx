@@ -49,6 +49,8 @@ export function Doctor({ connected, onStartEngine, onClose }: Props) {
         return platform === 'darwin' ? t('docHintEngineMac') : t('docHintEngine');
       case 'port':
         return t('docHintPort');
+      case 'update':
+        return t('docHintUpdate');
       default:
         return '';
     }
