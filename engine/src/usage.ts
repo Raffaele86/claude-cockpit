@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { createInterface } from 'node:readline';
 import { COCKPIT_DIR } from './auth.js';
-import type { UsageDay } from './protocol.js';
+import type { SessionCategory, UsageDay } from './protocol.js';
 
 const USAGE_LOG = join(COCKPIT_DIR, 'usage.jsonl');
 const WINDOW_DAYS = 30;
@@ -29,16 +29,34 @@ export function logUsage(rec: UsageRecord): void {
 }
 
 type DayTokens = { inTok: number; cacheTok: number; outTok: number };
+type FileScan = { days: Map<string, DayTokens>; origin: SessionCategory };
 // Cache per-file: rilegge solo i transcript cambiati (mtime/size) — la prima scansione è quella costosa.
-const fileCache = new Map<string, { mtimeMs: number; size: number; days: Map<string, DayTokens> }>();
+const fileCache = new Map<string, { mtimeMs: number; size: number; scan: FileScan }>();
 
-async function scanFile(path: string): Promise<Map<string, DayTokens>> {
+async function scanFile(path: string): Promise<FileScan> {
   const st = statSync(path);
   const cached = fileCache.get(path);
-  if (cached && cached.mtimeMs === st.mtimeMs && cached.size === st.size) return cached.days;
+  if (cached && cached.mtimeMs === st.mtimeMs && cached.size === st.size) return cached.scan;
   const days = new Map<string, DayTokens>();
+  // Origine sessione: stessa logica di sessionCategory (server.ts) ma dedotta dalle prime righe
+  // durante lo scan, senza letture extra — vale per gli store di tutti i provider.
+  let origin: SessionCategory = 'tech';
+  let originDecided = false;
+  let lineNo = 0;
   const rl = createInterface({ input: createReadStream(path), crlfDelay: Infinity });
   for await (const line of rl) {
+    if (!originDecided && lineNo < 10) {
+      lineNo++;
+      if (/\[Modalita' headless scheduler/i.test(line)) {
+        origin = 'scheduler';
+        originDecided = true;
+      } else {
+        const ep = /"entrypoint"\s*:\s*"([a-z-]+)"/.exec(line)?.[1];
+        if (ep === 'sdk-ts') origin = 'cockpit';
+        else if (ep === 'cli') origin = 'cli';
+        // sdk-cli resta 'tech' finché il pattern scheduler non compare nelle prime righe
+      }
+    }
     if (!line.includes('"type":"assistant"')) continue;
     try {
       const row = JSON.parse(line) as { type?: string; timestamp?: string; message?: { usage?: Record<string, number> } };
@@ -55,19 +73,20 @@ async function scanFile(path: string): Promise<Map<string, DayTokens>> {
       /* riga malformata: salta */
     }
   }
-  fileCache.set(path, { mtimeMs: st.mtimeMs, size: st.size, days });
-  return days;
+  const scan = { days, origin };
+  fileCache.set(path, { mtimeMs: st.mtimeMs, size: st.size, scan });
+  return scan;
 }
 
 export async function usageReport(providers: Record<string, { configDir: string }>): Promise<UsageDay[]> {
   const cutoffMs = Date.now() - WINDOW_DAYS * 86_400_000;
   const cutoffDate = new Date(cutoffMs).toISOString().slice(0, 10);
   const agg = new Map<string, UsageDay>();
-  const bump = (date: string, provider: string, project: string): UsageDay => {
-    const key = `${date}|${provider}|${project}`;
+  const bump = (date: string, provider: string, project: string, origin: SessionCategory): UsageDay => {
+    const key = `${date}|${provider}|${project}|${origin}`;
     let d = agg.get(key);
     if (!d) {
-      d = { date, provider, project, inTok: 0, cacheTok: 0, outTok: 0 };
+      d = { date, provider, project, origin, inTok: 0, cacheTok: 0, outTok: 0 };
       agg.set(key, d);
     }
     return d;
@@ -91,9 +110,10 @@ export async function usageReport(providers: Record<string, { configDir: string 
         const path = join(root, slug, f);
         try {
           if (statSync(path).mtimeMs < cutoffMs) continue;
-          for (const [date, tok] of await scanFile(path)) {
+          const scan = await scanFile(path);
+          for (const [date, tok] of scan.days) {
             if (date < cutoffDate) continue;
-            const d = bump(date, provider, slug);
+            const d = bump(date, provider, slug, scan.origin);
             d.inTok += tok.inTok;
             d.cacheTok += tok.cacheTok;
             d.outTok += tok.outTok;
@@ -113,7 +133,8 @@ export async function usageReport(providers: Record<string, { configDir: string 
         const r = JSON.parse(line) as UsageRecord;
         const date = r.ts.slice(0, 10);
         if (date < cutoffDate) continue;
-        const d = bump(date, r.provider, r.project);
+        // I costi registrati vengono dai task passati dall'engine → origine cockpit.
+        const d = bump(date, r.provider, r.project, 'cockpit');
         d.costUsd = (d.costUsd ?? 0) + (r.costUsd || 0);
       } catch {
         /* riga malformata: salta */

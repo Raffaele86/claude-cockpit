@@ -98,6 +98,7 @@ export function App() {
   const [usageOpen, setUsageOpen] = useState(false);
   const [usageDays, setUsageDays] = useState<UsageDay[] | null>(null);
   const [inboxOpen, setInboxOpen] = useState(false);
+  const [cliActive, setCliActive] = useState<Record<string, boolean>>({}); // ev pty_activity: schede CLI con output recente
   const [catalog, setCatalog] = useState<Record<string, CatalogModel[]>>({});
   const [catalogLoading, setCatalogLoading] = useState<Record<string, boolean>>({});
   const activeProjectRef = useRef(''); // per gli handler WS (chiusura stabile)
@@ -480,6 +481,9 @@ export function App() {
         case 'usage_report':
           setUsageDays(msg.days);
           break;
+        case 'pty_activity':
+          setCliActive((m) => ({ ...m, [msg.project]: msg.active }));
+          break;
         case 'mcp_export': {
           // Scarica il file: stesso formato di ~/.claude.json (chiave mcpServers) → reimportabile ovunque.
           const blob = new Blob([JSON.stringify({ mcpServers: msg.servers }, null, 2)], { type: 'application/json' });
@@ -713,26 +717,31 @@ export function App() {
       const base = key.split('##')[0];
       m[base] = (m[base] ?? false) || st.busy;
     }
+    for (const [key, active] of Object.entries(cliActive)) {
+      if (active) m[key.split('##')[0]] = true;
+    }
     return m;
-  }, [projects]);
-  // Inbox: una voce per ogni sessione chat con attività (qualsiasi progetto/scheda), busy in testa.
-  const inboxEntries = useMemo(
-    () =>
-      Object.entries(projects)
-        .filter(([, s]) => s.busy || s.items.length > 0)
-        .map(([key, s]) => {
-          const last = s.items.filter((i) => i.kind === 'assistant').at(-1);
-          return {
-            key,
-            name: shortOf(key),
-            busy: s.busy,
-            snippet: (last && 'text' in last ? last.text : '').replace(/\s+/g, ' ').slice(0, 80),
-            costUsd: s.costUsd,
-          };
-        })
-        .sort((a, b) => Number(b.busy) - Number(a.busy)),
-    [projects],
-  );
+  }, [projects, cliActive]);
+  // Inbox: una voce per ogni sessione con attività — chat (items/busy) o CLI (pty con output recente).
+  const inboxEntries = useMemo(() => {
+    const entries = Object.entries(projects)
+      .filter(([key, s]) => s.busy || s.items.length > 0 || cliActive[key])
+      .map(([key, s]) => {
+        const last = s.items.filter((i) => i.kind === 'assistant').at(-1);
+        return {
+          key,
+          name: shortOf(key),
+          busy: s.busy || !!cliActive[key],
+          snippet: (last && 'text' in last ? last.text : '').replace(/\s+/g, ' ').slice(0, 80) || (cliActive[key] ? t('inboxCliActive') : ''),
+          costUsd: s.costUsd,
+        };
+      });
+    // Schede CLI attive mai aperte in questo client (nessuno stato locale): voce minima.
+    for (const [key, active] of Object.entries(cliActive)) {
+      if (active && !projects[key]) entries.push({ key, name: shortOf(key), busy: true, snippet: t('inboxCliActive'), costUsd: 0 });
+    }
+    return entries.sort((a, b) => Number(b.busy) - Number(a.busy));
+  }, [projects, cliActive]);
   const busyCount = inboxEntries.filter((e) => e.busy).length;
   const openFromInbox = useCallback((key: string) => {
     const [base, tab] = key.split('##');
@@ -742,9 +751,12 @@ export function App() {
   }, []);
   const tabBusy = useMemo(() => {
     const m: Record<string, boolean> = {};
-    for (const t of tabs) m[t] = projects[t === 'main' ? activeProject : `${activeProject}##${t}`]?.busy ?? false;
+    for (const t of tabs) {
+      const key = t === 'main' ? activeProject : `${activeProject}##${t}`;
+      m[t] = (projects[key]?.busy ?? false) || !!cliActive[key];
+    }
     return m;
-  }, [projects, tabs, activeProject]);
+  }, [projects, tabs, activeProject, cliActive]);
 
   return (
     <div className="app">

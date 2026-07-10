@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.22.0
+- **CLI tabs in the inbox**: the engine now tracks pty output and broadcasts a working/idle state (recent output = working, 3s idle window) — CLI tabs finally show up in the 📥 inbox, in the badge count, and get busy dots on tabs and in the project rail
+- **Panels are phone-friendly**: every floating window (Settings, System check, Checkpoints, Usage, Inbox) goes full-screen on small screens with a scrollable body, like the Markdown reader already did
+- **Usage by origin**: the 📊 dashboard classifies every session as cockpit / cli / scheduler / tech (detected from the transcripts during the same scan) with a third filter — see at a glance how much your schedulers burn vs interactive work
+
 ## 0.21.0
 - **Automatic file checkpoints** (opt-in, Settings → Engine): with the toggle on, the engine snapshots the project files before every chat prompt (at most one every 10 minutes) — if a task goes wrong, the rewind is always there in the 📸 panel
 - **Usage dashboard** (📊): tokens per day/provider/project over the last 30 days, read from the real session transcripts of every configured provider. Dollar costs are shown only where the engine recorded them at task end (recording starts with this release — no per-model price estimates). First open scans the transcripts and can take a few seconds; later opens use an incremental cache

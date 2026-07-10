@@ -11,6 +11,8 @@ export class PtyChannel {
   private bufBytes = 0;
   /** Timestamp spawn. */
   readonly startedAt = Date.now();
+  /** Timestamp dell'ultimo output: "sta lavorando" = output recente (euristica per inbox/badge). */
+  lastDataAt = 0;
   /** CLAUDE_CONFIG_DIR con cui è partito claude (undefined = ~/.claude): lo store delle sue conversazioni. */
   readonly configDir?: string;
   /** Id sessione ASSEGNATO dall'engine allo spawn (--session-id / --resume): l'unico modo
@@ -42,6 +44,7 @@ export class PtyChannel {
       env: { ...(process.env as { [key: string]: string }), ...(opts.env ?? {}) },
     });
     this.p.onData((data) => {
+      this.lastDataAt = Date.now();
       const buf = Buffer.from(data, 'utf8');
       this.chunks.push(buf);
       this.bufBytes += buf.length;

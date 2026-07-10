@@ -185,6 +185,7 @@ export type ServerMsg =
   | { ev: 'pty_attach_ok'; ptyId: string; project: string; cmd: 'claude' | 'shell'; scrollback: string } // scrollback base64
   | { ev: 'pty_data'; ptyId: string; data: string } // base64
   | { ev: 'pty_exit'; ptyId: string; exitCode: number }
+  | { ev: 'pty_activity'; project: string; active: boolean } // output pty negli ultimi secondi (euristica "sta lavorando" per inbox/badge)
   | { ev: 'projects'; list: ProjectEntry[] }
   | { ev: 'quickactions'; list: QuickActionEntry[] }
   | { ev: 'models'; project: string; models: ModelEntry[] }
@@ -219,6 +220,7 @@ export interface UsageDay {
   date: string; // YYYY-MM-DD
   provider: string; // 'claude' o chiave providers.json
   project: string; // slug (~/.claude/projects/<slug>)
+  origin: SessionCategory; // origine sessione: cockpit | cli | scheduler | tech
   inTok: number; // input non-cache
   cacheTok: number; // cache read + creation
   outTok: number;

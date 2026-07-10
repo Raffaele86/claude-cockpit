@@ -18,7 +18,7 @@ import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 import { logUsage, usageReport } from './usage.js';
 
-const ENGINE_VERSION = '0.21.0';
+const ENGINE_VERSION = '0.22.0';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -53,6 +53,27 @@ const ptys = new Map<string, PtyChannel>();
 const ptyByKey = new Map<string, string>(); // "<chiave-canale>::<cmd>" → ptyId (pty persistenti, re-attach)
 const authed = new Set<WebSocket>();
 const busy = new Map<string, boolean>(); // project → turno in corso (per /status del gateway)
+
+// Attività CLI: una scheda è "attiva" se un suo pty ha prodotto output negli ultimi 3s (euristica).
+// Transizioni broadcastate come pty_activity; lo spegnimento lo fa un unico tick da 2s.
+const PTY_IDLE_MS = 3_000;
+const cliActive = new Map<string, boolean>(); // chiave canale → attivo
+function setCliActive(key: string, active: boolean): void {
+  if ((cliActive.get(key) ?? false) === active) return;
+  cliActive.set(key, active);
+  broadcast({ ev: 'pty_activity', project: key, active });
+}
+setInterval(() => {
+  for (const [key, active] of cliActive) {
+    if (!active) continue;
+    let latest = 0;
+    for (const cmd of ['claude', 'shell']) {
+      const ch = ptys.get(ptyByKey.get(`${key}::${cmd}`) ?? '');
+      if (ch) latest = Math.max(latest, ch.lastDataAt);
+    }
+    if (Date.now() - latest > PTY_IDLE_MS) setCliActive(key, false);
+  }
+}, 2_000).unref();
 const providerByProject = new Map<string, import('./protocol.js').ProviderName>(); // default 'claude'
 
 // providers.json opzionale: { "<nome>": { "configDir": "...", "model": "...", "models": [...] } }
@@ -970,11 +991,16 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
           msg.cmd,
           msg.cols,
           msg.rows,
-          (data) => broadcast({ ev: 'pty_data', ptyId: id, data }),
+          (data) => {
+            broadcast({ ev: 'pty_data', ptyId: id, data });
+            setCliActive(key, true);
+          },
           (exitCode) => {
             ptys.delete(id);
             if (ptyByKey.get(mapKey) === id) ptyByKey.delete(mapKey);
             broadcast({ ev: 'pty_exit', ptyId: id, exitCode });
+            const otherCmd = msg.cmd === 'claude' ? 'shell' : 'claude';
+            if (!ptyByKey.has(`${key}::${otherCmd}`)) setCliActive(key, false);
           },
           launchOpts,
         );

@@ -1196,15 +1196,24 @@ body {
   padding: 0 4px;
 }
 @media (max-width: 840px) {
-  .md-viewer {
-    width: 100vw;
+  /* v0.22: TUTTE le finestre flottanti (md-viewer, doctor, checkpoint, uso, inbox, impostazioni)
+     diventano full-screen su mobile: annulla il posizionamento drag del desktop */
+  .float-win {
+    width: 100vw !important;
     height: 100dvh;
     max-height: none;
     border-radius: 0;
-    /* full-screen: annulla il posizionamento drag del desktop */
     left: 0 !important;
     top: 0 !important;
     transform: none !important;
+  }
+  .doctor-body,
+  .settings-body {
+    overflow-y: auto;
+    max-height: calc(100dvh - 48px);
+  }
+  .usage-scroll {
+    max-height: none;
   }
 }
 
