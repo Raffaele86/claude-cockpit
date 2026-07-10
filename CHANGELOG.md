@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.24.0
+- **Operational inbox**: each 📥 row now shows a 🔐 icon when that session is waiting for a permission decision (rows with pending permissions float to the top) and gets a ⏹ stop button while working — interrupt any session without leaving the panel. Also fixed: permission prompts raised by secondary tabs now surface correctly when you switch to that tab
+- **1-click config backup**: Settings → Engine gains Export/Import for the whole `~/.claude-cockpit` configuration (providers, Telegram, quick actions, projects, notifications). Import is whitelisted server-side — the engine token and runtime state are never exported nor accepted. The backup contains secrets: treat it like a password
+- **Global history search**: the History panel's full-text search gets a 🌐 toggle to search across ALL registered projects at once; results carry a project badge and clicking one jumps to that project and opens the session
+
 ## 0.23.0
 - **Telegram `/project`**: the gateway is no longer pinned to one project — `/project` lists your sidebar projects as buttons, switching applies immediately (prompts, /status, result notifications) and persists across engine restarts
 - **Session titles everywhere**: tabs show the session's real title (the same AI title you see in History) instead of "Chat 2", and the inbox rows show it too. Works for CLI tabs as well (the engine now reports which session each terminal owns)

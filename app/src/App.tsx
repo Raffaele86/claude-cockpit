@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CockpitClient, type ConnState } from './ws';
-import type { CatalogModel, CheckpointEntry, ProjectEntry, PtyLaunch, QuickActionEntry, ServerMsg, UsageDay } from './protocol';
+import type { CatalogModel, CheckpointEntry, GlobalSearchResult, ProjectEntry, PtyLaunch, QuickActionEntry, ServerMsg, UsageDay } from './protocol';
 import type { PermissionDecision } from './protocol';
 import { buildItemsFromMessages, emptyProject, itemsToMarkdown, toolResultText, type PendingPermission, type ProjectState, type QueuedPrompt, type Todo } from './model';
 import { ChatView } from './components/ChatView';
@@ -100,6 +100,8 @@ export function App() {
   const [inboxOpen, setInboxOpen] = useState(false);
   const [cliActive, setCliActive] = useState<Record<string, boolean>>({}); // ev pty_activity: schede CLI con output recente
   const [ptySession, setPtySession] = useState<Record<string, string>>({}); // chiave → sessionId del pty claude (per i titoli)
+  const [globalResults, setGlobalResults] = useState<GlobalSearchResult[] | null>(null); // ricerca cross-progetto
+  const [cfgMsg, setCfgMsg] = useState<string | null>(null); // esito import/export config
   const sessionsReqAt = useRef<Record<string, number>>({}); // base → ts ultima sessions_list (throttle titoli)
   const [catalog, setCatalog] = useState<Record<string, CatalogModel[]>>({});
   const [catalogLoading, setCatalogLoading] = useState<Record<string, boolean>>({});
@@ -506,6 +508,21 @@ export function App() {
         case 'pty_attach_ok':
           if (msg.cmd === 'claude' && msg.sessionId) setPtySession((m) => ({ ...m, [msg.project]: msg.sessionId! }));
           break;
+        case 'sessions_search_all':
+          setGlobalResults(msg.results);
+          break;
+        case 'config_export': {
+          const blob = new Blob([JSON.stringify({ cockpitConfig: msg.files }, null, 2)], { type: 'application/json' });
+          const a = document.createElement('a');
+          a.href = URL.createObjectURL(blob);
+          a.download = 'cockpit-config-backup.json';
+          a.click();
+          URL.revokeObjectURL(a.href);
+          break;
+        }
+        case 'config_import_done':
+          setCfgMsg(msg.error ? `⚠️ ${msg.error}` : t('cfgImportDone')(msg.written.length));
+          break;
         case 'mcp_export': {
           // Scarica il file: stesso formato di ~/.claude.json (chiave mcpServers) → reimportabile ovunque.
           const blob = new Blob([JSON.stringify({ mcpServers: msg.servers }, null, 2)], { type: 'application/json' });
@@ -732,7 +749,12 @@ export function App() {
     [hasCatalog],
   );
   const shortProject = activeProject.split('/').filter(Boolean).at(-1) || '~';
-  const req = pending.find((p) => p.project === activeProject) ?? pending[0];
+  // Prompt permesso: vince quello della scheda attiva, poi quelli del progetto attivo (i pending
+  // portano la chiave-canale ##tab: il vecchio confronto col solo base falliva sulle schede).
+  const req =
+    pending.find((p) => p.project === activeKey) ??
+    pending.find((p) => p.project.split('##')[0] === activeProject) ??
+    pending[0];
   const busyMap = useMemo(() => {
     const m: Record<string, boolean> = {};
     for (const [key, st] of Object.entries(projects)) {
@@ -768,16 +790,18 @@ export function App() {
           name: shortOf(key),
           title: titleByKey[key],
           busy: s.busy || !!cliActive[key],
+          hasPermission: pending.some((p) => p.project === key),
           snippet: (last && 'text' in last ? last.text : '').replace(/\s+/g, ' ').slice(0, 80) || (cliActive[key] ? t('inboxCliActive') : ''),
           costUsd: s.costUsd,
         };
       });
     // Schede CLI attive mai aperte in questo client (nessuno stato locale): voce minima.
     for (const [key, active] of Object.entries(cliActive)) {
-      if (active && !projects[key]) entries.push({ key, name: shortOf(key), title: titleByKey[key], busy: true, snippet: t('inboxCliActive'), costUsd: 0 });
+      if (active && !projects[key])
+        entries.push({ key, name: shortOf(key), title: titleByKey[key], busy: true, hasPermission: false, snippet: t('inboxCliActive'), costUsd: 0 });
     }
-    return entries.sort((a, b) => Number(b.busy) - Number(a.busy));
-  }, [projects, cliActive, titleByKey]);
+    return entries.sort((a, b) => Number(b.hasPermission) - Number(a.hasPermission) || Number(b.busy) - Number(a.busy));
+  }, [projects, cliActive, titleByKey, pending]);
   const busyCount = inboxEntries.filter((e) => e.busy).length;
   const openFromInbox = useCallback((key: string) => {
     const [base, tab] = key.split('##');
@@ -1130,7 +1154,12 @@ export function App() {
       )}
       {inboxOpen && (
         <Suspense fallback={null}>
-          <Inbox entries={inboxEntries} onOpen={openFromInbox} onClose={() => setInboxOpen(false)} />
+          <Inbox
+            entries={inboxEntries}
+            onOpen={openFromInbox}
+            onStop={(key) => client.current?.send({ op: 'interrupt', project: key })}
+            onClose={() => setInboxOpen(false)}
+          />
         </Suspense>
       )}
       {cpOpen && (
@@ -1216,14 +1245,26 @@ export function App() {
             <SessionPicker
               sessions={active.sessions}
               searchResults={active.searchResults}
+              globalResults={globalResults}
               currentId={active.sessionId}
               onSearch={(query) => {
                 if (query) client.current?.send({ op: 'sessions_search', project: activeProject, query });
                 else updateProject(activeProject, (s) => ({ ...s, searchResults: null }));
               }}
+              onSearchAll={(query) => {
+                setGlobalResults(null);
+                client.current?.send({ op: 'sessions_search_all', query });
+              }}
               onOpen={(sessionId) => {
                 client.current?.send({ op: 'session_open', project: activeKey, sessionId });
                 setPicker(false);
+              }}
+              onOpenGlobal={(r) => {
+                setActiveProject(r.project);
+                setActiveTabByProject((m) => ({ ...m, [r.project]: 'main' }));
+                client.current?.send({ op: 'session_open', project: r.project, sessionId: r.sessionId });
+                setPicker(false);
+                setGlobalResults(null);
               }}
               onClose={() => setPicker(false)}
             />
@@ -1367,6 +1408,12 @@ export function App() {
             snapshot={settingsSnap}
             engineVersion={engineVersion}
             home={home.current}
+            configMsg={cfgMsg}
+            onConfigExport={() => client.current?.send({ op: 'config_export' })}
+            onConfigImport={(files) => {
+              setCfgMsg(null);
+              client.current?.send({ op: 'config_import', files });
+            }}
             onSave={(patch) => client.current?.send({ op: 'settings_set', patch })}
             onClose={() => setSettingsOpen(false)}
           />

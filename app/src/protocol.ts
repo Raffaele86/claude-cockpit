@@ -61,7 +61,10 @@ export type ClientMsg =
   | { op: 'checkpoint_create'; project: string; label?: string } // snapshot tar.gz della cwd del progetto
   | { op: 'checkpoint_list'; project: string }
   | { op: 'checkpoint_restore'; project: string; file: string } // file = nome archivio restituito da checkpoint_list
-  | { op: 'usage_report' }; // → ev usage_report (token per giorno/provider/progetto, ultimi 30gg)
+  | { op: 'usage_report' } // → ev usage_report (token per giorno/provider/progetto, ultimi 30gg)
+  | { op: 'config_export' } // backup dei file config di ~/.claude-cockpit (token/stato esclusi)
+  | { op: 'config_import'; files: Record<string, unknown> } // ripristino: solo nomi in whitelist
+  | { op: 'sessions_search_all'; query: string }; // ricerca full-text su TUTTI i progetti del registry
 
 // Aggiunta server MCP (wrapper di `claude mcp add`): target = URL (http/sse) o comando completo (stdio);
 // headers = righe "Chiave: valore" (http/sse), env = righe "KEY=VALUE" (stdio).
@@ -212,7 +215,13 @@ export type ServerMsg =
   | { ev: 'checkpoint_list'; project: string; checkpoints: CheckpointEntry[] }
   | { ev: 'checkpoint_done'; project: string; action: 'create' | 'restore'; error?: string }
   | { ev: 'usage_report'; days: UsageDay[] }
+  | { ev: 'config_export'; files: Record<string, unknown> }
+  | { ev: 'config_import_done'; written: string[]; error?: string }
+  | { ev: 'sessions_search_all'; query: string; results: GlobalSearchResult[] }
   | { ev: 'error'; message: string; project?: string };
+
+// Risultato di ricerca cross-progetto: come SearchResult più il progetto di appartenenza.
+export type GlobalSearchResult = SearchResult & { project: string; projectName: string };
 
 // Una riga di aggregato uso: giorno × provider × progetto (slug). Token dai transcript (storico);
 // costUsd presente solo dove registrato dall'engine a fine task (nessun pricing stimato).

@@ -6,13 +6,20 @@ export interface InboxEntry {
   name: string;
   title?: string; // titolo sessione (summary), se noto
   busy: boolean;
+  hasPermission: boolean; // la sessione aspetta una decisione permesso
   snippet: string; // ultimo testo assistant, troncato
   costUsd: number;
 }
 
-/** Inbox: tutte le sessioni chat aperte (ogni progetto/scheda) con stato e ultimo messaggio.
- *  Le schede in vista CLI non hanno stato qui (i prompt non passano dall'engine). */
-export function Inbox({ entries, onOpen, onClose }: { entries: InboxEntry[]; onOpen: (key: string) => void; onClose: () => void }) {
+interface Props {
+  entries: InboxEntry[];
+  onOpen: (key: string) => void;
+  onStop: (key: string) => void;
+  onClose: () => void;
+}
+
+/** Inbox operativa: tutte le sessioni aperte con stato, permessi in attesa e stop per riga. */
+export function Inbox({ entries, onOpen, onStop, onClose }: Props) {
   const { ref, style, onBarMouseDown } = useDragWin();
   return (
     <div className="float-win doctor" ref={ref} style={style}>
@@ -26,11 +33,24 @@ export function Inbox({ entries, onOpen, onClose }: { entries: InboxEntry[]; onO
         {!entries.length && <p className="doc-note">{t('inboxEmpty')}</p>}
         {entries.map((e) => (
           <button key={e.key} className="inbox-row" onClick={() => onOpen(e.key)}>
-            <span>{e.busy ? '⏳' : '✓'}</span>
+            <span title={e.hasPermission ? t('inboxPerm') : undefined}>{e.hasPermission ? '🔐' : e.busy ? '⏳' : '✓'}</span>
             <span className="inbox-name">{e.name}</span>
             {e.title && <span className="inbox-title">{e.title}</span>}
             <span className="inbox-snippet">{e.snippet}</span>
             {e.costUsd > 0 && <span className="inbox-cost">${e.costUsd.toFixed(2)}</span>}
+            {e.busy && (
+              <span
+                className="mini ghost"
+                role="button"
+                title={t('inboxStop')}
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  onStop(e.key);
+                }}
+              >
+                ⏹
+              </span>
+            )}
           </button>
         ))}
         <p className="doc-note">{t('inboxNote')}</p>

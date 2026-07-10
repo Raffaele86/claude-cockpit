@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import type { SearchResult, SessionCategory, SessionSummary } from '../protocol';
+import type { GlobalSearchResult, SearchResult, SessionCategory, SessionSummary } from '../protocol';
 import { t, LOCALE } from '../strings';
 
 function relTime(ms: number): string {
@@ -23,15 +23,19 @@ const CATEGORIES: { key: SessionCategory; label: string }[] = [
 interface Props {
   sessions: SessionSummary[];
   searchResults: SearchResult[] | null;
+  globalResults: GlobalSearchResult[] | null; // risultati cross-progetto (op sessions_search_all)
   currentId?: string;
   onSearch: (query: string) => void;
+  onSearchAll: (query: string) => void;
   onOpen: (sessionId: string) => void;
+  onOpenGlobal: (r: GlobalSearchResult) => void;
   onClose: () => void;
 }
 
-export function SessionPicker({ sessions, searchResults, currentId, onSearch, onOpen, onClose }: Props) {
+export function SessionPicker({ sessions, searchResults, globalResults, currentId, onSearch, onSearchAll, onOpen, onOpenGlobal, onClose }: Props) {
   const [query, setQuery] = useState('');
   const [deep, setDeep] = useState(false); // true = mostra i risultati full-text
+  const [allProjects, setAllProjects] = useState(false); // 🌐 ricerca su tutti i progetti
   const [enabled, setEnabled] = useState<Set<SessionCategory>>(new Set(['cockpit', 'cli']));
 
   const visible = useMemo(() => {
@@ -72,7 +76,7 @@ export function SessionPicker({ sessions, searchResults, currentId, onSearch, on
             onKeyDown={(e) => {
               if (e.key === 'Enter' && query.trim()) {
                 setDeep(true);
-                onSearch(query.trim());
+                (allProjects ? onSearchAll : onSearch)(query.trim());
               }
             }}
           />
@@ -82,10 +86,13 @@ export function SessionPicker({ sessions, searchResults, currentId, onSearch, on
             disabled={!query.trim()}
             onClick={() => {
               setDeep(true);
-              onSearch(query.trim());
+              (allProjects ? onSearchAll : onSearch)(query.trim());
             }}
           >
             {t('inContents')}
+          </button>
+          <button className={allProjects ? 'cat on' : 'cat'} title={t('allProjectsTitle')} onClick={() => setAllProjects((v) => !v)}>
+            🌐
           </button>
         </div>
         <div className="session-cats">
@@ -97,27 +104,40 @@ export function SessionPicker({ sessions, searchResults, currentId, onSearch, on
           {hidden > 0 && <span className="session-hidden">{t('hiddenCount')(hidden)}</span>}
         </div>
       </div>
-      {deep && searchResults === null && <div className="session-empty">{t('searching')}</div>}
-      {deep && searchResults !== null && searchResults.length === 0 && (
+      {deep && (allProjects ? globalResults : searchResults) === null && <div className="session-empty">{t('searching')}</div>}
+      {deep && (allProjects ? globalResults : searchResults) !== null && (allProjects ? globalResults : searchResults)!.length === 0 && (
         <div className="session-empty">{t('noContentFor')(query)}</div>
       )}
       {!deep && visible.length === 0 && <div className="session-empty">{t('noSessions')}</div>}
       <div className="session-list">
-        {(deep ? (searchResults ?? []) : visible).map((s) => (
-          <button
-            key={s.sessionId}
-            className={s.sessionId === currentId ? 'session-item current' : 'session-item'}
-            onClick={() => onOpen(s.sessionId)}
-            title={s.summary}
-          >
-            <span className={`session-cat-dot ${s.category}`} />
-            <span className="session-body">
-              <span className="session-title">{s.summary}</span>
-              {'snippet' in s && <span className="session-snippet">…{(s as SearchResult).snippet}…</span>}
-            </span>
-            <span className="session-when">{relTime(s.lastModified)}</span>
-          </button>
-        ))}
+        {deep && allProjects
+          ? (globalResults ?? []).map((s) => (
+              <button key={`${s.project}:${s.sessionId}`} className="session-item" onClick={() => onOpenGlobal(s)} title={s.summary}>
+                <span className={`session-cat-dot ${s.category}`} />
+                <span className="session-body">
+                  <span className="session-title">
+                    <span className="session-proj">{s.projectName}</span> {s.summary}
+                  </span>
+                  <span className="session-snippet">…{s.snippet}…</span>
+                </span>
+                <span className="session-when">{relTime(s.lastModified)}</span>
+              </button>
+            ))
+          : (deep ? (searchResults ?? []) : visible).map((s) => (
+              <button
+                key={s.sessionId}
+                className={s.sessionId === currentId ? 'session-item current' : 'session-item'}
+                onClick={() => onOpen(s.sessionId)}
+                title={s.summary}
+              >
+                <span className={`session-cat-dot ${s.category}`} />
+                <span className="session-body">
+                  <span className="session-title">{s.summary}</span>
+                  {'snippet' in s && <span className="session-snippet">…{(s as SearchResult).snippet}…</span>}
+                </span>
+                <span className="session-when">{relTime(s.lastModified)}</span>
+              </button>
+            ))}
       </div>
     </div>
   );

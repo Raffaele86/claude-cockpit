@@ -1,7 +1,7 @@
 import { homedir } from 'node:os';
 import { dirname, extname, join, normalize, resolve } from 'node:path';
 import { createServer } from 'node:http';
-import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmdirSync, statSync, unlinkSync } from 'node:fs';
+import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, readSync, renameSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { execFile, execFileSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { WebSocket, WebSocketServer } from 'ws';
@@ -18,7 +18,7 @@ import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 import { logUsage, usageReport } from './usage.js';
 
-const ENGINE_VERSION = '0.23.0';
+const ENGINE_VERSION = '0.24.0';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -53,6 +53,8 @@ const ptys = new Map<string, PtyChannel>();
 const ptyByKey = new Map<string, string>(); // "<chiave-canale>::<cmd>" → ptyId (pty persistenti, re-attach)
 const authed = new Set<WebSocket>();
 const busy = new Map<string, boolean>(); // project → turno in corso (per /status del gateway)
+// File config esportabili/importabili (backup 1-click). MAI: token, sessions.json, usage.jsonl, checkpoints/.
+const CONFIG_FILES = ['engine.json', 'providers.json', 'quickactions.json', 'telegram.json', 'projects.json', 'config.json'];
 
 // Attività CLI: una scheda è "attiva" se un suo pty ha prodotto output negli ultimi 3s (euristica).
 // Transizioni broadcastate come pty_activity; lo spegnimento lo fa un unico tick da 2s.
@@ -837,6 +839,53 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       } catch (err) {
         send(ws, { ev: 'error', message: `usage_report: ${String(err)}` });
       }
+      break;
+    }
+    case 'config_export': {
+      // Backup config utente. Esclusi per design: token (auth locale), sessions.json/usage.jsonl
+      // (stato runtime), checkpoints/ (pesanti). telegram.json contiene segreti: avviso in UI.
+      const files: Record<string, unknown> = {};
+      for (const name of CONFIG_FILES) {
+        try {
+          files[name] = JSON.parse(readFileSync(join(COCKPIT_DIR, name), 'utf8'));
+        } catch {
+          /* file assente o non-JSON: salta */
+        }
+      }
+      send(ws, { ev: 'config_export', files });
+      break;
+    }
+    case 'config_import': {
+      const written: string[] = [];
+      try {
+        for (const [name, content] of Object.entries(msg.files)) {
+          if (!CONFIG_FILES.includes(name) || content == null) continue; // whitelist: mai token o path arbitrari
+          writeFileSync(join(COCKPIT_DIR, name), JSON.stringify(content, null, 2) + '\n', name === 'telegram.json' ? { mode: 0o600 } : {});
+          written.push(name);
+        }
+        // Hot-reload di ciò che si può ricaricare senza restart.
+        if (written.includes('telegram.json')) restartTelegram();
+        if (written.includes('quickactions.json')) broadcast({ ev: 'quickactions', list: loadQuickActions() });
+        if (written.includes('projects.json')) broadcast({ ev: 'projects', list: loadProjects() });
+        sendSettings(ws);
+        send(ws, { ev: 'config_import_done', written });
+      } catch (err) {
+        send(ws, { ev: 'config_import_done', written, error: String(err) });
+      }
+      break;
+    }
+    case 'sessions_search_all': {
+      const results: import('./protocol.js').GlobalSearchResult[] = [];
+      for (const p of loadProjects()) {
+        if (results.length >= 30) break;
+        try {
+          const found = await searchSessions(p.path, msg.query);
+          results.push(...found.slice(0, 8).map((r) => ({ ...r, project: p.path, projectName: p.name })));
+        } catch {
+          /* progetto senza transcript: salta */
+        }
+      }
+      send(ws, { ev: 'sessions_search_all', query: msg.query, results: results.slice(0, 30) });
       break;
     }
     case 'checkpoint_restore': {

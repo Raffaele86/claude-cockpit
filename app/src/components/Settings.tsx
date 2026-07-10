@@ -13,6 +13,9 @@ interface Props {
   snapshot: SettingsSnapshot | null; // null = in caricamento (settings_get inviata)
   engineVersion: string;
   home: string;
+  configMsg: string | null; // esito ultimo import/export config
+  onConfigExport: () => void;
+  onConfigImport: (files: Record<string, unknown>) => void;
   onSave: (patch: Partial<CockpitSettings>) => void;
   onClose: () => void;
 }
@@ -25,7 +28,7 @@ interface NotifyCfg {
 
 const IS_ELECTRON = navigator.userAgent.includes('Electron');
 
-export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Props) {
+export function Settings({ snapshot, engineVersion, home, configMsg, onConfigExport, onConfigImport, onSave, onClose }: Props) {
   // Stato editabile, inizializzato quando arriva lo snapshot dall'engine.
   const [tg, setTg] = useState<CockpitSettings['telegram']>({});
   const [provs, setProvs] = useState<{ name: string; configDir: string; model: string; models: string; modelsUrl: string; modelPrefix: string }[]>([]);
@@ -276,6 +279,34 @@ export function Settings({ snapshot, engineVersion, home, onSave, onClose }: Pro
                 </label>
                 <p className="set-hint">{t('engineHostsHint')}</p>
                 <p className="set-hint">{t('engineInfo')(engineVersion, home)}</p>
+                <div className="doc-actions">
+                  <button className="mini ghost" title={t('cfgExportTitle')} onClick={onConfigExport}>
+                    ⤓ {t('cfgExport')}
+                  </button>
+                  <label className="mini ghost" title={t('cfgImportTitle')} style={{ cursor: 'pointer' }}>
+                    ⤒ {t('cfgImport')}
+                    <input
+                      type="file"
+                      accept=".json,application/json"
+                      style={{ display: 'none' }}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (!file) return;
+                        void file.text().then((text) => {
+                          try {
+                            const data = JSON.parse(text) as { cockpitConfig?: Record<string, unknown> };
+                            onConfigImport(data.cockpitConfig ?? (data as Record<string, unknown>));
+                          } catch {
+                            alert(t('cfgImportBad'));
+                          }
+                        });
+                      }}
+                    />
+                  </label>
+                </div>
+                {configMsg && <p className="set-hint">{configMsg}</p>}
+                <p className="set-hint">{t('cfgHint')}</p>
               </section>
 
               <section>
