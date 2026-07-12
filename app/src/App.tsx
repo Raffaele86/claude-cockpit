@@ -1027,6 +1027,7 @@ export function App() {
       { id: 'checkpoints', label: t('cpOpen'), section: t('cpSecPanels'), icon: 'camera', keywords: 'checkpoint snapshot restore', run: () => setCpOpen(true) },
       { id: 'doctor', label: t('docOpen'), section: t('cpSecPanels'), icon: 'pulse', keywords: 'doctor system check', run: () => setDoctorOpen(true) },
       { id: 'settings', label: t('settingsBtnTitle'), section: t('cpSecPanels'), icon: 'settings', keywords: 'settings impostazioni', run: openSettings },
+      { id: 'win-cli', label: t('openOnWindows'), section: t('cpSecPanels'), icon: 'terminal', keywords: 'windows powershell chrome browser nativo', run: () => client.current?.send({ op: 'open_windows_cli', project: activeProject }) },
       {
         id: 'side',
         label: t('sidePanelTitle'),

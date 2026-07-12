@@ -806,6 +806,21 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       }
       break;
     }
+    case 'open_windows_cli': {
+      // Apre una finestra PowerShell NATIVA di Windows (ConPTY vero) nella cwd del progetto con
+      // `claude` avviato: gira con la config Windows di claude, così pilota il Chrome di Windows
+      // (schede/login reali) senza MCP/CDP. Stesso pattern interop del `reveal` (explorer.exe).
+      const cwd = cwdOf(normalizeProject(msg.project));
+      try {
+        const winDir = execFileSync('wslpath', ['-w', cwd]).toString().trim();
+        const dir = winDir.replace(/'/g, "''"); // escape per stringa single-quote PowerShell
+        const launcher = `Start-Process powershell.exe -ArgumentList @('-NoExit','-NoProfile','-Command',"Set-Location -LiteralPath '${dir}'; claude")`;
+        spawn('powershell.exe', ['-NoProfile', '-Command', launcher], { detached: true, stdio: 'ignore' }).unref();
+      } catch (err) {
+        send(ws, { ev: 'error', message: `open_windows_cli: ${String(err)}` });
+      }
+      break;
+    }
     case 'settings_get': {
       sendSettings(ws);
       break;

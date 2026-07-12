@@ -49,6 +49,7 @@ export type ClientMsg =
   | { op: 'file_read'; project: string; path: string }
   | { op: 'dir_list'; path: string }
   | { op: 'file_op'; kind: 'mkdir' | 'rename' | 'delete' | 'reveal'; path: string; newName?: string }
+  | { op: 'open_windows_cli'; project: string } // apre PowerShell nativo (via interop) con claude nella cwd del progetto
   | { op: 'set_provider'; project: string; provider: ProviderName }
   | { op: 'provider_catalog'; provider: string } // catalogo modelli live del provider (per il selettore)
   | { op: 'settings_get' }

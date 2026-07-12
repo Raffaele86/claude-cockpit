@@ -121,6 +121,7 @@ const IT = {
   // Settings
   settingsTitle: 'Impostazioni',
   settingsBtnTitle: 'Impostazioni (notifiche, Telegram, provider, quick actions…)',
+  openOnWindows: 'Apri su Windows',
   save: 'Salva',
   saved: 'Salvato ✓',
   secNotify: 'Notifiche',
@@ -416,6 +417,7 @@ const EN: typeof IT = {
   // Settings
   settingsTitle: 'Settings',
   settingsBtnTitle: 'Settings (notifications, Telegram, providers, quick actions…)',
+  openOnWindows: 'Open on Windows',
   save: 'Save',
   saved: 'Saved ✓',
   secNotify: 'Notifications',
