@@ -62,6 +62,7 @@ export function Composer({ disabled, busy, queued, slashCommands, client, onSend
     onSend(text, images.length > 0 ? images : undefined);
     setText('');
     setImages([]);
+    if (ref.current) ref.current.style.height = 'auto'; // torna a 1 riga
   }
 
   // Condiviso da incolla e drag&drop: immagini → allegati; file di testo → blocco citato nel testo.
@@ -173,12 +174,18 @@ export function Composer({ disabled, busy, queued, slashCommands, client, onSend
         <textarea
           ref={ref}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            // auto-grow: 1 riga a riposo, cresce col contenuto fino a ~40vh
+            const el = e.currentTarget;
+            el.style.height = 'auto';
+            el.style.height = `${Math.min(el.scrollHeight, window.innerHeight * 0.4)}px`;
+          }}
           onKeyDown={onKey}
           onPaste={onPaste}
           placeholder={disabled ? t('placeholderWaiting') : busy ? t('placeholderBusy') : t('placeholderIdle')}
           disabled={disabled}
-          rows={3}
+          rows={1}
         />
         <div className="composer-actions">
           <button

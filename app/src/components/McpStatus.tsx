@@ -3,6 +3,7 @@ import type { McpServer } from '../model';
 import type { McpAddRequest } from '../protocol';
 import { t } from '../strings';
 import { Icon } from './icons';
+import { Select } from './Select';
 
 const COLOR: Record<string, string> = {
   connected: 'var(--green)',
@@ -83,11 +84,15 @@ export function McpStatus({ servers, op, importMsg, onRefresh, onAdd, onRemove, 
       {open && adding && (
         <div className="mcp-add-form">
           <input placeholder={t('mcpName')} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-          <select value={form.transport} onChange={(e) => setForm({ ...form, transport: e.target.value as McpAddRequest['transport'] })}>
-            <option value="http">HTTP</option>
-            <option value="sse">SSE</option>
-            <option value="stdio">stdio</option>
-          </select>
+          <Select
+            value={form.transport}
+            onChange={(v) => setForm({ ...form, transport: v as McpAddRequest['transport'] })}
+            options={[
+              { value: 'http', label: 'HTTP' },
+              { value: 'sse', label: 'SSE' },
+              { value: 'stdio', label: 'stdio' },
+            ]}
+          />
           <input
             placeholder={form.transport === 'stdio' ? t('mcpTargetCmd') : t('mcpTargetUrl')}
             value={form.target}
@@ -98,10 +103,14 @@ export function McpStatus({ servers, op, importMsg, onRefresh, onAdd, onRemove, 
           ) : (
             <textarea rows={2} placeholder={t('mcpEnv')} value={form.env} onChange={(e) => setForm({ ...form, env: e.target.value })} />
           )}
-          <select value={form.scope} onChange={(e) => setForm({ ...form, scope: e.target.value as McpAddRequest['scope'] })}>
-            <option value="user">{t('mcpScopeAll')}</option>
-            <option value="project">{t('mcpScopeProject')}</option>
-          </select>
+          <Select
+            value={form.scope}
+            onChange={(v) => setForm({ ...form, scope: v as McpAddRequest['scope'] })}
+            options={[
+              { value: 'user', label: t('mcpScopeAll') },
+              { value: 'project', label: t('mcpScopeProject') },
+            ]}
+          />
           {op.error && <div className="mcp-error">{op.error}</div>}
           <div className="mcp-add-actions">
             <button

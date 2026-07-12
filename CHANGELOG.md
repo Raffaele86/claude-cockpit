@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.28.0
+- **Command palette (Ctrl/⌘+K)**: Raycast-style palette covering everything — new chat/tab, history, export, project switching, provider/model/effort/permission submenus, every panel, quick actions and preferences. Works from the CLI view too (captures the shortcut before the terminal); a ⌘K button in the top bar opens it on touch devices
+- **Minimal top bar**: down from 17 controls to 5 — brand, a session pill showing the current model · effort (click → palette), New chat, inbox with badge, and a ⋯ menu for the rare toggles (TTS, notifications, panels). Model/provider/effort selectors, Plan/Bypass and the panel buttons all moved into the palette and menu; cost/ctx live in the statusline
+- **Design tokens**: one warm layered palette (deeper app background, surface, elevated), a fixed 5-step type scale and 4-step radius scale replacing 14 ad-hoc font sizes and 13 radii, 3 text levels, 2 shadow levels — the whole theme now reads as one system
+- **Custom selects**: native `<select>` dropdowns replaced by a themed popover component (keyboard navigation included) in Usage, MCP and Settings panels
+- Polish: composer textarea auto-grows from one line, focus ring on the composer is accent-tinted, quick actions are pills, shared pop-in animation for popovers, `prefers-reduced-motion` respected
+
 ## 0.27.0
 - **Custom project icons**: sidebar projects can now use the app's stroke icon set with a per-project accent color — the add/edit form in the rail gains an icon grid + 8 color swatches, and every project row gets a pencil (on hover) to restyle it. Legacy emoji icons in `projects.json` keep rendering as before (no migration needed); Telegram's project menu falls back to 📁 for icon names it can't render
 - **Modern button system**: buttons are ghost by default (no grey borders — subtle hover, accent-tinted active state) with a single filled accent style reserved for primary actions; mutually exclusive groups (provider, Plan/Bypass, CLI|Chat, drive filters) become pill segmented controls; keyboard focus gets a visible accent ring everywhere

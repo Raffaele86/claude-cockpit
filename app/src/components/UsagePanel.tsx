@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { t, LOCALE } from '../strings';
 import { FloatPanel } from './FloatPanel';
+import { Select } from './Select';
 import type { UsageDay } from '../protocol';
 
 function fmtTok(n: number): string {
@@ -56,30 +57,26 @@ export function UsagePanel({ days, onClose }: Props) {
         ) : (
           <>
             <div className="doc-actions">
-              <select value={provider} onChange={(e) => setProvider(e.target.value)}>
-                <option value="">{t('usageAllProviders')}</option>
-                {providers.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-              <select value={project} onChange={(e) => setProject(e.target.value)}>
-                <option value="">{t('usageAllProjects')}</option>
-                {projects.map((p) => (
-                  <option key={p} value={p}>{p}</option>
-                ))}
-              </select>
-              <select value={origin} onChange={(e) => setOrigin(e.target.value)}>
-                <option value="">{t('usageAllOrigins')}</option>
-                {origins.map((o) => (
-                  <option key={o} value={o}>{o}</option>
-                ))}
-              </select>
-              <select value={model} onChange={(e) => setModel(e.target.value)}>
-                <option value="">{t('usageAllModels')}</option>
-                {models.map((m2) => (
-                  <option key={m2} value={m2}>{m2}</option>
-                ))}
-              </select>
+              <Select
+                value={provider}
+                onChange={setProvider}
+                options={[{ value: '', label: t('usageAllProviders') }, ...providers.map((p) => ({ value: p, label: p }))]}
+              />
+              <Select
+                value={project}
+                onChange={setProject}
+                options={[{ value: '', label: t('usageAllProjects') }, ...projects.map((p) => ({ value: p, label: p }))]}
+              />
+              <Select
+                value={origin}
+                onChange={setOrigin}
+                options={[{ value: '', label: t('usageAllOrigins') }, ...origins.map((o) => ({ value: o, label: o }))]}
+              />
+              <Select
+                value={model}
+                onChange={setModel}
+                options={[{ value: '', label: t('usageAllModels') }, ...models.map((m2) => ({ value: m2, label: m2 }))]}
+              />
             </div>
             {model && <p className="doc-note">{t('usageModelCostNote')}</p>}
             <p className="doc-note">

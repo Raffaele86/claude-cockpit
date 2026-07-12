@@ -9,8 +9,6 @@ import { TodoPanel } from './components/TodoPanel';
 import { PermissionPrompt } from './components/PermissionPrompt';
 import { ProjectSwitcher } from './components/ProjectSwitcher';
 import { QuickActions } from './components/QuickActions';
-import { ModelSelect } from './components/ModelSelect';
-import { ModelCombo } from './components/ModelCombo';
 import { TerminalPanel } from './components/Terminal';
 import { McpStatus } from './components/McpStatus';
 import { SessionPicker } from './components/SessionPicker';
@@ -19,6 +17,8 @@ import type { SettingsSnapshot } from './components/Settings';
 import { FileNav } from './components/FileNav';
 import { Tabs } from './components/Tabs';
 import { Checkpoints } from './components/Checkpoints';
+import { CommandPalette, type Command } from './components/CommandPalette';
+import { OverflowMenu, type MenuItem } from './components/OverflowMenu';
 import { Icon } from './components/icons';
 
 // Pannelli on-demand: chunk separati, caricati solo alla prima apertura.
@@ -99,6 +99,7 @@ export function App() {
   const [usageOpen, setUsageOpen] = useState(false);
   const [usageDays, setUsageDays] = useState<UsageDay[] | null>(null);
   const [inboxOpen, setInboxOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [cliActive, setCliActive] = useState<Record<string, boolean>>({}); // ev pty_activity: schede CLI con output recente
   const [ptySession, setPtySession] = useState<Record<string, string>>({}); // chiave → sessionId del pty claude (per i titoli)
   const [globalResults, setGlobalResults] = useState<GlobalSearchResult[] | null>(null); // ricerca cross-progetto
@@ -724,6 +725,37 @@ export function App() {
 
   /** Nuova scheda = chat indipendente: id UNICO (mai riusato — un id riciclato si
    *  ri-attaccherebbe al pty di una scheda chiusa) → il primo attach è sempre fresco. */
+  // Ctrl/⌘+K: palette. Listener in fase capture, così vince anche quando il focus è nel pty (xterm).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        e.stopPropagation();
+        setPaletteOpen((o) => !o);
+      }
+    };
+    window.addEventListener('keydown', onKey, true);
+    return () => window.removeEventListener('keydown', onKey, true);
+  }, []);
+
+  const exportChat = useCallback(() => {
+    const items = projectsRef.current[activeKey]?.items ?? [];
+    if (!items.length) return;
+    const stamp = new Date().toISOString().slice(0, 16).replace(/[-T:]/g, '');
+    const blob = new Blob([itemsToMarkdown(items)], { type: 'text/markdown' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `cockpit-transcript-${stamp}.md`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }, [activeKey]);
+
+  const openSettings = useCallback(() => {
+    setSettingsSnap(null);
+    client.current?.send({ op: 'settings_get' });
+    setSettingsOpen(true);
+  }, []);
+
   const addTab = useCallback(() => {
     const id = `t${Date.now().toString(36)}`;
     setTabs(activeProject, (list) => [...list, id]);
@@ -857,300 +889,259 @@ export function App() {
     return m;
   }, [tabs, activeProject, tabMeta]);
 
+  // Registry della command palette: costruito qui perché tutti gli handler vivono nel monolite.
+  const commands = useMemo<Command[]>(() => {
+    if (conn !== 'authed') return [];
+    const cli = view === 'cli';
+    const curProv = cli ? (cliProv[activeKey] ?? 'claude') : active.provider;
+    const curModel = cli ? (cliModel[activeKey] ?? '') : active.model;
+    const curEffort = cli ? (cliEffort[activeKey] ?? '') : active.effort;
+    const modelList: { id: string; label: string }[] =
+      curProv === 'claude' ? active.models.map((m) => ({ id: m.model, label: m.displayName ?? m.model }))
+      : hasCatalog(curProv) ? (catalog[curProv] ?? []).map((m) => ({ id: m.id, label: m.id }))
+      : providerModels(curProv).map((m) => ({ id: m, label: m }));
+    const setProv = (p: string) => {
+      if (p === curProv) return;
+      requestCatalog(p);
+      if (cli) {
+        setCliProv((prev) => ({ ...prev, [activeKey]: p }));
+        setCliModel((prev) => ({ ...prev, [activeKey]: '' }));
+        relaunchCli({ provider: p, continue: true, permissionMode: cliMode[activeKey] as PtyLaunch['permissionMode'] });
+      } else {
+        client.current?.send({ op: 'set_provider', project: activeKey, provider: p });
+      }
+    };
+    const setModel = (m: string) => {
+      if (cli) {
+        setCliModel((prev) => ({ ...prev, [activeKey]: m }));
+        cliInput.current?.(`/model ${m}\r`);
+      } else changeModel(m);
+    };
+    const setEff = (ef: string) => {
+      if (cli) {
+        setCliEffort((prev) => ({ ...prev, [activeKey]: ef }));
+        cliInput.current?.(`/effort ${ef}\r`);
+      } else changeEffort(ef);
+    };
+    const out: Command[] = [
+      {
+        id: 'new-chat',
+        label: cli ? t('cliNewChat') : t('newChat'),
+        section: t('cpSecSession'),
+        icon: 'plus',
+        keywords: 'new nuova chat scheda tab',
+        run: () => (cli ? addTab() : resetSession()),
+      },
+      {
+        id: 'history',
+        label: cli ? t('cliHistory') : t('history'),
+        section: t('cpSecSession'),
+        icon: 'clock',
+        shortcut: cli ? '/resume' : undefined,
+        keywords: 'history cronologia resume sessioni',
+        run: () => {
+          if (cli) cliInput.current?.('/resume\r');
+          else {
+            if (activeProject) client.current?.send({ op: 'sessions_list', project: activeProject });
+            setPicker(true);
+          }
+        },
+      },
+      ...(!cli && active.items.length
+        ? [{ id: 'export', label: t('exportChat'), section: t('cpSecSession'), icon: 'file' as const, keywords: 'export markdown transcript', run: exportChat }]
+        : []),
+      {
+        id: 'project',
+        label: t('cmdSwitchProject'),
+        section: t('cpSecGoto'),
+        icon: 'folder',
+        keywords: 'project progetto switch',
+        children: () =>
+          registry.map((p) => ({ id: p.path, label: p.name, icon: 'folder' as const, on: p.path === activeProject, run: () => setActiveProject(p.path) })),
+      },
+      {
+        id: 'view',
+        label: `${t('cmdToggleView')} ${cli ? 'Chat' : 'CLI'}`,
+        section: t('cpSecGoto'),
+        icon: 'terminal',
+        keywords: 'view vista cli chat toggle',
+        run: () => setView(cli ? 'chat' : 'cli'),
+      },
+      {
+        id: 'provider',
+        label: t('cmdProvider'),
+        section: t('cpSecModel'),
+        icon: 'globe',
+        keywords: 'provider claude glm openrouter',
+        children: () => providerNames.map((p) => ({ id: p, label: p === 'claude' ? 'Claude' : p, on: p === curProv, run: () => setProv(p) })),
+      },
+      {
+        id: 'model',
+        label: t('cmdModel'),
+        section: t('cpSecModel'),
+        icon: 'sparkle',
+        keywords: 'model modello',
+        children: () => modelList.map((m) => ({ id: m.id, label: m.label, on: m.id === curModel, run: () => setModel(m.id) })),
+      },
+      {
+        id: 'effort',
+        label: t('cmdEffort'),
+        section: t('cpSecModel'),
+        icon: 'pulse',
+        keywords: 'effort reasoning',
+        children: () => ['low', 'medium', 'high', 'xhigh'].map((ef) => ({ id: ef, label: ef, on: ef === curEffort, run: () => setEff(ef) })),
+      },
+      {
+        id: 'mode',
+        label: t('cmdMode'),
+        section: t('cpSecModel'),
+        icon: 'lock',
+        keywords: 'permessi mode plan bypass',
+        children: () =>
+          cli
+            ? (
+                [
+                  ['plan', 'Plan'],
+                  ['bypassPermissions', 'Bypass'],
+                ] as const
+              ).map(([mode, label]) => ({
+                id: mode,
+                label,
+                on: (cliMode[activeKey] ?? 'bypassPermissions') === mode,
+                run: () => {
+                  setCliMode((prev) => ({ ...prev, [activeKey]: mode }));
+                  relaunchCli({ permissionMode: mode, continue: true, provider: cliProv[activeKey] ?? 'claude' });
+                },
+              }))
+            : MODES.map((m) => ({ id: m.key, label: m.label, on: active.permissionMode === m.key, run: () => setMode(m.key) })),
+      },
+      { id: 'inbox', label: t('inboxOpen'), section: t('cpSecPanels'), icon: 'inbox', keywords: 'inbox sessioni', run: () => setInboxOpen(true) },
+      { id: 'usage', label: t('usageOpen'), section: t('cpSecPanels'), icon: 'chart', keywords: 'usage costi token', run: () => setUsageOpen(true) },
+      { id: 'checkpoints', label: t('cpOpen'), section: t('cpSecPanels'), icon: 'camera', keywords: 'checkpoint snapshot restore', run: () => setCpOpen(true) },
+      { id: 'doctor', label: t('docOpen'), section: t('cpSecPanels'), icon: 'pulse', keywords: 'doctor system check', run: () => setDoctorOpen(true) },
+      { id: 'settings', label: t('settingsBtnTitle'), section: t('cpSecPanels'), icon: 'settings', keywords: 'settings impostazioni', run: openSettings },
+      {
+        id: 'side',
+        label: t('sidePanelTitle'),
+        section: t('cpSecPanels'),
+        icon: 'menu',
+        on: sideOpen,
+        keywords: 'todo mcp side panel',
+        run: () =>
+          setSideOpen((o) => {
+            localStorage.setItem('cockpit-side', o ? '0' : '1');
+            return !o;
+          }),
+      },
+      ...quickActions
+        .filter((q) => !q.project || q.project === activeProject)
+        .map((q, i) => ({
+          id: `qa-${i}`,
+          label: q.label,
+          section: t('cpSecQuick'),
+          icon: 'play' as const,
+          keywords: q.text,
+          run: () => {
+            if (cli) cliInput.current?.(q.text + '\r');
+            else submit(q.text);
+          },
+        })),
+      {
+        id: 'tts',
+        label: t('ttsTitle'),
+        section: t('cpSecPrefs'),
+        icon: 'speaker',
+        on: ttsOn,
+        keywords: 'tts voce leggi',
+        run: () =>
+          setTtsOn((on) => {
+            const next = !on;
+            localStorage.setItem('cockpit-tts', next ? '1' : '0');
+            if (!next && 'speechSynthesis' in window) speechSynthesis.cancel();
+            return next;
+          }),
+      },
+      { id: 'notify', label: t('notifyTitle'), section: t('cpSecPrefs'), icon: 'bell', on: notifyOn, keywords: 'notifiche notifications', run: toggleNotify },
+    ];
+    return out;
+  }, [
+    conn, view, active, activeKey, activeProject, registry, providerNames, catalog, quickActions,
+    cliProv, cliModel, cliEffort, cliMode, ttsOn, notifyOn, sideOpen,
+    addTab, resetSession, exportChat, setView, changeModel, changeEffort, setMode, relaunchCli,
+    hasCatalog, providerModels, requestCatalog, openSettings, submit, toggleNotify,
+  ]);
+
+  // Menu ⋯ della topbar: toggle rari + pannelli (le stesse azioni esistono anche in palette).
+  const menuItems = useMemo<MenuItem[]>(
+    () => [
+      {
+        id: 'tts',
+        label: t('ttsTitle'),
+        icon: 'speaker',
+        on: ttsOn,
+        run: () =>
+          setTtsOn((on) => {
+            const next = !on;
+            localStorage.setItem('cockpit-tts', next ? '1' : '0');
+            if (!next && 'speechSynthesis' in window) speechSynthesis.cancel();
+            return next;
+          }),
+      },
+      { id: 'notify', label: t('notifyTitle'), icon: 'bell', on: notifyOn, run: toggleNotify },
+      { id: 'usage', label: t('usageOpen'), icon: 'chart', run: () => setUsageOpen(true) },
+      { id: 'checkpoints', label: t('cpOpen'), icon: 'camera', run: () => setCpOpen(true) },
+      { id: 'doctor', label: t('docOpen'), icon: 'pulse', run: () => setDoctorOpen(true) },
+      { id: 'settings', label: t('settingsTitle'), icon: 'settings', run: openSettings },
+      {
+        id: 'side',
+        label: t('sidePanelTitle'),
+        icon: 'menu',
+        on: sideOpen,
+        run: () =>
+          setSideOpen((o) => {
+            localStorage.setItem('cockpit-side', o ? '0' : '1');
+            return !o;
+          }),
+      },
+    ],
+    [ttsOn, notifyOn, sideOpen, toggleNotify, openSettings],
+  );
+
   return (
     <div className="app">
       <header className="topbar">
         <div className="brand">
           Claude Cockpit <span className="proj">{shortProject}</span>
         </div>
+        {conn === 'authed' && (
+          <div className="pill-wrap">
+            <button className="session-pill" title={t('cpOpenTitle')} onClick={() => setPaletteOpen(true)}>
+              <Icon name="sparkle" size={12} />
+              <span className="pill-part">{(view === 'cli' ? cliModel[activeKey] : active.model) || 'model'}</span>
+              <span className="pill-sep">·</span>
+              <span className="pill-part">{(view === 'cli' ? cliEffort[activeKey] : active.effort) || 'effort'}</span>
+            </button>
+          </div>
+        )}
         <div className="status">
           {conn === 'authed' && (
-            <>
-              {active.costUsd > 0 && (
-                <span className="cost" title={t('costTitle')}>
-                  ${active.costUsd.toFixed(2)} · {Math.round((active.tokensIn + active.tokensOut) / 1000)}k
-                </span>
-              )}
-              {active.ctx && (
-                <span
-                  className={`ctx ${active.ctx.percentage > 80 ? 'hot' : active.ctx.percentage > 55 ? 'warm' : ''}`}
-                  title={t('ctxRealTitle')(Math.round(active.ctx.totalTokens / 1000), Math.round(active.ctx.maxTokens / 1000))}
-                >
-                  ctx {Math.round(active.ctx.percentage)}%
-                </span>
-              )}
-              {view === 'chat' && (
-                <>
-                  <button className="mini ghost" title={t('newChatTitle')} onClick={() => resetSession()}>
-                    {t('newChat')}
-                  </button>
-                  <button
-                    className={picker ? 'mini on' : 'mini ghost'}
-                    title={t('historyTitle')}
-                    onClick={() => {
-                      if (!picker && activeProject) client.current?.send({ op: 'sessions_list', project: activeProject });
-                      setPicker((p) => !p);
-                    }}
-                  >
-                    {t('history')}
-                  </button>
-                  <button
-                    className="mini ghost"
-                    title={t('exportChatTitle')}
-                    disabled={!active.items.length}
-                    onClick={() => {
-                      const stamp = new Date().toISOString().slice(0, 16).replace(/[-T:]/g, '');
-                      const blob = new Blob([itemsToMarkdown(active.items)], { type: 'text/markdown' });
-                      const a = document.createElement('a');
-                      a.href = URL.createObjectURL(blob);
-                      a.download = `cockpit-transcript-${stamp}.md`;
-                      a.click();
-                      URL.revokeObjectURL(a.href);
-                    }}
-                  >
-                    {t('exportChat')}
-                  </button>
-                </>
-              )}
-              {view === 'cli' && (
-                <>
-                  <button className="mini ghost" title={t('cliNewChatTitle')} onClick={addTab}>
-                    {t('cliNewChat')}
-                  </button>
-                  <button className="mini ghost" title={t('cliHistoryTitle')} onClick={() => cliInput.current?.('/resume\r')}>
-                    {t('cliHistory')}
-                  </button>
-                </>
-              )}
-              <button
-                className={ttsOn ? 'mini on btn-icon' : 'mini ghost btn-icon'}
-                title={t('ttsTitle')}
-                onClick={() =>
-                  setTtsOn((on) => {
-                    const next = !on;
-                    localStorage.setItem('cockpit-tts', next ? '1' : '0');
-                    if (!next && 'speechSynthesis' in window) speechSynthesis.cancel();
-                    return next;
-                  })
-                }
-              >
-                <Icon name="speaker" />
-              </button>
-              <button className={notifyOn ? 'mini on btn-icon' : 'mini ghost btn-icon'} title={t('notifyTitle')} onClick={toggleNotify}>
-                <Icon name="bell" />
-              </button>
-              {view === 'chat' && (
-                <>
-                  <div className="provider-toggle" title={t('providerTitle')}>
-                    {providerNames.map((p) => (
-                      <button
-                        key={p}
-                        className={active.provider === p ? 'prov on' : 'prov'}
-                        onClick={() => {
-                          if (active.provider !== p) {
-                            client.current?.send({ op: 'set_provider', project: activeKey, provider: p });
-                            requestCatalog(p);
-                          }
-                        }}
-                      >
-                        {p === 'claude' ? 'Claude' : p === 'glm' ? 'GLM' : p.charAt(0).toUpperCase() + p.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                  {active.provider !== 'claude' ? (
-                    hasCatalog(active.provider) ? (
-                      <ModelCombo
-                        models={catalog[active.provider] ?? []}
-                        current={active.model}
-                        loading={catalogLoading[active.provider]}
-                        onChange={changeModel}
-                      />
-                    ) : providerModels(active.provider).length > 0 ? (
-                      <select
-                        className="effort-select"
-                        title={t('glmModelTitle')}
-                        value={providerModels(active.provider).includes(active.model) ? active.model : ''}
-                        onChange={(e) => changeModel(e.target.value)}
-                      >
-                        <option value="" disabled>
-                          {active.model || 'model…'}
-                        </option>
-                        {providerModels(active.provider).map((m) => (
-                          <option key={m} value={m}>
-                            {m}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <span className="model-static" title={t('glmModelTitle')}>
-                        {active.model || 'model…'}
-                      </span>
-                    )
-                  ) : (
-                    <ModelSelect models={active.models} current={active.model} onChange={changeModel} />
-                  )}
-                  <select
-                    className="effort-select"
-                    title={t('effortTitle')}
-                    value={active.effort}
-                    onChange={(e) => changeEffort(e.target.value)}
-                  >
-                    <option value="" disabled>
-                      effort…
-                    </option>
-                    <option value="low">low</option>
-                    <option value="medium">medium</option>
-                    <option value="high">high</option>
-                    <option value="xhigh">xhigh</option>
-                  </select>
-                </>
-              )}
-              {view === 'cli' && (
-                <>
-                  <div className="provider-toggle" title={t('providerTitle')}>
-                    {providerNames.map((p) => (
-                      <button
-                        key={p}
-                        className={(cliProv[activeKey] ?? 'claude') === p ? 'prov on' : 'prov'}
-                        onClick={() => {
-                          if ((cliProv[activeKey] ?? 'claude') === p) return;
-                          setCliProv((prev) => ({ ...prev, [activeKey]: p }));
-                          setCliModel((prev) => ({ ...prev, [activeKey]: '' }));
-                          requestCatalog(p);
-                          relaunchCli({ provider: p, continue: true, permissionMode: (cliMode[activeKey] as PtyLaunch['permissionMode']) });
-                        }}
-                      >
-                        {p === 'claude' ? 'Claude' : p === 'glm' ? 'GLM' : p.charAt(0).toUpperCase() + p.slice(1)}
-                      </button>
-                    ))}
-                  </div>
-                  {(cliProv[activeKey] ?? 'claude') === 'claude' ? (
-                    <ModelSelect
-                      models={active.models}
-                      current={cliModel[activeKey] ?? ''}
-                      onChange={(m) => {
-                        setCliModel((prev) => ({ ...prev, [activeKey]: m }));
-                        cliInput.current?.(`/model ${m}\r`);
-                      }}
-                    />
-                  ) : hasCatalog(cliProv[activeKey] ?? '') ? (
-                    <ModelCombo
-                      models={catalog[cliProv[activeKey] ?? ''] ?? []}
-                      current={cliModel[activeKey] ?? ''}
-                      loading={catalogLoading[cliProv[activeKey] ?? '']}
-                      onChange={(m) => {
-                        setCliModel((prev) => ({ ...prev, [activeKey]: m }));
-                        cliInput.current?.(`/model ${m}\r`);
-                      }}
-                    />
-                  ) : (
-                    providerModels(cliProv[activeKey] ?? '').length > 0 && (
-                      <select
-                        className="effort-select"
-                        title={t('glmModelTitle')}
-                        value={cliModel[activeKey] ?? ''}
-                        onChange={(e) => {
-                          setCliModel((prev) => ({ ...prev, [activeKey]: e.target.value }));
-                          cliInput.current?.(`/model ${e.target.value}\r`);
-                        }}
-                      >
-                        <option value="" disabled>
-                          model…
-                        </option>
-                        {providerModels(cliProv[activeKey] ?? '').map((m) => (
-                          <option key={m} value={m}>
-                            {m}
-                          </option>
-                        ))}
-                      </select>
-                    )
-                  )}
-                  <select
-                    className="effort-select"
-                    title={t('effortTitle')}
-                    value={cliEffort[activeKey] ?? ''}
-                    onChange={(e) => {
-                      setCliEffort((prev) => ({ ...prev, [activeKey]: e.target.value }));
-                      cliInput.current?.(`/effort ${e.target.value}\r`);
-                    }}
-                  >
-                    <option value="" disabled>
-                      effort…
-                    </option>
-                    <option value="low">low</option>
-                    <option value="medium">medium</option>
-                    <option value="high">high</option>
-                    <option value="xhigh">xhigh</option>
-                  </select>
-                  <div className="provider-toggle" title={t('cliModeTitle')}>
-                    {(
-                      [
-                        ['plan', 'Plan'],
-                        ['bypassPermissions', 'Bypass'],
-                      ] as const
-                    ).map(([mode, label]) => (
-                      <button
-                        key={mode}
-                        className={(cliMode[activeKey] ?? 'bypassPermissions') === mode ? 'prov on' : 'prov'}
-                        onClick={() => {
-                          setCliMode((prev) => ({ ...prev, [activeKey]: mode }));
-                          relaunchCli({ permissionMode: mode, continue: true, provider: cliProv[activeKey] ?? 'claude' });
-                        }}
-                      >
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </>
-          )}
-          {conn === 'authed' && (
             <button
-              className={settingsOpen ? 'mini on btn-icon' : 'mini ghost btn-icon'}
-              title={t('settingsBtnTitle')}
-              onClick={() => {
-                if (!settingsOpen) {
-                  setSettingsSnap(null);
-                  client.current?.send({ op: 'settings_get' });
-                }
-                setSettingsOpen((o) => !o);
-              }}
+              className="mini ghost"
+              title={view === 'cli' ? t('cliNewChatTitle') : t('newChatTitle')}
+              onClick={() => (view === 'cli' ? addTab() : resetSession())}
             >
-              <Icon name="settings" />
+              {view === 'cli' ? t('cliNewChat') : t('newChat')}
             </button>
           )}
+          <button className="mini ghost" title={t('cpOpenTitle')} onClick={() => setPaletteOpen(true)}>
+            <kbd className="kbd-chip">⌘K</kbd>
+          </button>
           <button className={`has-badge btn-icon ${inboxOpen ? 'mini on' : 'mini ghost'}`} title={t('inboxOpen')} onClick={() => setInboxOpen((o) => !o)}>
             <Icon name="inbox" />
             {busyCount > 0 && <span className="badge-busy">{busyCount}</span>}
           </button>
-          <button className={usageOpen ? 'mini on btn-icon' : 'mini ghost btn-icon'} title={t('usageOpen')} onClick={() => setUsageOpen((o) => !o)}>
-            <Icon name="chart" />
-          </button>
-          <button
-            className={cpOpen ? 'mini on btn-icon' : 'mini ghost btn-icon'}
-            title={t('cpOpen')}
-            onClick={() => setCpOpen((o) => !o)}
-          >
-            <Icon name="camera" />
-          </button>
-          <button className={doctorOpen ? 'mini on btn-icon' : 'mini ghost btn-icon'} title={t('docOpen')} onClick={() => setDoctorOpen((o) => !o)}>
-            <Icon name="pulse" />
-          </button>
-          <button
-            className={sideOpen ? 'mini on btn-icon' : 'mini ghost btn-icon'}
-            title={t('sidePanelTitle')}
-            onClick={() =>
-              setSideOpen((o) => {
-                localStorage.setItem('cockpit-side', o ? '0' : '1');
-                return !o;
-              })
-            }
-          >
-            <Icon name="menu" />
-          </button>
-          <span className={`dot ${conn}`} />
-          {conn === 'authed' ? t('connected') : conn}
+          <OverflowMenu title={t('moreTitle')} items={menuItems} />
+          <span className={`dot ${conn}`} title={conn === 'authed' ? t('connected') : conn} />
           {conn === 'disconnected' && (
             <button className="mini primary" onClick={onStartEngine}>
               {t('startEngine')}
@@ -1173,6 +1164,7 @@ export function App() {
           </button>
         </div>
       )}
+      <CommandPalette open={paletteOpen} commands={commands} onClose={() => setPaletteOpen(false)} />
       {doctorOpen && (
         <Suspense fallback={null}>
           <Doctor connected={conn === 'authed'} onStartEngine={() => void window.cockpit?.startEngine()} onClose={() => setDoctorOpen(false)} />

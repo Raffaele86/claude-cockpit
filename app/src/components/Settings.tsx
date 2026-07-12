@@ -3,6 +3,7 @@ import type { CockpitSettings, QuickActionEntry } from '../protocol';
 import { t } from '../strings';
 import { FloatPanel } from './FloatPanel';
 import { Icon } from './icons';
+import { Select } from './Select';
 
 export interface SettingsSnapshot {
   data: CockpitSettings;
@@ -176,13 +177,14 @@ export function Settings({ snapshot, engineVersion, home, configMsg, projects, o
                 </label>
                 <label className="set-field">
                   {t('tgSttProvider')}
-                  <select
+                  <Select
                     value={tg.sttProvider ?? 'groq'}
-                    onChange={(e) => setTg({ ...tg, sttProvider: e.target.value as 'groq' | 'openai' })}
-                  >
-                    <option value="groq">Groq (Whisper)</option>
-                    <option value="openai">OpenAI</option>
-                  </select>
+                    onChange={(v) => setTg({ ...tg, sttProvider: v as 'groq' | 'openai' })}
+                    options={[
+                      { value: 'groq', label: 'Groq (Whisper)' },
+                      { value: 'openai', label: 'OpenAI' },
+                    ]}
+                  />
                 </label>
                 <label className="set-field">
                   {t('tgSttKey')}
@@ -190,11 +192,15 @@ export function Settings({ snapshot, engineVersion, home, configMsg, projects, o
                 </label>
                 <label className="set-field">
                   {t('sttLangLbl')}
-                  <select value={tg.sttLanguage ?? 'auto'} onChange={(e) => setTg({ ...tg, sttLanguage: e.target.value })}>
-                    <option value="auto">{t('langAuto')}</option>
-                    <option value="it">Italiano</option>
-                    <option value="en">English</option>
-                  </select>
+                  <Select
+                    value={tg.sttLanguage ?? 'auto'}
+                    onChange={(v) => setTg({ ...tg, sttLanguage: v })}
+                    options={[
+                      { value: 'auto', label: t('langAuto') },
+                      { value: 'it', label: 'Italiano' },
+                      { value: 'en', label: 'English' },
+                    ]}
+                  />
                 </label>
                 <p className="set-hint">{t('tgHint')}</p>
               </section>
@@ -256,16 +262,12 @@ export function Settings({ snapshot, engineVersion, home, configMsg, projects, o
                       value={q.text}
                       onChange={(e) => setQa(qa.map((x, j) => (j === i ? { ...x, text: e.target.value } : x)))}
                     />
-                    <select
+                    <Select
                       title={t('qaProjectTitle')}
                       value={q.project ?? ''}
-                      onChange={(e) => setQa(qa.map((x, j) => (j === i ? { ...x, project: e.target.value || undefined } : x)))}
-                    >
-                      <option value="">{t('qaGlobal')}</option>
-                      {projects.map((p) => (
-                        <option key={p.path} value={p.path}>{p.name}</option>
-                      ))}
-                    </select>
+                      onChange={(v) => setQa(qa.map((x, j) => (j === i ? { ...x, project: v || undefined } : x)))}
+                      options={[{ value: '', label: t('qaGlobal') }, ...projects.map((p) => ({ value: p.path, label: p.name }))]}
+                    />
                     <button onClick={() => setQa(qa.filter((_, j) => j !== i))}><Icon name="close" /></button>
                   </div>
                 ))}
@@ -278,11 +280,15 @@ export function Settings({ snapshot, engineVersion, home, configMsg, projects, o
                 <h3>{t('secEngine')}</h3>
                 <label className="set-field">
                   {t('defaultModeLbl')}
-                  <select value={defaultMode} onChange={(e) => setDefaultMode(e.target.value)}>
-                    <option value="default">Default</option>
-                    <option value="acceptEdits">Accept edits</option>
-                    <option value="bypassPermissions">Bypass</option>
-                  </select>
+                  <Select
+                    value={defaultMode}
+                    onChange={setDefaultMode}
+                    options={[
+                      { value: 'default', label: 'Default' },
+                      { value: 'acceptEdits', label: 'Accept edits' },
+                      { value: 'bypassPermissions', label: 'Bypass' },
+                    ]}
+                  />
                 </label>
                 <label className="set-check">
                   <input type="checkbox" checked={autoCheckpoint} onChange={(e) => setAutoCheckpoint(e.target.checked)} />
@@ -329,11 +335,16 @@ export function Settings({ snapshot, engineVersion, home, configMsg, projects, o
                 <h3>{t('secUi')}</h3>
                 <label className="set-field">
                   {t('langLbl')}
-                  <select value={lang} onChange={(e) => setLang(e.target.value)}>
-                    <option value="">{t('langAuto')}</option>
-                    <option value="it">Italiano</option>
-                    <option value="en">English</option>
-                  </select>
+                  <Select
+                    value={lang}
+                    onChange={setLang}
+                    dropUp
+                    options={[
+                      { value: '', label: t('langAuto') },
+                      { value: 'it', label: 'Italiano' },
+                      { value: 'en', label: 'English' },
+                    ]}
+                  />
                 </label>
                 <p className="set-hint">{t('langReloadHint')}</p>
               </section>
