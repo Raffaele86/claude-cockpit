@@ -29,7 +29,9 @@ export function readSettings(): CockpitSettings {
   const engine = readJson<{ hosts?: string[]; host?: string; defaultPermissionMode?: CockpitSettings['engine']['defaultPermissionMode']; autoCheckpoint?: boolean }>(ENGINE_PATH, {});
   return {
     telegram: { ...tg, botToken: mask(tg.botToken), sttApiKey: mask(tg.sttApiKey) },
-    providers,
+    providers: Object.fromEntries(
+      Object.entries(providers).map(([name, p]) => [name, { ...p, modelsKey: mask(p.modelsKey) }]),
+    ),
     engine: {
       hosts: engine.hosts ?? (engine.host ? [engine.host] : ['127.0.0.1']),
       defaultPermissionMode: engine.defaultPermissionMode ?? 'default',
@@ -60,6 +62,7 @@ export function applySettings(patch: Partial<CockpitSettings>): { telegram: bool
   }
 
   if (patch.providers) {
+    const cur = readJson<ProvidersFile>(PROVIDERS_PATH, {});
     const next: ProvidersFile = {};
     for (const [name, p] of Object.entries(patch.providers)) {
       if (!name.trim() || name.trim() === 'claude' || !p?.configDir?.trim()) continue;
@@ -70,9 +73,13 @@ export function applySettings(patch: Partial<CockpitSettings>): { telegram: bool
         models: models.length ? models : undefined,
         modelsUrl: p.modelsUrl?.trim() || undefined,
         modelPrefix: p.modelPrefix?.trim() || undefined,
+        // Segreto: mascherato o assente nella patch = conserva quello su file.
+        modelsKey:
+          isMasked(p.modelsKey) || p.modelsKey === undefined ? cur[name.trim()]?.modelsKey : p.modelsKey.trim() || undefined,
       };
     }
-    writeJson(PROVIDERS_PATH, next);
+    // Può contenere segreti (modelsKey): stesso trattamento di telegram.json.
+    writeFileSync(PROVIDERS_PATH, JSON.stringify(next, null, 2) + '\n', { mode: 0o600 });
   }
 
   if (patch.engine) {

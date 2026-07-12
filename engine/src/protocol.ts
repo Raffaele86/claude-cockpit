@@ -97,7 +97,7 @@ export interface CockpitSettings {
     sttProvider?: 'groq' | 'openai';
     sttLanguage?: string; // 'auto' | codice ISO (es. 'it') — dettatura E vocali Telegram
   };
-  providers: Record<string, { configDir: string; model?: string; models?: string[]; modelsUrl?: string; modelPrefix?: string }>; // chiave = nome provider; models = lista statica; modelsUrl = catalogo live (OpenRouter-style .data[].id), modelPrefix anteposto agli id
+  providers: Record<string, { configDir: string; model?: string; models?: string[]; modelsUrl?: string; modelPrefix?: string; modelsKey?: string }>; // chiave = nome provider; models = lista statica; modelsUrl = catalogo live (OpenRouter-style .data[].id), modelPrefix anteposto agli id; modelsKey = Bearer per modelsUrl autenticati (es. NVIDIA) — esce mascherato
   engine: { hosts: string[]; defaultPermissionMode?: PermissionModeName; autoCheckpoint?: boolean }; // autoCheckpoint: snapshot file pre-prompt (vista chat, debounce 10 min)
   quickactions: QuickActionEntry[];
 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.28.3
+- **Authenticated live model catalogs**: providers gain an optional `modelsKey` — the engine sends it as a Bearer token when fetching `modelsUrl`, enabling live catalogs from providers that require auth (e.g. NVIDIA NIM's 121-model list). The key is masked in the Settings snapshot and preserved across Settings saves, same treatment as the Telegram token; `providers.json` is written with mode 0600
+- Session popover: the provider segmented control wraps instead of overflowing the panel with 4+ providers; the model dropdown shows catalog labels; the top-bar pill shows the model name without the provider prefix
+
 ## 0.28.2
 - Fix: the session popover no longer closes while you pick values — it stays open through provider/model/effort/permission changes and closes only on outside click, Esc or the new ✕ (it used to auto-close on provider/permission changes in the CLI view, which read as "closes on every click")
 - **Model search is back**: the model dropdown gains a filter box on long lists (OpenRouter catalog) — same search that ModelCombo had before the redesign

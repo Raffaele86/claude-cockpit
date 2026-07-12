@@ -901,7 +901,7 @@ export function App() {
     const curMode = cli ? (cliMode[activeKey] ?? 'bypassPermissions') : active.permissionMode;
     const modelList: { id: string; label: string }[] =
       curProv === 'claude' ? active.models.map((m) => ({ id: m.model, label: m.displayName ?? m.model }))
-      : hasCatalog(curProv) ? (catalog[curProv] ?? []).map((m) => ({ id: m.id, label: m.id }))
+      : hasCatalog(curProv) ? (catalog[curProv] ?? []).map((m) => ({ id: m.id, label: m.label ?? m.id }))
       : providerModels(curProv).map((m) => ({ id: m, label: m }));
     const setProv = (p: string) => {
       if (p === curProv) return;
@@ -1130,7 +1130,7 @@ export function App() {
             >
               <button className="session-pill" title={t('sessionPillTitle')}>
                 <Icon name="sparkle" size={12} />
-                <span className="pill-part">{sessionCtl.curModel || 'model'}</span>
+                <span className="pill-part">{(sessionCtl.curModel || 'model').split(',').pop()}</span>
                 <span className="pill-sep">·</span>
                 <span className="pill-part">{sessionCtl.curEffort || 'effort'}</span>
                 <Icon name="chevron-down" size={11} />

@@ -2674,7 +2674,7 @@ button .icon { pointer-events: none; }
   left: 50%;
   transform: translateX(-50%);
   z-index: 70;
-  width: 300px;
+  width: 340px;
   background: var(--elev);
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: var(--r-md);
@@ -2689,6 +2689,11 @@ button .icon { pointer-events: none; }
   display: flex;
   align-items: center;
   gap: 10px;
+}
+/* 4+ provider: il segmented va a capo invece di sforare il riquadro */
+.smenu-row .provider-toggle {
+  flex-wrap: wrap;
+  min-width: 0;
 }
 .smenu-label {
   flex: none;

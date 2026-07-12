@@ -18,7 +18,7 @@ import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 import { logUsage, usageReport } from './usage.js';
 
-const ENGINE_VERSION = '0.28.2';
+const ENGINE_VERSION = '0.28.3';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -100,11 +100,11 @@ setInterval(() => {
 const providerByProject = new Map<string, import('./protocol.js').ProviderName>(); // default 'claude'
 
 // providers.json opzionale: { "<nome>": { "configDir": "...", "model": "...", "models": [...] } }
-function loadProviders(): Record<string, { configDir: string; model?: string; models?: string[]; modelsUrl?: string; modelPrefix?: string }> {
+function loadProviders(): Record<string, { configDir: string; model?: string; models?: string[]; modelsUrl?: string; modelPrefix?: string; modelsKey?: string }> {
   try {
     const cfg = JSON.parse(readFileSync(join(COCKPIT_DIR, 'providers.json'), 'utf8')) as Record<
       string,
-      { configDir: string; model?: string; models?: string[]; modelsUrl?: string; modelPrefix?: string }
+      { configDir: string; model?: string; models?: string[]; modelsUrl?: string; modelPrefix?: string; modelsKey?: string }
     >;
     return Object.fromEntries(Object.entries(cfg).filter(([, v]) => v?.configDir));
   } catch {
@@ -128,7 +128,11 @@ async function providerCatalog(name: string): Promise<import('./protocol.js').Ca
   const cached = catalogCache.get(name);
   if (cached && Date.now() - cached.at < 5 * 60_000) return cached.models;
   try {
-    const res = await fetch(cfg.modelsUrl, { signal: AbortSignal.timeout(15_000) });
+    const res = await fetch(cfg.modelsUrl, {
+      signal: AbortSignal.timeout(15_000),
+      // modelsKey: endpoint /models autenticati (es. NVIDIA NIM richiede Bearer)
+      headers: cfg.modelsKey ? { Authorization: `Bearer ${cfg.modelsKey}` } : undefined,
+    });
     const json = (await res.json()) as { data?: { id: string; name?: string; pricing?: { prompt?: string } }[] };
     const rows = json.data ?? [];
     const models: import('./protocol.js').CatalogModel[] = rows.map((m) => {
