@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEve
 import { t } from '../strings';
 import type { CockpitClient } from '../ws';
 import { useDictation } from './useDictation';
+import { Icon } from './icons';
 
 type ImageAttachment = { media_type: 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp'; data: string };
 
@@ -148,21 +149,21 @@ export function Composer({ disabled, busy, queued, slashCommands, client, onSend
       {mic.msg && (
         <div className="mic-msg">
           {mic.msg}
-          <button onClick={() => mic.setMsg(null)}>✕</button>
+          <button onClick={() => mic.setMsg(null)}><Icon name="close" /></button>
         </div>
       )}
       {dropMsg && (
         <div className="mic-msg">
           {dropMsg}
-          <button onClick={() => setDropMsg(null)}>✕</button>
+          <button onClick={() => setDropMsg(null)}><Icon name="close" /></button>
         </div>
       )}
       {(images.length > 0 || queued > 0) && (
         <div className="composer-chips">
           {images.map((img, i) => (
             <span key={i} className="img-chip">
-              🖼 {img.media_type.replace('image/', '')}
-              <button onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}>✕</button>
+              <Icon name="image" /> {img.media_type.replace('image/', '')}
+              <button onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}><Icon name="close" /></button>
             </span>
           ))}
           {queued > 0 && <span className="queue-chip">{t('queuedChip')(queued)}</span>}
@@ -185,7 +186,7 @@ export function Composer({ disabled, busy, queued, slashCommands, client, onSend
             title={mic.state === 'busy' ? t('micTranscribing') : t('dictateTitle')}
             onClick={() => void mic.toggle()}
           >
-            {mic.state === 'recording' ? '🔴' : mic.state === 'busy' ? '…' : '🎤'}
+            {mic.state === 'recording' ? <Icon name="record" /> : mic.state === 'busy' ? <Icon name="spinner" className="spin" /> : <Icon name="mic" />}
           </button>
           {busy && (
             <button className="stop" onClick={onInterrupt}>
@@ -198,7 +199,7 @@ export function Composer({ disabled, busy, queued, slashCommands, client, onSend
             onClick={submit}
             disabled={disabled || !text.trim()}
           >
-            ↑
+            <Icon name="send" />
           </button>
         </div>
       </div>

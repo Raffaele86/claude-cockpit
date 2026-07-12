@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { t } from '../strings';
 import { useDragWin } from './useDragWin';
+import { Icon } from './icons';
 
 const IS_ELECTRON = navigator.userAgent.includes('Electron');
 
@@ -62,7 +63,7 @@ export function Doctor({ connected, onStartEngine, onClose }: Props) {
         <strong>{t('docTitle')}</strong>
         <span className={connected ? 'doc-conn ok' : 'doc-conn'}>{connected ? t('docConnected') : t('docDisconnected')}</span>
         <button className="mini ghost" onClick={onClose}>
-          ✕
+          <Icon name="close" />
         </button>
       </div>
       <div className="doctor-body">
@@ -81,7 +82,7 @@ export function Doctor({ connected, onStartEngine, onClose }: Props) {
           <>
             {report.checks.map((c) => (
               <div key={c.id} className="doc-check">
-                <span className={c.ok ? 'doc-dot ok' : 'doc-dot bad'}>{c.ok ? '✓' : '✗'}</span>
+                <span className={c.ok ? 'doc-dot ok' : 'doc-dot bad'}><Icon name={c.ok ? 'check' : 'cross'} size={13} /></span>
                 <div className="doc-check-txt">
                   <span className="doc-label">
                     {t('docLabel')(c.id)} <code>{c.detail}</code>

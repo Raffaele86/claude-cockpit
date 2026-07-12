@@ -2,6 +2,7 @@
 // Doppio click sul titolo = rinomina locale; 📌 sulla scheda attiva = pin in prima posizione.
 import { useState } from 'react';
 import { t as tr } from '../strings';
+import { Icon } from './icons';
 
 interface Props {
   tabs: string[]; // id: 'main', 't2', ... (già ordinati: pinnate davanti)
@@ -30,7 +31,7 @@ export function Tabs({ tabs, active, busy, titles, pins, onSelect, onRename, onT
       {tabs.map((t, i) => (
         <div key={t} className={t === active ? 'tab on' : 'tab'} onClick={() => onSelect(t)}>
           {busy[t] && <span className="tab-busy" />}
-          {pins?.[t] && editing !== t && <span className="tab-pinned">📌</span>}
+          {pins?.[t] && editing !== t && <span className="tab-pinned"><Icon name="pin" size={11} /></span>}
           {editing === t ? (
             <input
               className="tab-rename"
@@ -67,7 +68,7 @@ export function Tabs({ tabs, active, busy, titles, pins, onSelect, onRename, onT
                 onTogglePin(t);
               }}
             >
-              📌
+              <Icon name="pin" size={12} />
             </button>
           )}
           {tabs.length > 1 && (
@@ -79,7 +80,7 @@ export function Tabs({ tabs, active, busy, titles, pins, onSelect, onRename, onT
                 onClose(t);
               }}
             >
-              ×
+              <Icon name="close" />
             </button>
           )}
         </div>

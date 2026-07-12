@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CatalogModel } from '../protocol';
 import { t } from '../strings';
+import { Icon } from './icons';
 
 interface Props {
   models: CatalogModel[];
@@ -36,7 +37,7 @@ export function ModelCombo({ models, current, loading, onChange }: Props) {
   return (
     <div className="model-combo" ref={ref}>
       <button className="effort-select model-combo-btn" title={t('modelComboTitle')} onClick={() => setOpen((o) => !o)}>
-        {label} ▾
+        {label} <Icon name="chevron-down" size={11} />
       </button>
       {open && (
         <div className="model-combo-pop">

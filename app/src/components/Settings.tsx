@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { CockpitSettings, QuickActionEntry } from '../protocol';
 import { t } from '../strings';
 import { useDragWin } from './useDragWin';
+import { Icon } from './icons';
 
 export interface SettingsSnapshot {
   data: CockpitSettings;
@@ -101,10 +102,10 @@ export function Settings({ snapshot, engineVersion, home, configMsg, projects, o
   return (
     <div className="md-viewer settings-modal float-win" ref={ref} style={style}>
       <div className="md-viewer-bar" onMouseDown={onBarMouseDown}>
-          <span className="md-viewer-title">⚙️ {t('settingsTitle')}</span>
+          <span className="md-viewer-title"><Icon name="settings" /> {t('settingsTitle')}</span>
           {snapshot?.restartRequired && <span className="settings-warn">{t('restartRequired')}</span>}
           <button onClick={save}>{savedFlash ? t('saved') : t('save')}</button>
-          <button onClick={onClose}>✕</button>
+          <button onClick={onClose}><Icon name="close" /></button>
         </div>
         <div className="md-viewer-body settings-body">
           {!loaded ? (
@@ -206,7 +207,7 @@ export function Settings({ snapshot, engineVersion, home, configMsg, projects, o
                         onChange={(e) => setProvs(provs.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
                       />
                       <button className="mini ghost" title={t('provRemove')} onClick={() => setProvs(provs.filter((_, j) => j !== i))}>
-                        ✕
+                        <Icon name="close" />
                       </button>
                     </div>
                     <label className="set-field">
@@ -261,7 +262,7 @@ export function Settings({ snapshot, engineVersion, home, configMsg, projects, o
                         <option key={p.path} value={p.path}>{p.name}</option>
                       ))}
                     </select>
-                    <button onClick={() => setQa(qa.filter((_, j) => j !== i))}>×</button>
+                    <button onClick={() => setQa(qa.filter((_, j) => j !== i))}><Icon name="close" /></button>
                   </div>
                 ))}
                 <button className="set-qa-add" onClick={() => setQa([...qa, { label: '', text: '' }])}>

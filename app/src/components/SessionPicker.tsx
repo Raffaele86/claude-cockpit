@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import type { GlobalSearchResult, SearchResult, SessionCategory, SessionSummary } from '../protocol';
 import { t, LOCALE } from '../strings';
+import { Icon } from './icons';
 
 function relTime(ms: number): string {
   const d = Date.now() - ms;
@@ -58,7 +59,7 @@ export function SessionPicker({ sessions, searchResults, globalResults, currentI
     <div className="session-picker">
       <div className="session-picker-bar">
         <span>{t('chatHistory')}</span>
-        <button onClick={onClose}>✕</button>
+        <button onClick={onClose}><Icon name="close" /></button>
       </div>
       <div className="session-filters">
         <div className="session-search-row">
@@ -92,7 +93,7 @@ export function SessionPicker({ sessions, searchResults, globalResults, currentI
             {t('inContents')}
           </button>
           <button className={allProjects ? 'cat on' : 'cat'} title={t('allProjectsTitle')} onClick={() => setAllProjects((v) => !v)}>
-            🌐
+            <Icon name="globe" />
           </button>
         </div>
         <div className="session-cats">

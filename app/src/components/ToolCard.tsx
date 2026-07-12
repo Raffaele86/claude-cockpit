@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Item } from '../model';
 import { DiffView } from './DiffView';
+import { Icon } from './icons';
 
 type ToolItem = Extract<Item, { kind: 'tool' }>;
 
@@ -52,10 +53,10 @@ export function ToolCard({ item, onOpenFile }: { item: ToolItem; onOpenFile?: (p
               onOpenFile(mdPath);
             }}
           >
-            📖
+            <Icon name="book" size={13} />
           </span>
         )}
-        <span className="tchevron">{open ? '▾' : '▸'}</span>
+        <span className="tchevron"><Icon name={open ? 'chevron-down' : 'chevron-right'} size={12} /></span>
       </button>
       {open && (
         <div className="tool-body">

@@ -19,6 +19,7 @@ import type { SettingsSnapshot } from './components/Settings';
 import { FileNav } from './components/FileNav';
 import { Tabs } from './components/Tabs';
 import { Checkpoints } from './components/Checkpoints';
+import { Icon } from './components/icons';
 
 // Pannelli on-demand: chunk separati, caricati solo alla prima apertura.
 const Settings = lazy(() => import('./components/Settings').then((m) => ({ default: m.Settings })));
@@ -524,6 +525,8 @@ export function App() {
           break;
         case 'pty_attach_ok':
           if (msg.cmd === 'claude' && msg.sessionId) setPtySession((m) => ({ ...m, [msg.project]: msg.sessionId! }));
+          // Modello reale della sessione (dal jsonl/spawn): la toolbar non deve mostrare valori stantii.
+          if (msg.cmd === 'claude') setCliModel((m) => ({ ...m, [msg.project]: msg.model ?? '' }));
           break;
         case 'sessions_search_all':
           setGlobalResults(msg.results);
@@ -931,10 +934,10 @@ export function App() {
                   })
                 }
               >
-                🔊
+                <Icon name="speaker" />
               </button>
               <button className={notifyOn ? 'mini on' : 'mini ghost'} title={t('notifyTitle')} onClick={toggleNotify}>
-                🔔
+                <Icon name="bell" />
               </button>
               {view === 'chat' && (
                 <>
@@ -1114,25 +1117,25 @@ export function App() {
                 setSettingsOpen((o) => !o);
               }}
             >
-              ⚙️
+              <Icon name="settings" />
             </button>
           )}
           <button className={`has-badge ${inboxOpen ? 'mini on' : 'mini ghost'}`} title={t('inboxOpen')} onClick={() => setInboxOpen((o) => !o)}>
-            📥
+            <Icon name="inbox" />
             {busyCount > 0 && <span className="badge-busy">{busyCount}</span>}
           </button>
           <button className={usageOpen ? 'mini on' : 'mini ghost'} title={t('usageOpen')} onClick={() => setUsageOpen((o) => !o)}>
-            📊
+            <Icon name="chart" />
           </button>
           <button
             className={cpOpen ? 'mini on' : 'mini ghost'}
             title={t('cpOpen')}
             onClick={() => setCpOpen((o) => !o)}
           >
-            📸
+            <Icon name="camera" />
           </button>
           <button className={doctorOpen ? 'mini on' : 'mini ghost'} title={t('docOpen')} onClick={() => setDoctorOpen((o) => !o)}>
-            🩺
+            <Icon name="pulse" />
           </button>
           <button
             className={sideOpen ? 'mini on' : 'mini ghost'}
@@ -1144,7 +1147,7 @@ export function App() {
               })
             }
           >
-            ☰
+            <Icon name="menu" />
           </button>
           <span className={`dot ${conn}`} />
           {conn === 'authed' ? t('connected') : conn}
@@ -1166,7 +1169,7 @@ export function App() {
             {t('docOpen')}
           </button>
           <button className="mini ghost" onClick={() => setEngineError(null)}>
-            ✕
+            <Icon name="close" />
           </button>
         </div>
       )}
@@ -1324,7 +1327,7 @@ export function App() {
                     setCliNonce((p) => ({ ...p, [activeKey]: (p[activeKey] ?? 0) + 1 }));
                   }}
                 >
-                  ↻ {t('restartCli')}
+                  <Icon name="refresh" size={13} /> {t('restartCli')}
                 </button>
               )}
               <button
@@ -1332,12 +1335,12 @@ export function App() {
                 title={cliDict.state === 'busy' ? t('micTranscribing') : t('dictateTitle')}
                 onClick={() => void cliDict.toggle()}
               >
-                {cliDict.state === 'recording' ? '🔴' : cliDict.state === 'busy' ? '…' : '🎤'}
+                {cliDict.state === 'recording' ? <Icon name="record" /> : cliDict.state === 'busy' ? <Icon name="spinner" className="spin" /> : <Icon name="mic" />}
               </button>
               {cliDict.msg && (
                 <div className="cli-mic-msg">
                   {cliDict.msg}
-                  <button onClick={() => cliDict.setMsg(null)}>✕</button>
+                  <button onClick={() => cliDict.setMsg(null)}><Icon name="close" size={12} /></button>
                 </div>
               )}
             </div>
@@ -1373,8 +1376,8 @@ export function App() {
           />
           {conn === 'authed' && view === 'chat' && (
             <div className="statusline">
-              <span title={activeProject}>📁 {shortOf(activeKey)}</span>
-              {active.branch && <span>⎇ {active.branch}</span>}
+              <span title={activeProject}><Icon name="folder" size={12} /> {shortOf(activeKey)}</span>
+              {active.branch && <span><Icon name="branch" size={12} /> {active.branch}</span>}
               {active.model && <span>{active.model}</span>}
               {active.effort && <span>effort {active.effort}</span>}
               <span>{MODES.find((m) => m.key === active.permissionMode)?.label ?? active.permissionMode}</span>

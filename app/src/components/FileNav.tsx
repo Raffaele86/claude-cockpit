@@ -5,6 +5,7 @@ import type { CockpitClient } from '../ws';
 import type { DirEntry, ProjectEntry, ServerMsg } from '../protocol';
 import { ContextMenu, type MenuItem, type MenuState } from './ContextMenu';
 import { t } from '../strings';
+import { Icon } from './icons';
 
 interface Props {
   client: CockpitClient;
@@ -86,37 +87,40 @@ export function FileNav({
     const win = toWinPath(full);
     const items: MenuItem[] = [];
     if (entry.dir) {
-      items.push({ label: `▶ ${t('useAsProject')}`, onClick: () => onSelectProject(full) });
+      items.push({ icon: 'play', label: t('useAsProject'), onClick: () => onSelectProject(full) });
       items.push(
         inRegistry
-          ? { label: `✕ ${t('removeFromProjects')}`, onClick: () => onRemoveProject(full) }
-          : { label: `★ ${t('addToProjects')}`, onClick: () => onAddProject(full) },
+          ? { icon: 'close', label: t('removeFromProjects'), onClick: () => onRemoveProject(full) }
+          : { icon: 'star', label: t('addToProjects'), onClick: () => onAddProject(full) },
       );
-      items.push({ label: `🖥 ${t('openTerminalHere')}`, onClick: () => onOpenTerminal(full) });
-      items.push({ label: `💬 ${t('askClaude')}`, onClick: () => onAskClaude(full) });
+      items.push({ icon: 'terminal', label: t('openTerminalHere'), onClick: () => onOpenTerminal(full) });
+      items.push({ icon: 'message', label: t('askClaude'), onClick: () => onAskClaude(full) });
       items.push({
-        label: `➕ ${t('newFolderHere')}`,
+        icon: 'plus',
+        label: t('newFolderHere'),
         onClick: () => {
           const name = prompt(t('newFolderPrompt'));
           if (name?.trim()) client.send({ op: 'file_op', kind: 'mkdir', path: full, newName: name.trim() });
         },
       });
     } else {
-      if (entry.name.endsWith('.md')) items.push({ label: `📖 ${t('openInReader')}`, onClick: () => onOpenFile(full) });
-      items.push({ label: `💬 ${t('askClaude')}`, onClick: () => onAskClaude(full) });
+      if (entry.name.endsWith('.md')) items.push({ icon: 'book', label: t('openInReader'), onClick: () => onOpenFile(full) });
+      items.push({ icon: 'message', label: t('askClaude'), onClick: () => onAskClaude(full) });
     }
-    items.push({ label: `📂 ${t('revealInExplorer')}`, onClick: () => client.send({ op: 'file_op', kind: 'reveal', path: full }) });
-    items.push({ label: `📋 ${t('copyPathMenu')}`, onClick: () => copy(full) });
-    if (win) items.push({ label: `📋 ${t('copyWinPath')}`, onClick: () => copy(win) });
+    items.push({ icon: 'folder', label: t('revealInExplorer'), onClick: () => client.send({ op: 'file_op', kind: 'reveal', path: full }) });
+    items.push({ icon: 'clipboard', label: t('copyPathMenu'), onClick: () => copy(full) });
+    if (win) items.push({ icon: 'clipboard', label: t('copyWinPath'), onClick: () => copy(win) });
     items.push({
-      label: `✏️ ${t('rename')}`,
+      icon: 'pencil',
+      label: t('rename'),
       onClick: () => {
         const name = prompt(t('renamePrompt'), entry.name);
         if (name?.trim() && name.trim() !== entry.name) client.send({ op: 'file_op', kind: 'rename', path: full, newName: name.trim() });
       },
     });
     items.push({
-      label: `🗑 ${t('deleteItem')}`,
+      icon: 'trash',
+      label: t('deleteItem'),
       danger: true,
       onClick: () => {
         if (confirm(t('confirmDelete')(entry.name, entry.dir)))
@@ -153,7 +157,7 @@ export function FileNav({
       <div className="rail-section">{t('filesSection')}</div>
       <div className="fnav-drives">
         <button className={cwd.startsWith(root) ? 'drive on' : 'drive'} title={root} onClick={() => goTo(root)}>
-          🏠
+          <Icon name="home" size={13} />
         </button>
         {drives.map((d) => (
           <button
@@ -179,7 +183,7 @@ export function FileNav({
       <div className="fnav-list">
         {parent && (
           <div className="fnav-item dir" onClick={() => goTo(parent)}>
-            <span className="fnav-icon">⬆</span>
+            <span className="fnav-icon"><Icon name="arrow-up" size={13} /></span>
             <span className="fnav-name">..</span>
           </div>
         )}
@@ -195,7 +199,7 @@ export function FileNav({
                 onContextMenu={(ev) => openMenu(ev, full, e)}
                 title={full}
               >
-                <span className="fnav-icon">{e.project ? '🚀' : '📁'}</span>
+                <span className="fnav-icon"><Icon name={e.project ? 'rocket' : 'folder'} size={13} /></span>
                 <span className="fnav-name">{e.name}</span>
                 {e.project && (
                   <button
@@ -206,7 +210,7 @@ export function FileNav({
                       onSelectProject(full);
                     }}
                   >
-                    ▶
+                    <Icon name="play" size={11} />
                   </button>
                 )}
               </div>
@@ -221,7 +225,7 @@ export function FileNav({
               onContextMenu={(ev) => openMenu(ev, full, e)}
               title={isMd ? t('openInReader') : full}
             >
-              <span className="fnav-icon">{isMd ? '📄' : '·'}</span>
+              <span className="fnav-icon">{isMd ? <Icon name="file" size={13} /> : '·'}</span>
               <span className="fnav-name">{e.name}</span>
             </div>
           );

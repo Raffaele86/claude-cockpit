@@ -18,7 +18,7 @@ import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 import { logUsage, usageReport } from './usage.js';
 
-const ENGINE_VERSION = '0.25.0';
+const ENGINE_VERSION = '0.26.0';
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -55,6 +55,27 @@ const authed = new Set<WebSocket>();
 const busy = new Map<string, boolean>(); // project → turno in corso (per /status del gateway)
 // File config esportabili/importabili (backup 1-click). MAI: token, sessions.json, usage.jsonl, checkpoints/.
 const CONFIG_FILES = ['engine.json', 'providers.json', 'quickactions.json', 'telegram.json', 'projects.json', 'config.json'];
+
+/** Modello REALE della sessione di un pty: ultimo "model" nelle righe assistant in coda al jsonl.
+ *  È ciò che mostra la statusline del CLI — il --model di spawn può divergere (/model, /fast). */
+function ptySessionModel(key: string, channel: PtyChannel): string | undefined {
+  if (!channel.sessionId) return undefined;
+  try {
+    const slug = cwdOf(key).replace(/[/.]/g, '-');
+    const file = join(channel.configDir ?? join(homedir(), '.claude'), 'projects', slug, `${channel.sessionId}.jsonl`);
+    const size = statSync(file).size;
+    const fd = openSync(file, 'r');
+    const buf = Buffer.alloc(Math.min(size, 64 * 1024));
+    readSync(fd, buf, 0, buf.length, Math.max(0, size - buf.length));
+    closeSync(fd);
+    const tail = buf.toString('utf8');
+    const matches = [...tail.matchAll(/"model"\s*:\s*"([^"]+)"/g)];
+    const last = matches.at(-1)?.[1];
+    return last && last !== '<synthetic>' ? last : undefined;
+  } catch {
+    return undefined;
+  }
+}
 
 // Attività CLI: una scheda è "attiva" se un suo pty ha prodotto output negli ultimi 3s (euristica).
 // Transizioni broadcastate come pty_activity; lo spegnimento lo fa un unico tick da 2s.
@@ -1058,7 +1079,15 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       } else {
         channel.resize(msg.cols, msg.rows);
       }
-      send(ws, { ev: 'pty_attach_ok', ptyId, project: key, cmd: msg.cmd, scrollback: channel.scrollback(), sessionId: channel.sessionId });
+      send(ws, {
+        ev: 'pty_attach_ok',
+        ptyId,
+        project: key,
+        cmd: msg.cmd,
+        scrollback: channel.scrollback(),
+        sessionId: channel.sessionId,
+        model: ptySessionModel(key, channel) ?? channel.model,
+      });
       break;
     }
     case 'pty_input':

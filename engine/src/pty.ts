@@ -19,6 +19,8 @@ export class PtyChannel {
    *  deterministico di riprendere la conversazione della scheda — mai euristiche su mtime o -c,
    *  nella stessa cwd girano anche scheduler/Telegram/CLI esterni. */
   readonly sessionId?: string;
+  /** Modello passato con --model allo spawn/relaunch (undefined = default del CLI). */
+  readonly model?: string;
 
   constructor(
     cwd: string,
@@ -31,6 +33,8 @@ export class PtyChannel {
   ) {
     this.configDir = opts.env?.CLAUDE_CONFIG_DIR;
     this.sessionId = opts.sessionId;
+    const mi = (opts.extraArgs ?? []).indexOf('--model');
+    this.model = mi >= 0 ? opts.extraArgs![mi + 1] : undefined;
     const shell = process.env.SHELL || '/bin/bash';
     // Login shell → eredita PATH del profilo (claude sta in ~/.local/bin).
     // extraArgs (es. --permission-mode plan, -c) quotati singolarmente.

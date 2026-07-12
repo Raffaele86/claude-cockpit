@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { marked } from 'marked';
 import { t } from '../strings';
 import { useDragWin } from './useDragWin';
+import { Icon } from './icons';
 
 export interface ViewerState {
   path: string;
@@ -57,20 +58,20 @@ export function MdViewer({ viewer, onClose }: { viewer: ViewerState; onClose: ()
     <div className="md-viewer float-win" ref={ref} style={style}>
       <div className="md-viewer-bar" onMouseDown={onBarMouseDown}>
         <span className="md-viewer-title" title={viewer.path}>
-          📖 {name}
+          <Icon name="book" /> {name}
         </span>
         {viewer.content !== undefined && (
           <>
             <button title={t('copyTextTitle')} onClick={() => copy('txt', mdToPlain(viewer.content!))}>
-              {copied === 'txt' ? '✓' : t('copyText')}
+              {copied === 'txt' ? <Icon name="check" size={12} /> : t('copyText')}
             </button>
             <button title={t('copyMdTitle')} onClick={() => copy('md', viewer.content!)}>
-              {copied === 'md' ? '✓' : t('copyMd')}
+              {copied === 'md' ? <Icon name="check" size={12} /> : t('copyMd')}
             </button>
           </>
         )}
-        <button onClick={() => copy('path', viewer.path)}>{copied === 'path' ? '✓' : t('copyPath')}</button>
-        <button onClick={onClose}>✕</button>
+        <button onClick={() => copy('path', viewer.path)}>{copied === 'path' ? <Icon name="check" size={12} /> : t('copyPath')}</button>
+        <button onClick={onClose}><Icon name="close" /></button>
       </div>
       <div className="md-viewer-body">
         {viewer.error && <div className="md-viewer-error">{t('cannotOpen')(viewer.error)}</div>}

@@ -3,6 +3,7 @@ import { marked } from 'marked';
 import type { Item } from '../model';
 import { ToolCard } from './ToolCard';
 import { t } from '../strings';
+import { Icon } from './icons';
 
 marked.setOptions({ breaks: true, gfm: true });
 
@@ -21,7 +22,7 @@ function CopyButton({ getText, label = t('copy') }: { getText: () => string; lab
         }
       }}
     >
-      {done ? '✓' : label}
+      {done ? <Icon name="check" size={11} /> : label}
     </button>
   );
 }
@@ -33,7 +34,7 @@ function ThinkingChip({ since }: { since: number }) {
     return () => clearInterval(id);
   }, []);
   const secs = Math.max(0, Math.round((Date.now() - since) / 1000));
-  return <div className="thinking-chip">💭 {t('thinkingChip')(secs)}</div>;
+  return <div className="thinking-chip"><Icon name="thought" size={12} /> {t('thinkingChip')(secs)}</div>;
 }
 
 export function ChatView({
@@ -88,7 +89,7 @@ export function ChatView({
         if (it.kind === 'thinking') {
           return (
             <details key={it.id} className="thinking-block">
-              <summary>💭 {t('thinkingBlock')(Math.round(it.text.length / 4))}</summary>
+              <summary><Icon name="thought" size={12} /> {t('thinkingBlock')(Math.round(it.text.length / 4))}</summary>
               <pre>{it.text}</pre>
             </details>
           );
@@ -99,7 +100,7 @@ export function ChatView({
             <div key={it.id} className="turn user">
               <div className="bubble">
                 {it.text}
-                {it.imageCount ? <span className="img-badge"> 🖼 {it.imageCount}</span> : null}
+                {it.imageCount ? <span className="img-badge"> <Icon name="image" size={12} /> {it.imageCount}</span> : null}
               </div>
             </div>
           );
@@ -107,7 +108,7 @@ export function ChatView({
         // Risposta: prosa serif direttamente sul fondo (niente bolla), marcatore ✳ e copia in hover.
         return (
           <div key={it.id} className="turn assistant">
-            <span className="asst-mark">✳</span>
+            <span className="asst-mark"><Icon name="sparkle" size={13} /></span>
             <div className="asst-body md" dangerouslySetInnerHTML={{ __html: marked.parse(it.text || '…') as string }} />
             <CopyButton getText={() => it.text} />
           </div>

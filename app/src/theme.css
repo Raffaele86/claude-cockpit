@@ -2164,6 +2164,13 @@ body {
 /* v0.23: drag&drop nel composer */
 .composer-wrap.drop-hover .composer { outline: 2px dashed var(--accent, #D97757); outline-offset: -2px; border-radius: 8px; }
 
+/* v0.26: set icone SVG (sostituisce le emoji del chrome) */
+.icon { vertical-align: -3px; flex-shrink: 0; }
+button .icon { pointer-events: none; }
+.icon.spin { animation: iconspin 0.9s linear infinite; }
+@keyframes iconspin { to { transform: rotate(360deg); } }
+.doc-dot .icon { vertical-align: -2px; }
+
 /* v0.25: rinomina/pin schede */
 .tab-rename { width: 140px; background: var(--bg-soft, transparent); border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 12px; padding: 1px 4px; }
 .tab-pinned { font-size: 10px; }

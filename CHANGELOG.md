@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.26.0
+- **Custom SVG icon set**: every emoji in the app chrome (top bar, panels, composer, tabs, file navigator, context menus, chat markers) is replaced by a hand-drawn stroke icon set — consistent across OSes, inherits the theme color (finally readable on dark), zero dependencies. Project icons in the sidebar stay emoji: they're your data
+- **Fix: CLI toolbar model out of sync**: the model selector used to show whatever you last picked, not what the session actually runs (statusline). The engine now reports the real model (last one used in the session transcript, or the spawn `--model`) on every attach; when unknown the selector shows the placeholder instead of a stale value. It re-syncs on tab switch/reload, not live mid-conversation
+
 ## 0.25.0
 - **Per-project quick actions**: each quick action can now be scoped to a single project (new selector in Settings → Quick actions, default "global") — project-specific shortcuts appear only where they belong
 - **Rename & pin tabs**: double-click a tab title to rename it (local override of the AI title, persisted); 📌 on the active tab pins it to the first position. Renames also show in the inbox

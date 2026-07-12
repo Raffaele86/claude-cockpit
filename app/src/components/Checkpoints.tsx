@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { t, LOCALE } from '../strings';
 import { useDragWin } from './useDragWin';
+import { Icon } from './icons';
 import type { CheckpointEntry } from '../protocol';
 
 interface Props {
@@ -29,7 +30,7 @@ export function Checkpoints({ checkpoints, busy, error, onCreate, onRestore, onC
       <div className="float-bar" onMouseDown={onBarMouseDown}>
         <strong>{t('cpTitle')}</strong>
         <button className="mini ghost" onClick={onClose}>
-          ✕
+          <Icon name="close" />
         </button>
       </div>
       <div className="doctor-body">
@@ -57,7 +58,7 @@ export function Checkpoints({ checkpoints, busy, error, onCreate, onRestore, onC
         {!checkpoints.length && <p className="doc-note">{t('cpEmpty')}</p>}
         {checkpoints.map((c) => (
           <div key={c.file} className="doc-check">
-            <span className="doc-dot ok">📸</span>
+            <span className="doc-dot ok"><Icon name="camera" size={13} /></span>
             <div className="doc-check-txt">
               <span className="doc-label">
                 {new Date(c.ts).toLocaleString(LOCALE)} {c.label && <code>{c.label}</code>} · {fmtSize(c.size)}

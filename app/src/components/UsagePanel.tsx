@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { t, LOCALE } from '../strings';
 import { useDragWin } from './useDragWin';
+import { Icon } from './icons';
 import type { UsageDay } from '../protocol';
 
 function fmtTok(n: number): string {
@@ -54,7 +55,7 @@ export function UsagePanel({ days, onClose }: Props) {
       <div className="float-bar" onMouseDown={onBarMouseDown}>
         <strong>{t('usageTitle')}</strong>
         <button className="mini ghost" onClick={onClose}>
-          ✕
+          <Icon name="close" />
         </button>
       </div>
       <div className="doctor-body">

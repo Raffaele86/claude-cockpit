@@ -1,5 +1,6 @@
 import { t } from '../strings';
 import { useDragWin } from './useDragWin';
+import { Icon } from './icons';
 
 export interface InboxEntry {
   key: string; // chiave canale (path o path##tab)
@@ -26,14 +27,14 @@ export function Inbox({ entries, onOpen, onStop, onClose }: Props) {
       <div className="float-bar" onMouseDown={onBarMouseDown}>
         <strong>{t('inboxTitle')}</strong>
         <button className="mini ghost" onClick={onClose}>
-          ✕
+          <Icon name="close" />
         </button>
       </div>
       <div className="doctor-body">
         {!entries.length && <p className="doc-note">{t('inboxEmpty')}</p>}
         {entries.map((e) => (
           <button key={e.key} className="inbox-row" onClick={() => onOpen(e.key)}>
-            <span title={e.hasPermission ? t('inboxPerm') : undefined}>{e.hasPermission ? '🔐' : e.busy ? '⏳' : '✓'}</span>
+            <span title={e.hasPermission ? t('inboxPerm') : undefined}><Icon name={e.hasPermission ? 'lock' : e.busy ? 'clock' : 'check'} /></span>
             <span className="inbox-name">{e.name}</span>
             {e.title && <span className="inbox-title">{e.title}</span>}
             <span className="inbox-snippet">{e.snippet}</span>
@@ -48,7 +49,7 @@ export function Inbox({ entries, onOpen, onStop, onClose }: Props) {
                   onStop(e.key);
                 }}
               >
-                ⏹
+                <Icon name="stop" size={13} />
               </span>
             )}
           </button>

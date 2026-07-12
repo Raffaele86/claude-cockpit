@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { McpServer } from '../model';
 import type { McpAddRequest } from '../protocol';
 import { t } from '../strings';
+import { Icon } from './icons';
 
 const COLOR: Record<string, string> = {
   connected: 'var(--green)',
@@ -50,10 +51,10 @@ export function McpStatus({ servers, op, importMsg, onRefresh, onAdd, onRemove, 
           <span className="mcp-summary" style={{ color: down > 0 ? 'var(--amber)' : 'var(--green)' }}>
             {servers.length === 0 ? '—' : down > 0 ? t('mcpDown')(down) : t('mcpOk')(servers.length)}
           </span>
-          <span className="tchevron">{open ? '▾' : '▸'}</span>
+          <span className="tchevron"><Icon name={open ? 'chevron-down' : 'chevron-right'} size={12} /></span>
         </button>
         <button className="mcp-refresh" title={t('refresh')} onClick={onRefresh}>
-          ↻
+          <Icon name="refresh" size={13} />
         </button>
         <button className="mcp-refresh" title={t('mcpAddTitle')} onClick={() => { setOpen(true); setAdding((a) => !a); }}>
           ＋
@@ -70,11 +71,11 @@ export function McpStatus({ servers, op, importMsg, onRefresh, onAdd, onRemove, 
                 <button className="mcp-rm danger" disabled={op.busy} onClick={() => onRemove(s.name)}>
                   {op.busy ? '…' : t('mcpConfirmRemove')}
                 </button>
-                <button className="mcp-rm" onClick={() => setConfirmRm(null)}>✕</button>
+                <button className="mcp-rm" onClick={() => setConfirmRm(null)}><Icon name="close" /></button>
               </>
             ) : (
               <button className="mcp-rm" title={t('mcpRemoveTitle')} onClick={() => setConfirmRm(s.name)}>
-                ×
+                <Icon name="close" />
               </button>
             )}
           </div>
