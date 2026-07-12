@@ -7,6 +7,7 @@ engine/ui/
 *.log
 *.local.*
 scripts/build-raffa.sh
+scripts/build-win.ps1
 TELEGRAM-SETUP.md
 .DS_Store
 __pycache__/
