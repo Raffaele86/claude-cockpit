@@ -24,6 +24,7 @@ const ENGINE_VERSION = (JSON.parse(readFileSync(new URL('../package.json', impor
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
+const WIN_PTY_CAP = 8; // sessioni Windows native concorrenti (una = un node.exe+ConPTY su Windows)
 
 // engine.json opzionale: { "hosts": ["127.0.0.1", "<ip-vpn>"] } — un listener per host.
 // Default solo localhost; aggiungere l'IP Tailscale abilita l'accesso dal telefono (browser).
@@ -198,10 +199,10 @@ const handleHttp = (req: import('node:http').IncomingMessage, res: import('node:
   res.writeHead(200, {
     'content-type': MIME[extname(file)] ?? 'application/octet-stream',
     // La UI da browser (telefono) girava senza CSP, a differenza della shell Electron: secondo
-    // strato se un giorno rientrasse dell'HTML non sanificato. connect-src resta libero perché
-    // il WS punta all'host da cui la pagina è servita (localhost o IP VPN).
+    // strato se un giorno rientrasse dell'HTML non sanificato. Il WS punta sempre all'host da cui
+    // la pagina è servita, quindi il ws/wss same-origin è già coperto da 'self' (CSP3).
     'content-security-policy':
-      "default-src 'self'; connect-src 'self' ws: wss:; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'",
+      `default-src 'self'; connect-src 'self' ws://${req.headers.host} wss://${req.headers.host}; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'`,
     'x-content-type-options': 'nosniff',
   });
   res.end(readFileSync(file));
@@ -816,7 +817,10 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       try {
         const winDir = execFileSync('wslpath', ['-w', cwd]).toString().trim();
         const dir = winDir.replace(/'/g, "''"); // escape per stringa single-quote PowerShell
-        const launcher = `Start-Process powershell.exe -ArgumentList @('-NoExit','-NoProfile','-Command',"Set-Location -LiteralPath '${dir}'; claude")`;
+        // Path pieno da win-agent.json quando c'è: 'claude' nudo fallirebbe muto se non è nel PATH
+        // Windows (la finestra -NoExit resta comunque aperta a mostrare l'eventuale errore).
+        const claude = (loadWinAgent()?.claude ?? 'claude').replace(/'/g, "''");
+        const launcher = `Start-Process powershell.exe -ArgumentList @('-NoExit','-NoProfile','-Command',"Set-Location -LiteralPath '${dir}'; & '${claude}'")`;
         spawn('powershell.exe', ['-NoProfile', '-Command', launcher], { detached: true, stdio: 'ignore' }).unref();
       } catch (err) {
         send(ws, { ev: 'error', message: `open_windows_cli: ${String(err)}` });
@@ -1051,6 +1055,12 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
           winCh = undefined;
         }
         if (!winId || !winCh) {
+          // Ogni canale win = un node.exe+ConPTY su Windows: cap per non accumulare processi.
+          const winCount = [...ptys.values()].filter((c) => c instanceof WinPtyChannel).length;
+          if (winCount >= WIN_PTY_CAP) {
+            send(ws, { ev: 'error', message: `Troppe sessioni Windows attive (${winCount}/${WIN_PTY_CAP}): chiudi un tab Win prima di aprirne altri.` });
+            break;
+          }
           const id = randomUUID();
           winId = id;
           winCh = new WinPtyChannel(

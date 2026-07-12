@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.29.3
+- Cap of 8 concurrent native Windows sessions (each one is a node.exe+ConPTY process on Windows) — opening more shows an error instead of silently piling up processes
+- Browser UI CSP tightened: `connect-src` now allows only the serving host's ws/wss instead of any host
+- "Open on Windows" uses the full `claude` path from `win-agent.json` when available, so it no longer fails silently when claude isn't in the Windows PATH
+
 ## 0.29.2
 - Fix: a failed Windows agent spawn (bad `claude.exe`/`powershell` path) used to leave a blank, stuck terminal with a leaked channel — the agent now reports the error and exits, the bridge renders agent errors in the terminal, and a 15s spawn watchdog closes the channel if neither `ready` nor `exit` arrives
 - Fix: killing a Windows tab now also exits the agent process explicitly, so the native Windows process isn't orphaned
