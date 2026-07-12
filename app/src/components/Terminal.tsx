@@ -9,6 +9,8 @@ interface Props {
   client: CockpitClient;
   project: string;
   cmd: 'claude' | 'shell';
+  /** 'windows' = esegui claude/shell su Windows nativo (ponte ConPTY) invece che in WSL. */
+  os?: 'windows';
   subscribe: (fn: (m: ServerMsg) => void) => () => void;
   /** Chiamata UNA volta all'attach: flag di lancio pendenti (provider/model/effort/mode) → il pty
    *  viene ricreato coi flag. One-shot: i mount successivi (cambio scheda) non toccano il processo. */
@@ -25,7 +27,7 @@ const enc = new TextEncoder();
 const toB64 = (s: string) => btoa(String.fromCharCode(...enc.encode(s)));
 const fromB64 = (b: string) => Uint8Array.from(atob(b), (c) => c.charCodeAt(0));
 
-export function TerminalPanel({ client, project, cmd, subscribe, takeLaunch, takeFresh, inputRef, onExit }: Props) {
+export function TerminalPanel({ client, project, cmd, os, subscribe, takeLaunch, takeFresh, inputRef, onExit }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -63,7 +65,7 @@ export function TerminalPanel({ client, project, cmd, subscribe, takeLaunch, tak
     // Terminal ma fa attach puro — il processo in corso non viene MAI toccato.
     const launch = takeLaunch?.();
     const fresh = (!launch && takeFresh?.()) || undefined;
-    client.send({ op: 'pty_attach', project, cmd, cols: term.cols, rows: term.rows, launch, fresh });
+    client.send({ op: 'pty_attach', project, cmd, os, cols: term.cols, rows: term.rows, launch, fresh });
 
     const dataDisp = term.onData((d) => {
       if (ptyId) client.send({ op: 'pty_input', ptyId, data: toB64(d) });
@@ -87,7 +89,7 @@ export function TerminalPanel({ client, project, cmd, subscribe, takeLaunch, tak
       term.dispose();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [project, cmd]);
+  }, [project, cmd, os]);
 
   return <div className="terminal-host" ref={hostRef} />;
 }

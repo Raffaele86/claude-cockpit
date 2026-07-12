@@ -121,6 +121,15 @@ export function App() {
       return next;
     });
   }, []);
+  // Schede che eseguono claude/shell su Windows nativo (ponte ConPTY) invece che in WSL.
+  // Persistito: al reload la scheda deve ri-attaccarsi al pty Windows, non a quello WSL.
+  const [osByKey, setOsByKey] = useState<Record<string, 'windows'>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('cockpit-os') ?? '{}') as Record<string, 'windows'>;
+    } catch {
+      return {};
+    }
+  });
   const [cfgMsg, setCfgMsg] = useState<string | null>(null); // esito import/export config
   const sessionsReqAt = useRef<Record<string, number>>({}); // base → ts ultima sessions_list (throttle titoli)
   const [catalog, setCatalog] = useState<Record<string, CatalogModel[]>>({});
@@ -763,6 +772,20 @@ export function App() {
     setActiveTabByProject((prev) => ({ ...prev, [activeProject]: id }));
   }, [activeProject, setTabs]);
 
+  /** Nuova scheda che esegue claude su Windows nativo (ponte ConPTY) invece che in WSL. */
+  const addWindowsTab = useCallback(() => {
+    const id = `t${Date.now().toString(36)}`;
+    const key = `${activeProject}##${id}`;
+    setTabs(activeProject, (list) => [...list, id]);
+    setActiveTabByProject((prev) => ({ ...prev, [activeProject]: id }));
+    setOsByKey((prev) => {
+      const next = { ...prev, [key]: 'windows' as const };
+      localStorage.setItem('cockpit-os', JSON.stringify(next));
+      return next;
+    });
+    updateTabMeta(key, { name: 'Windows' });
+  }, [activeProject, setTabs, updateTabMeta]);
+
   /** Rilancia il CLI della scheda coi flag scelti (l'engine riprende la sessione con --resume). */
   const relaunchCli = useCallback(
     (launch: PtyLaunch) => {
@@ -953,6 +976,14 @@ export function App() {
         icon: 'plus',
         keywords: 'new nuova chat scheda tab',
         run: () => (cli ? addTab() : resetSession()),
+      },
+      {
+        id: 'new-win-tab',
+        label: t('newWindowsTab'),
+        section: t('cpSecSession'),
+        icon: 'terminal',
+        keywords: 'windows nativo tab claude chrome browser conpty',
+        run: addWindowsTab,
       },
       {
         id: 'history',
@@ -1317,10 +1348,11 @@ export function App() {
           {view === 'cli' && conn === 'authed' && client.current ? (
             <div className="cli-wrap">
               <TerminalPanel
-                key={`${activeKey}:cli:${cliNonce[activeKey] ?? 0}`}
+                key={`${activeKey}:cli:${osByKey[activeKey] ?? ''}:${cliNonce[activeKey] ?? 0}`}
                 client={client.current}
                 project={activeKey}
                 cmd="claude"
+                os={osByKey[activeKey]}
                 subscribe={(fn) => client.current!.subscribe(fn)}
                 takeLaunch={takeCliLaunch}
                 takeFresh={takeCliFresh}

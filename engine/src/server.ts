@@ -11,6 +11,7 @@ import { CockpitSession } from './session.js';
 import { loadProjects, loadQuickActions, removeProject, upsertProject } from './projects.js';
 import { clearStoredSession, getStoredSession, setStoredSession } from './sessions-store.js';
 import { PtyChannel } from './pty.js';
+import { WinPtyChannel, loadWinAgent } from './win-pty.js';
 import type { ClientMsg, PermissionModeName, ServerMsg, SessionCategory } from './protocol.js';
 import { randomUUID } from 'node:crypto';
 import { startTelegramGateway, type TelegramGateway } from './telegram.js';
@@ -57,7 +58,7 @@ function loadDefaultPermissionMode(): PermissionModeName {
 
 const token = loadOrCreateToken();
 const sessions = new Map<string, CockpitSession>();
-const ptys = new Map<string, PtyChannel>();
+const ptys = new Map<string, PtyChannel | WinPtyChannel>();
 const ptyByKey = new Map<string, string>(); // "<chiave-canale>::<cmd>" → ptyId (pty persistenti, re-attach)
 const authed = new Set<WebSocket>();
 const busy = new Map<string, boolean>(); // project → turno in corso (per /status del gateway)
@@ -67,7 +68,7 @@ const SECRET_FILES = new Set(['telegram.json', 'providers.json']); // scritti se
 
 /** Modello REALE della sessione di un pty: ultimo "model" nelle righe assistant in coda al jsonl.
  *  È ciò che mostra la statusline del CLI — il --model di spawn può divergere (/model, /fast). */
-function ptySessionModel(key: string, channel: PtyChannel): string | undefined {
+function ptySessionModel(key: string, channel: PtyChannel | WinPtyChannel): string | undefined {
   if (!channel.sessionId) return undefined;
   try {
     const slug = cwdOf(key).replace(/[/.]/g, '-');
@@ -1030,6 +1031,51 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
     }
     case 'pty_attach': {
       const key = normalizeProject(msg.project);
+      // Tab Windows nativo: claude/shell in un ConPTY su Windows via l'agente-ponte. Percorso
+      // separato (niente session-id/resume: quelle sessioni le gestisce claude di Windows).
+      if (msg.os === 'windows') {
+        const winCfg = loadWinAgent();
+        if (!winCfg) {
+          send(ws, { ev: 'error', message: 'Sessione Windows non disponibile: manca ~/.claude-cockpit/win-agent.json (rilancia build-raffa.sh).' });
+          break;
+        }
+        const winKey = `${key}::${msg.cmd}:win`;
+        let winId = ptyByKey.get(winKey);
+        let winCh = winId ? ptys.get(winId) : undefined;
+        if (msg.fresh && winCh && winId) {
+          ptys.delete(winId);
+          ptyByKey.delete(winKey);
+          winCh.kill();
+          winId = undefined;
+          winCh = undefined;
+        }
+        if (!winId || !winCh) {
+          const id = randomUUID();
+          winId = id;
+          winCh = new WinPtyChannel(
+            cwdOf(key),
+            msg.cmd,
+            msg.cols,
+            msg.rows,
+            (data) => {
+              broadcast({ ev: 'pty_data', ptyId: id, data });
+              setCliActive(key, true);
+            },
+            (exitCode) => {
+              ptys.delete(id);
+              if (ptyByKey.get(winKey) === id) ptyByKey.delete(winKey);
+              broadcast({ ev: 'pty_exit', ptyId: id, exitCode });
+            },
+            winCfg,
+          );
+          ptys.set(winId, winCh);
+          ptyByKey.set(winKey, winId);
+        } else {
+          winCh.resize(msg.cols, msg.rows);
+        }
+        send(ws, { ev: 'pty_attach_ok', ptyId: winId, project: key, cmd: msg.cmd, scrollback: winCh.scrollback() });
+        break;
+      }
       const mapKey = `${key}::${msg.cmd}`;
       let ptyId = ptyByKey.get(mapKey);
       let channel = ptyId ? ptys.get(ptyId) : undefined;
@@ -1157,8 +1203,10 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       // può ri-attaccarsi alla conversazione di una scheda chiusa.
       const key = normalizeProject(msg.project);
       for (const cmd of ['claude', 'shell'] as const) {
-        const id = ptyByKey.get(`${key}::${cmd}`);
-        if (id) ptys.get(id)?.kill();
+        for (const mk of [`${key}::${cmd}`, `${key}::${cmd}:win`]) {
+          const id = ptyByKey.get(mk);
+          if (id) ptys.get(id)?.kill();
+        }
       }
       break;
     }

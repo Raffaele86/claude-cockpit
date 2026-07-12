@@ -1,0 +1,9 @@
+{
+  "name": "cockpit-win-pty-agent",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Mini-agente Windows: ConPTY (node-pty prebuilt) per claude/shell, ponte via stdio verso l'engine WSL.",
+  "dependencies": {
+    "@homebridge/node-pty-prebuilt-multiarch": "^0.12.0"
+  }
+}
