@@ -2,6 +2,7 @@ import { useState } from 'react';
 import type { PendingPermission } from '../model';
 import type { PermissionDecision } from '../protocol';
 import { t } from '../strings';
+import { Icon } from './icons';
 
 interface Props {
   req: PendingPermission;
@@ -26,7 +27,7 @@ export function PermissionPrompt({ req, onDecide }: Props) {
     <div className="perm-overlay">
       <div className="perm-modal">
         <div className="perm-title">
-          {t('permTitle')} <b>{req.toolName}</b>
+          <Icon name="lock" /> {t('permTitle')} <b>{req.toolName}</b>
         </div>
         {editing ? (
           <>

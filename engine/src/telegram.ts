@@ -132,7 +132,11 @@ export function startTelegramGateway(deps: GatewayDeps): TelegramGateway | null 
         sendText('Nessun progetto nel registry.');
       } else {
         // callback_data max 64 byte → indice nella lista appena mostrata, mai il path.
-        const rows = projectMenu.map((p, i) => [{ text: `${p.icon ?? '📁'} ${p.name}${p.path === project ? ' ✓' : ''}`, callback_data: `proj|${i}` }]);
+        // I nomi-icona del set UI (es. 'home') non sono renderizzabili in Telegram → 📁 generico.
+        const rows = projectMenu.map((p, i) => {
+          const em = p.icon && /\p{Extended_Pictographic}/u.test(p.icon) ? p.icon : '📁';
+          return [{ text: `${em} ${p.name}${p.path === project ? ' ✓' : ''}`, callback_data: `proj|${i}` }];
+        });
         sendText('Scegli il progetto attivo:', { reply_markup: { inline_keyboard: rows } });
       }
     } else if (text === '/start') {

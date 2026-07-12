@@ -1,7 +1,6 @@
 import { useMemo, useState } from 'react';
 import { t, LOCALE } from '../strings';
-import { useDragWin } from './useDragWin';
-import { Icon } from './icons';
+import { FloatPanel } from './FloatPanel';
 import type { UsageDay } from '../protocol';
 
 function fmtTok(n: number): string {
@@ -18,7 +17,6 @@ interface Props {
 /** Uso token/costi ultimi 30 giorni. Token = storici veri dai transcript; i costi $ esistono
  *  solo da quando l'engine li registra a fine task (niente pricing stimato). */
 export function UsagePanel({ days, onClose }: Props) {
-  const { ref, style, onBarMouseDown } = useDragWin();
   const [provider, setProvider] = useState('');
   const [project, setProject] = useState('');
   const [origin, setOrigin] = useState('');
@@ -51,13 +49,7 @@ export function UsagePanel({ days, onClose }: Props) {
   );
 
   return (
-    <div className="float-win doctor usage-win" ref={ref} style={style}>
-      <div className="float-bar" onMouseDown={onBarMouseDown}>
-        <strong>{t('usageTitle')}</strong>
-        <button className="mini ghost" onClick={onClose}>
-          <Icon name="close" />
-        </button>
-      </div>
+    <FloatPanel icon="chart" title={t('usageTitle')} className="doctor usage-win" onClose={onClose}>
       <div className="doctor-body">
         {!days ? (
           <p className="doc-note">{t('usageLoading')}</p>
@@ -121,6 +113,6 @@ export function UsagePanel({ days, onClose }: Props) {
           </>
         )}
       </div>
-    </div>
+    </FloatPanel>
   );
 }

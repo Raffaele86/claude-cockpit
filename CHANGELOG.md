@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.27.0
+- **Custom project icons**: sidebar projects can now use the app's stroke icon set with a per-project accent color — the add/edit form in the rail gains an icon grid + 8 color swatches, and every project row gets a pencil (on hover) to restyle it. Legacy emoji icons in `projects.json` keep rendering as before (no migration needed); Telegram's project menu falls back to 📁 for icon names it can't render
+- **Modern button system**: buttons are ghost by default (no grey borders — subtle hover, accent-tinted active state) with a single filled accent style reserved for primary actions; mutually exclusive groups (provider, Plan/Bypass, CLI|Chat, drive filters) become pill segmented controls; keyboard focus gets a visible accent ring everywhere
+- **Unified floating panels**: new `FloatPanel` shell shared by Settings, Markdown reader, Checkpoints, Usage, Inbox and System check — same 40px header (icon + title + close), radius, shadow and open animation, all draggable, staggered opening positions preserved. The permission prompt keeps its centered-modal role but adopts the same visual language (Allow is the only filled button, Deny is ghost red)
+- Cleanup: last textual emoji removed from UI strings (import confirmations, checkpoint hint)
+
 ## 0.26.0
 - **Custom SVG icon set**: every emoji in the app chrome (top bar, panels, composer, tabs, file navigator, context menus, chat markers) is replaced by a hand-drawn stroke icon set — consistent across OSes, inherits the theme color (finally readable on dark), zero dependencies. Project icons in the sidebar stay emoji: they're your data
 - **Fix: CLI toolbar model out of sync**: the model selector used to show whatever you last picked, not what the session actually runs (statusline). The engine now reports the real model (last one used in the session transcript, or the spawn `--model`) on every attach; when unknown the selector shows the placeholder instead of a stale value. It re-syncs on tab switch/reload, not live mid-conversation

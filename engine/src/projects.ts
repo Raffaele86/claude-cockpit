@@ -27,7 +27,7 @@ export function writeJson(path: string, value: unknown): void {
 
 /** Seed neutro al primo avvio: solo la home. I progetti si aggiungono dalla UI (rail / navigator). */
 function seedProjects(): ProjectEntry[] {
-  return [{ name: 'home', path: homedir(), icon: '🏠' }];
+  return [{ name: 'home', path: homedir(), icon: 'home' }];
 }
 
 export function loadProjects(): ProjectEntry[] {

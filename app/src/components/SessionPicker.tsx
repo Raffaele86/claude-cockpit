@@ -59,7 +59,7 @@ export function SessionPicker({ sessions, searchResults, globalResults, currentI
     <div className="session-picker">
       <div className="session-picker-bar">
         <span>{t('chatHistory')}</span>
-        <button onClick={onClose}><Icon name="close" /></button>
+        <button className="mini ghost btn-icon" onClick={onClose}><Icon name="close" /></button>
       </div>
       <div className="session-filters">
         <div className="session-search-row">

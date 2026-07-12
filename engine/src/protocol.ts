@@ -110,7 +110,8 @@ export interface PromptImage {
 export interface ProjectEntry {
   name: string;
   path: string;
-  icon?: string;
+  icon?: string; // emoji legacy (render testuale) o nome del set Icon (render SVG)
+  color?: string; // tinta dell'icona SVG, es. '#7fbf7f'
 }
 
 export interface QuickActionEntry {

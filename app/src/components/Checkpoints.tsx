@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { t, LOCALE } from '../strings';
-import { useDragWin } from './useDragWin';
+import { FloatPanel } from './FloatPanel';
 import { Icon } from './icons';
 import type { CheckpointEntry } from '../protocol';
 
@@ -21,18 +21,11 @@ function fmtSize(bytes: number): string {
 /** Snapshot dei file del progetto: crea tar.gz e ripristina. Il restore riporta i file allo
  *  stato dello snapshot ma NON elimina i file creati dopo (avviso nel pannello). */
 export function Checkpoints({ checkpoints, busy, error, onCreate, onRestore, onClose }: Props) {
-  const { ref, style, onBarMouseDown } = useDragWin();
   const [label, setLabel] = useState('');
   const [armed, setArmed] = useState<string | null>(null); // file in attesa di conferma restore
 
   return (
-    <div className="float-win doctor cp-win" ref={ref} style={style}>
-      <div className="float-bar" onMouseDown={onBarMouseDown}>
-        <strong>{t('cpTitle')}</strong>
-        <button className="mini ghost" onClick={onClose}>
-          <Icon name="close" />
-        </button>
-      </div>
+    <FloatPanel icon="camera" title={t('cpTitle')} className="doctor cp-win" onClose={onClose}>
       <div className="doctor-body">
         <p className="doc-note">{t('cpNote')}</p>
         <div className="doc-actions">
@@ -81,6 +74,6 @@ export function Checkpoints({ checkpoints, busy, error, onCreate, onRestore, onC
           </div>
         ))}
       </div>
-    </div>
+    </FloatPanel>
   );
 }

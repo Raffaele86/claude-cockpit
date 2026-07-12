@@ -1,5 +1,5 @@
 import { t } from '../strings';
-import { useDragWin } from './useDragWin';
+import { FloatPanel } from './FloatPanel';
 import { Icon } from './icons';
 
 export interface InboxEntry {
@@ -21,15 +21,8 @@ interface Props {
 
 /** Inbox operativa: tutte le sessioni aperte con stato, permessi in attesa e stop per riga. */
 export function Inbox({ entries, onOpen, onStop, onClose }: Props) {
-  const { ref, style, onBarMouseDown } = useDragWin();
   return (
-    <div className="float-win doctor inbox-win" ref={ref} style={style}>
-      <div className="float-bar" onMouseDown={onBarMouseDown}>
-        <strong>{t('inboxTitle')}</strong>
-        <button className="mini ghost" onClick={onClose}>
-          <Icon name="close" />
-        </button>
-      </div>
+    <FloatPanel icon="inbox" title={t('inboxTitle')} className="doctor inbox-win" onClose={onClose}>
       <div className="doctor-body">
         {!entries.length && <p className="doc-note">{t('inboxEmpty')}</p>}
         {entries.map((e) => (
@@ -56,6 +49,6 @@ export function Inbox({ entries, onOpen, onStop, onClose }: Props) {
         ))}
         <p className="doc-note">{t('inboxNote')}</p>
       </div>
-    </div>
+    </FloatPanel>
   );
 }

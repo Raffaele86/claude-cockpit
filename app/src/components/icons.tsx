@@ -142,6 +142,10 @@ const PATHS = {
   ),
 } satisfies Record<string, JSX.Element>;
 
+export function isIconName(s: string): s is IconName {
+  return s in PATHS;
+}
+
 export function Icon({ name, size = 15, className }: { name: IconName; size?: number; className?: string }) {
   return (
     <svg

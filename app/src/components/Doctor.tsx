@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { t } from '../strings';
-import { useDragWin } from './useDragWin';
+import { FloatPanel } from './FloatPanel';
 import { Icon } from './icons';
 
 const IS_ELECTRON = navigator.userAgent.includes('Electron');
@@ -22,7 +22,6 @@ interface Props {
 export function Doctor({ connected, onStartEngine, onClose }: Props) {
   const [report, setReport] = useState<{ platform: string; checks: Check[] } | null>(null);
   const [running, setRunning] = useState(false);
-  const { ref, style, onBarMouseDown } = useDragWin();
 
   const run = useCallback(() => {
     if (!IS_ELECTRON) return;
@@ -58,14 +57,13 @@ export function Doctor({ connected, onStartEngine, onClose }: Props) {
   };
 
   return (
-    <div className="float-win doctor" ref={ref} style={style}>
-      <div className="float-bar" onMouseDown={onBarMouseDown}>
-        <strong>{t('docTitle')}</strong>
-        <span className={connected ? 'doc-conn ok' : 'doc-conn'}>{connected ? t('docConnected') : t('docDisconnected')}</span>
-        <button className="mini ghost" onClick={onClose}>
-          <Icon name="close" />
-        </button>
-      </div>
+    <FloatPanel
+      icon="pulse"
+      title={t('docTitle')}
+      className="doctor doctor-win"
+      onClose={onClose}
+      actions={<span className={connected ? 'doc-conn ok' : 'doc-conn'}>{connected ? t('docConnected') : t('docDisconnected')}</span>}
+    >
       <div className="doctor-body">
         {!IS_ELECTRON ? (
           <>
@@ -104,6 +102,6 @@ export function Doctor({ connected, onStartEngine, onClose }: Props) {
           </>
         )}
       </div>
-    </div>
+    </FloatPanel>
   );
 }

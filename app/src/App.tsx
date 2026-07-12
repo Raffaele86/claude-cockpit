@@ -541,7 +541,7 @@ export function App() {
           break;
         }
         case 'config_import_done':
-          setCfgMsg(msg.error ? `⚠️ ${msg.error}` : t('cfgImportDone')(msg.written.length));
+          setCfgMsg(msg.error ? msg.error : t('cfgImportDone')(msg.written.length));
           break;
         case 'mcp_export': {
           // Scarica il file: stesso formato di ~/.claude.json (chiave mcpServers) → reimportabile ovunque.
@@ -923,7 +923,7 @@ export function App() {
                 </>
               )}
               <button
-                className={ttsOn ? 'mini on' : 'mini ghost'}
+                className={ttsOn ? 'mini on btn-icon' : 'mini ghost btn-icon'}
                 title={t('ttsTitle')}
                 onClick={() =>
                   setTtsOn((on) => {
@@ -936,7 +936,7 @@ export function App() {
               >
                 <Icon name="speaker" />
               </button>
-              <button className={notifyOn ? 'mini on' : 'mini ghost'} title={t('notifyTitle')} onClick={toggleNotify}>
+              <button className={notifyOn ? 'mini on btn-icon' : 'mini ghost btn-icon'} title={t('notifyTitle')} onClick={toggleNotify}>
                 <Icon name="bell" />
               </button>
               {view === 'chat' && (
@@ -1107,7 +1107,7 @@ export function App() {
           )}
           {conn === 'authed' && (
             <button
-              className={settingsOpen ? 'mini on' : 'mini ghost'}
+              className={settingsOpen ? 'mini on btn-icon' : 'mini ghost btn-icon'}
               title={t('settingsBtnTitle')}
               onClick={() => {
                 if (!settingsOpen) {
@@ -1120,25 +1120,25 @@ export function App() {
               <Icon name="settings" />
             </button>
           )}
-          <button className={`has-badge ${inboxOpen ? 'mini on' : 'mini ghost'}`} title={t('inboxOpen')} onClick={() => setInboxOpen((o) => !o)}>
+          <button className={`has-badge btn-icon ${inboxOpen ? 'mini on' : 'mini ghost'}`} title={t('inboxOpen')} onClick={() => setInboxOpen((o) => !o)}>
             <Icon name="inbox" />
             {busyCount > 0 && <span className="badge-busy">{busyCount}</span>}
           </button>
-          <button className={usageOpen ? 'mini on' : 'mini ghost'} title={t('usageOpen')} onClick={() => setUsageOpen((o) => !o)}>
+          <button className={usageOpen ? 'mini on btn-icon' : 'mini ghost btn-icon'} title={t('usageOpen')} onClick={() => setUsageOpen((o) => !o)}>
             <Icon name="chart" />
           </button>
           <button
-            className={cpOpen ? 'mini on' : 'mini ghost'}
+            className={cpOpen ? 'mini on btn-icon' : 'mini ghost btn-icon'}
             title={t('cpOpen')}
             onClick={() => setCpOpen((o) => !o)}
           >
             <Icon name="camera" />
           </button>
-          <button className={doctorOpen ? 'mini on' : 'mini ghost'} title={t('docOpen')} onClick={() => setDoctorOpen((o) => !o)}>
+          <button className={doctorOpen ? 'mini on btn-icon' : 'mini ghost btn-icon'} title={t('docOpen')} onClick={() => setDoctorOpen((o) => !o)}>
             <Icon name="pulse" />
           </button>
           <button
-            className={sideOpen ? 'mini on' : 'mini ghost'}
+            className={sideOpen ? 'mini on btn-icon' : 'mini ghost btn-icon'}
             title={t('sidePanelTitle')}
             onClick={() =>
               setSideOpen((o) => {
@@ -1152,7 +1152,7 @@ export function App() {
           <span className={`dot ${conn}`} />
           {conn === 'authed' ? t('connected') : conn}
           {conn === 'disconnected' && (
-            <button className="mini" onClick={onStartEngine}>
+            <button className="mini primary" onClick={onStartEngine}>
               {t('startEngine')}
             </button>
           )}
@@ -1162,13 +1162,13 @@ export function App() {
       {engineError && (
         <div className="banner error">
           {engineError}
-          <button className="mini" onClick={() => resetSession()}>
+          <button className="mini primary" onClick={() => resetSession()}>
             {t('newSession')}
           </button>
           <button className="mini ghost" onClick={() => setDoctorOpen(true)}>
             {t('docOpen')}
           </button>
-          <button className="mini ghost" onClick={() => setEngineError(null)}>
+          <button className="mini ghost btn-icon" onClick={() => setEngineError(null)}>
             <Icon name="close" />
           </button>
         </div>
@@ -1235,7 +1235,7 @@ export function App() {
               onAddProject={(path) =>
                 client.current?.send({
                   op: 'projects_upsert',
-                  project: { path, name: path.split('/').filter(Boolean).at(-1) ?? path, icon: '📁' },
+                  project: { path, name: path.split('/').filter(Boolean).at(-1) ?? path, icon: 'folder' },
                 })
               }
               onRemoveProject={(path) => client.current?.send({ op: 'projects_remove', path })}

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { CockpitSettings, QuickActionEntry } from '../protocol';
 import { t } from '../strings';
-import { useDragWin } from './useDragWin';
+import { FloatPanel } from './FloatPanel';
 import { Icon } from './icons';
 
 export interface SettingsSnapshot {
@@ -42,7 +42,6 @@ export function Settings({ snapshot, engineVersion, home, configMsg, projects, o
   const [lang, setLang] = useState(() => localStorage.getItem('cockpit-lang') ?? '');
   const [savedFlash, setSavedFlash] = useState(false);
   const [loaded, setLoaded] = useState(false);
-  const { ref, style, onBarMouseDown } = useDragWin();
 
   useEffect(() => {
     if (!snapshot || loaded) return;
@@ -100,13 +99,18 @@ export function Settings({ snapshot, engineVersion, home, configMsg, projects, o
   }
 
   return (
-    <div className="md-viewer settings-modal float-win" ref={ref} style={style}>
-      <div className="md-viewer-bar" onMouseDown={onBarMouseDown}>
-          <span className="md-viewer-title"><Icon name="settings" /> {t('settingsTitle')}</span>
+    <FloatPanel
+      icon="settings"
+      title={t('settingsTitle')}
+      className="md-viewer settings-modal settings-win"
+      onClose={onClose}
+      actions={
+        <>
           {snapshot?.restartRequired && <span className="settings-warn">{t('restartRequired')}</span>}
-          <button onClick={save}>{savedFlash ? t('saved') : t('save')}</button>
-          <button onClick={onClose}><Icon name="close" /></button>
-        </div>
+          <button className="mini primary" onClick={save}>{savedFlash ? t('saved') : t('save')}</button>
+        </>
+      }
+    >
         <div className="md-viewer-body settings-body">
           {!loaded ? (
             <div className="md-viewer-loading">…</div>
@@ -336,6 +340,6 @@ export function Settings({ snapshot, engineVersion, home, configMsg, projects, o
             </>
           )}
         </div>
-    </div>
+    </FloatPanel>
   );
 }

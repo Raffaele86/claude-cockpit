@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { marked } from 'marked';
 import { t } from '../strings';
-import { useDragWin } from './useDragWin';
+import { FloatPanel } from './FloatPanel';
 import { Icon } from './icons';
 
 export interface ViewerState {
@@ -41,7 +41,6 @@ export function mdToPlain(md: string): string {
 
 export function MdViewer({ viewer, onClose }: { viewer: ViewerState; onClose: () => void }) {
   const [copied, setCopied] = useState<string | null>(null);
-  const { ref, style, onBarMouseDown } = useDragWin();
   const name = viewer.path.split('/').filter(Boolean).at(-1) ?? viewer.path;
 
   async function copy(kind: string, text: string) {
@@ -55,24 +54,29 @@ export function MdViewer({ viewer, onClose }: { viewer: ViewerState; onClose: ()
   }
 
   return (
-    <div className="md-viewer float-win" ref={ref} style={style}>
-      <div className="md-viewer-bar" onMouseDown={onBarMouseDown}>
-        <span className="md-viewer-title" title={viewer.path}>
-          <Icon name="book" /> {name}
-        </span>
-        {viewer.content !== undefined && (
-          <>
-            <button title={t('copyTextTitle')} onClick={() => copy('txt', mdToPlain(viewer.content!))}>
-              {copied === 'txt' ? <Icon name="check" size={12} /> : t('copyText')}
-            </button>
-            <button title={t('copyMdTitle')} onClick={() => copy('md', viewer.content!)}>
-              {copied === 'md' ? <Icon name="check" size={12} /> : t('copyMd')}
-            </button>
-          </>
-        )}
-        <button onClick={() => copy('path', viewer.path)}>{copied === 'path' ? <Icon name="check" size={12} /> : t('copyPath')}</button>
-        <button onClick={onClose}><Icon name="close" /></button>
-      </div>
+    <FloatPanel
+      icon="book"
+      title={<span title={viewer.path}>{name}</span>}
+      className="md-viewer"
+      onClose={onClose}
+      actions={
+        <>
+          {viewer.content !== undefined && (
+            <>
+              <button className="mini ghost" title={t('copyTextTitle')} onClick={() => copy('txt', mdToPlain(viewer.content!))}>
+                {copied === 'txt' ? <Icon name="check" size={12} /> : t('copyText')}
+              </button>
+              <button className="mini ghost" title={t('copyMdTitle')} onClick={() => copy('md', viewer.content!)}>
+                {copied === 'md' ? <Icon name="check" size={12} /> : t('copyMd')}
+              </button>
+            </>
+          )}
+          <button className="mini ghost" onClick={() => copy('path', viewer.path)}>
+            {copied === 'path' ? <Icon name="check" size={12} /> : t('copyPath')}
+          </button>
+        </>
+      }
+    >
       <div className="md-viewer-body">
         {viewer.error && <div className="md-viewer-error">{t('cannotOpen')(viewer.error)}</div>}
         {viewer.content !== undefined && (
@@ -80,6 +84,6 @@ export function MdViewer({ viewer, onClose }: { viewer: ViewerState; onClose: ()
         )}
         {viewer.content === undefined && !viewer.error && <div className="md-viewer-loading">{t('loading')}</div>}
       </div>
-    </div>
+    </FloatPanel>
   );
 }
