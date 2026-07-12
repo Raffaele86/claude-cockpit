@@ -290,6 +290,11 @@ const IT = {
   cmdToggleView: 'Passa a vista',
   cmdCloseTab: 'Chiudi scheda',
   moreTitle: 'Altro',
+  sessionPillTitle: 'Sessione: provider, modello, effort, permessi',
+  smProvider: 'Provider',
+  smModel: 'Modello',
+  smEffort: 'Effort',
+  smMode: 'Permessi',
 };
 
 const EN: typeof IT = {
@@ -579,6 +584,11 @@ const EN: typeof IT = {
   cmdToggleView: 'Switch view',
   cmdCloseTab: 'Close tab',
   moreTitle: 'More',
+  sessionPillTitle: 'Session: provider, model, effort, permissions',
+  smProvider: 'Provider',
+  smModel: 'Model',
+  smEffort: 'Effort',
+  smMode: 'Permissions',
 };
 
 export const t = <K extends keyof typeof IT>(k: K): (typeof IT)[K] => (LANG === 'it' ? IT : EN)[k];

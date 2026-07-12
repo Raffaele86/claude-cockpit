@@ -2642,3 +2642,53 @@ button .icon { pointer-events: none; }
     animation: none;
   }
 }
+
+/* ---- v0.28.1: popover Sessione dal pill ---- */
+.smenu {
+  position: relative;
+  display: inline-flex;
+}
+.smenu-pop {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 70;
+  width: 300px;
+  background: var(--elev);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-2);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  animation: pop-in 0.12s ease-out;
+}
+.smenu-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.smenu-label {
+  flex: none;
+  width: 72px;
+  font-size: var(--fs-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-3);
+}
+.smenu-row .sel {
+  flex: 1;
+  min-width: 0;
+}
+.smenu-row .sel-btn {
+  width: 100%;
+  max-width: none;
+  justify-content: space-between;
+}
+@media (prefers-reduced-motion: reduce) {
+  .smenu-pop {
+    animation: none;
+  }
+}

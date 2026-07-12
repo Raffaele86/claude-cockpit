@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.28.1
+- **Session popover**: clicking the top-bar session pill now opens an anchored panel with provider, model, effort and permission controls — one click away again (they had moved into the command palette in 0.28.0). Stays open while you adjust multiple values; provider/permission changes in the CLI view close it because the terminal relaunches. The palette submenus still work for keyboard-first flow
+
 ## 0.28.0
 - **Command palette (Ctrl/⌘+K)**: Raycast-style palette covering everything — new chat/tab, history, export, project switching, provider/model/effort/permission submenus, every panel, quick actions and preferences. Works from the CLI view too (captures the shortcut before the terminal); a ⌘K button in the top bar opens it on touch devices
 - **Minimal top bar**: down from 17 controls to 5 — brand, a session pill showing the current model · effort (click → palette), New chat, inbox with badge, and a ⋯ menu for the rare toggles (TTS, notifications, panels). Model/provider/effort selectors, Plan/Bypass and the panel buttons all moved into the palette and menu; cost/ctx live in the statusline

@@ -19,6 +19,7 @@ import { Tabs } from './components/Tabs';
 import { Checkpoints } from './components/Checkpoints';
 import { CommandPalette, type Command } from './components/CommandPalette';
 import { OverflowMenu, type MenuItem } from './components/OverflowMenu';
+import { SessionMenu } from './components/SessionMenu';
 import { Icon } from './components/icons';
 
 // Pannelli on-demand: chunk separati, caricati solo alla prima apertura.
@@ -890,12 +891,14 @@ export function App() {
   }, [tabs, activeProject, tabMeta]);
 
   // Registry della command palette: costruito qui perché tutti gli handler vivono nel monolite.
-  const commands = useMemo<Command[]>(() => {
-    if (conn !== 'authed') return [];
+  // Controlli di sessione view-aware (provider/modello/effort/permessi): condivisi
+  // tra command palette e popover Sessione del pill.
+  const sessionCtl = useMemo(() => {
     const cli = view === 'cli';
     const curProv = cli ? (cliProv[activeKey] ?? 'claude') : active.provider;
     const curModel = cli ? (cliModel[activeKey] ?? '') : active.model;
     const curEffort = cli ? (cliEffort[activeKey] ?? '') : active.effort;
+    const curMode = cli ? (cliMode[activeKey] ?? 'bypassPermissions') : active.permissionMode;
     const modelList: { id: string; label: string }[] =
       curProv === 'claude' ? active.models.map((m) => ({ id: m.model, label: m.displayName ?? m.model }))
       : hasCatalog(curProv) ? (catalog[curProv] ?? []).map((m) => ({ id: m.id, label: m.id }))
@@ -923,6 +926,25 @@ export function App() {
         cliInput.current?.(`/effort ${ef}\r`);
       } else changeEffort(ef);
     };
+    const setPerm = (mode: string) => {
+      if (cli) {
+        setCliMode((prev) => ({ ...prev, [activeKey]: mode }));
+        relaunchCli({ permissionMode: mode as PtyLaunch['permissionMode'], continue: true, provider: cliProv[activeKey] ?? 'claude' });
+      } else setMode(mode);
+    };
+    const modes: { key: string; label: string }[] = cli
+      ? [
+          { key: 'plan', label: 'Plan' },
+          { key: 'bypassPermissions', label: 'Bypass' },
+        ]
+      : MODES;
+    return { cli, curProv, curModel, curEffort, curMode, modelList, modes, setProv, setModel, setEff, setPerm };
+  }, [view, activeKey, active, cliProv, cliModel, cliEffort, cliMode, hasCatalog, catalog, providerModels, requestCatalog, relaunchCli, changeModel, changeEffort, setMode]);
+
+  const commands = useMemo<Command[]>(() => {
+    if (conn !== 'authed') return [];
+    const cli = view === 'cli';
+    const { curProv, curModel, curEffort, modelList, setProv, setModel, setEff } = sessionCtl;
     const out: Command[] = [
       {
         id: 'new-chat',
@@ -998,22 +1020,7 @@ export function App() {
         icon: 'lock',
         keywords: 'permessi mode plan bypass',
         children: () =>
-          cli
-            ? (
-                [
-                  ['plan', 'Plan'],
-                  ['bypassPermissions', 'Bypass'],
-                ] as const
-              ).map(([mode, label]) => ({
-                id: mode,
-                label,
-                on: (cliMode[activeKey] ?? 'bypassPermissions') === mode,
-                run: () => {
-                  setCliMode((prev) => ({ ...prev, [activeKey]: mode }));
-                  relaunchCli({ permissionMode: mode, continue: true, provider: cliProv[activeKey] ?? 'claude' });
-                },
-              }))
-            : MODES.map((m) => ({ id: m.key, label: m.label, on: active.permissionMode === m.key, run: () => setMode(m.key) })),
+          sessionCtl.modes.map((m) => ({ id: m.key, label: m.label, on: sessionCtl.curMode === m.key, run: () => sessionCtl.setPerm(m.key) })),
       },
       { id: 'inbox', label: t('inboxOpen'), section: t('cpSecPanels'), icon: 'inbox', keywords: 'inbox sessioni', run: () => setInboxOpen(true) },
       { id: 'usage', label: t('usageOpen'), section: t('cpSecPanels'), icon: 'chart', keywords: 'usage costi token', run: () => setUsageOpen(true) },
@@ -1065,10 +1072,9 @@ export function App() {
     ];
     return out;
   }, [
-    conn, view, active, activeKey, activeProject, registry, providerNames, catalog, quickActions,
-    cliProv, cliModel, cliEffort, cliMode, ttsOn, notifyOn, sideOpen,
-    addTab, resetSession, exportChat, setView, changeModel, changeEffort, setMode, relaunchCli,
-    hasCatalog, providerModels, requestCatalog, openSettings, submit, toggleNotify,
+    conn, view, active, activeProject, registry, providerNames, quickActions,
+    ttsOn, notifyOn, sideOpen, sessionCtl,
+    addTab, resetSession, exportChat, setView, openSettings, submit, toggleNotify,
   ]);
 
   // Menu ⋯ della topbar: toggle rari + pannelli (le stesse azioni esistono anche in palette).
@@ -1115,12 +1121,21 @@ export function App() {
         </div>
         {conn === 'authed' && (
           <div className="pill-wrap">
-            <button className="session-pill" title={t('cpOpenTitle')} onClick={() => setPaletteOpen(true)}>
-              <Icon name="sparkle" size={12} />
-              <span className="pill-part">{(view === 'cli' ? cliModel[activeKey] : active.model) || 'model'}</span>
-              <span className="pill-sep">·</span>
-              <span className="pill-part">{(view === 'cli' ? cliEffort[activeKey] : active.effort) || 'effort'}</span>
-            </button>
+            <SessionMenu
+              ctl={sessionCtl}
+              providers={providerNames}
+              onOpen={() => {
+                if (hasCatalog(sessionCtl.curProv)) requestCatalog(sessionCtl.curProv);
+              }}
+            >
+              <button className="session-pill" title={t('sessionPillTitle')}>
+                <Icon name="sparkle" size={12} />
+                <span className="pill-part">{sessionCtl.curModel || 'model'}</span>
+                <span className="pill-sep">·</span>
+                <span className="pill-part">{sessionCtl.curEffort || 'effort'}</span>
+                <Icon name="chevron-down" size={11} />
+              </button>
+            </SessionMenu>
           </div>
         )}
         <div className="status">
