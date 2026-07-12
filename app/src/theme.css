@@ -2674,7 +2674,8 @@ button .icon { pointer-events: none; }
   left: 50%;
   transform: translateX(-50%);
   z-index: 70;
-  width: 340px;
+  width: 400px;
+  max-width: calc(100vw - 16px);
   background: var(--elev);
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: var(--r-md);

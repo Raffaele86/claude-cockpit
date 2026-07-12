@@ -115,7 +115,10 @@ export function CommandPalette({ open, commands, onClose }: Props) {
   useEffect(() => {
     const el = listRef.current?.children[itemIdx[idx] ?? 0] as HTMLElement | undefined;
     el?.scrollIntoView({ block: 'nearest' });
-  }, [idx, itemIdx]);
+    // itemIdx è ricreato a ogni render: con lui nei deps l'effetto girerebbe di continuo
+    // e combatterebbe lo scroll manuale della lista.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idx]);
 
   if (!open) return null;
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.28.4
+- Fix: scrolling long model lists (NVIDIA catalog) no longer snaps back — an effect re-ran on every render (options array identity) and kept re-scrolling to the selected entry; it now runs only when the dropdown opens. Same guard applied to the command palette list
+- Session popover widened to 400px so four provider chips fit on one line
+
 ## 0.28.3
 - **Authenticated live model catalogs**: providers gain an optional `modelsKey` — the engine sends it as a Bearer token when fetching `modelsUrl`, enabling live catalogs from providers that require auth (e.g. NVIDIA NIM's 121-model list). The key is masked in the Settings snapshot and preserved across Settings saves, same treatment as the Telegram token; `providers.json` is written with mode 0600
 - Session popover: the provider segmented control wraps instead of overflowing the panel with 4+ providers; the model dropdown shows catalog labels; the top-bar pill shows the model name without the provider prefix

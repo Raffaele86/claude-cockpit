@@ -45,6 +45,8 @@ export function Select({ value, options, onChange, placeholder, title, className
     return () => document.removeEventListener('mousedown', onDown);
   }, [open]);
 
+  // Solo all'APERTURA: options è un array nuovo a ogni render — con options nei deps
+  // questo effetto girava di continuo e ogni hover riportava lo scroll alla voce selezionata.
   useEffect(() => {
     if (open) {
       setQ('');
@@ -52,7 +54,8 @@ export function Select({ value, options, onChange, placeholder, title, className
       setIdx(i >= 0 ? i : 0);
       if (searchable) requestAnimationFrame(() => searchRef.current?.focus());
     }
-  }, [open, options, value, searchable]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   useEffect(() => {
     setIdx(0);
@@ -61,7 +64,8 @@ export function Select({ value, options, onChange, placeholder, title, className
   useEffect(() => {
     if (!open) return;
     listRef.current?.children[idx]?.scrollIntoView({ block: 'nearest' });
-  }, [open, idx]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [idx]);
 
   function pick(v: string) {
     onChange(v);
