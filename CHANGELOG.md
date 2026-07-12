@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.29.1
+- The Windows terminal is now a third view toggle (**CLI / Win / Chat**) next to the others — switch the current tab between the WSL terminal, native Windows claude, and chat from one place, no separate window or dedicated tab. Replaces the earlier "New Windows tab" command
+
 ## 0.29.0
 - **New Windows tab (native claude)**: a cockpit CLI tab can now run `claude` in a real Windows ConPTY instead of WSL, embedded like any other tab — so it drives the real Windows Chrome. A small Windows agent (`engine/win-agent`, node-pty prebuilt) owns the ConPTY and bridges terminal bytes over stdio to the engine (the WSL node-pty can't host a Windows console). Sessions live in the Windows `~/.claude`, so they don't appear in the cockpit history
 - **Open on Windows**: menu/palette action that opens a native PowerShell window in the project directory with `claude` started — the separate-window alternative to the embedded tab. No MCP/CDP setup

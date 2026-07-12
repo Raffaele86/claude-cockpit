@@ -73,7 +73,7 @@ export function App() {
   const [terminal, setTerminal] = useState<string | null>(null); // shell dal FileNav (pannello inferiore), path
   // Vista principale per scheda: si apre SEMPRE nel CLI; la Chat è una scelta manuale
   // che vale solo per la sessione corrente (stato in memoria, niente persistenza).
-  const [viewByKey, setViewByKey] = useState<Record<string, 'cli' | 'chat'>>({});
+  const [viewByKey, setViewByKey] = useState<Record<string, 'cli' | 'chat' | 'win'>>({});
   const [cliNonce, setCliNonce] = useState<Record<string, number>>({}); // remount dopo /exit o relaunch
   const [cliExited, setCliExited] = useState<Record<string, boolean>>({});
   // Toolbar CLI: provider/modello/effort/mode scelti per scheda (solo per la sessione UI).
@@ -121,15 +121,6 @@ export function App() {
       return next;
     });
   }, []);
-  // Schede che eseguono claude/shell su Windows nativo (ponte ConPTY) invece che in WSL.
-  // Persistito: al reload la scheda deve ri-attaccarsi al pty Windows, non a quello WSL.
-  const [osByKey, setOsByKey] = useState<Record<string, 'windows'>>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('cockpit-os') ?? '{}') as Record<string, 'windows'>;
-    } catch {
-      return {};
-    }
-  });
   const [cfgMsg, setCfgMsg] = useState<string | null>(null); // esito import/export config
   const sessionsReqAt = useRef<Record<string, number>>({}); // base → ts ultima sessions_list (throttle titoli)
   const [catalog, setCatalog] = useState<Record<string, CatalogModel[]>>({});
@@ -718,9 +709,9 @@ export function App() {
     if (!res.ok) setEngineError(t('engineStartFailed')(res.error ?? ''));
   }
 
-  const view: 'cli' | 'chat' = viewByKey[activeKey] ?? 'cli';
+  const view: 'cli' | 'chat' | 'win' = viewByKey[activeKey] ?? 'cli';
   const setView = useCallback(
-    (v: 'cli' | 'chat') => setViewByKey((prev) => ({ ...prev, [activeKey]: v })),
+    (v: 'cli' | 'chat' | 'win') => setViewByKey((prev) => ({ ...prev, [activeKey]: v })),
     [activeKey],
   );
 
@@ -771,20 +762,6 @@ export function App() {
     setTabs(activeProject, (list) => [...list, id]);
     setActiveTabByProject((prev) => ({ ...prev, [activeProject]: id }));
   }, [activeProject, setTabs]);
-
-  /** Nuova scheda che esegue claude su Windows nativo (ponte ConPTY) invece che in WSL. */
-  const addWindowsTab = useCallback(() => {
-    const id = `t${Date.now().toString(36)}`;
-    const key = `${activeProject}##${id}`;
-    setTabs(activeProject, (list) => [...list, id]);
-    setActiveTabByProject((prev) => ({ ...prev, [activeProject]: id }));
-    setOsByKey((prev) => {
-      const next = { ...prev, [key]: 'windows' as const };
-      localStorage.setItem('cockpit-os', JSON.stringify(next));
-      return next;
-    });
-    updateTabMeta(key, { name: 'Windows' });
-  }, [activeProject, setTabs, updateTabMeta]);
 
   /** Rilancia il CLI della scheda coi flag scelti (l'engine riprende la sessione con --resume). */
   const relaunchCli = useCallback(
@@ -917,7 +894,7 @@ export function App() {
   // Controlli di sessione view-aware (provider/modello/effort/permessi): condivisi
   // tra command palette e popover Sessione del pill.
   const sessionCtl = useMemo(() => {
-    const cli = view === 'cli';
+    const cli = view !== 'chat'; // 'cli' (WSL) o 'win' (Windows nativo): entrambi terminale
     const curProv = cli ? (cliProv[activeKey] ?? 'claude') : active.provider;
     const curModel = cli ? (cliModel[activeKey] ?? '') : active.model;
     const curEffort = cli ? (cliEffort[activeKey] ?? '') : active.effort;
@@ -966,7 +943,7 @@ export function App() {
 
   const commands = useMemo<Command[]>(() => {
     if (conn !== 'authed') return [];
-    const cli = view === 'cli';
+    const cli = view !== 'chat'; // 'cli' (WSL) o 'win' (Windows nativo): entrambi terminale
     const { curProv, curModel, curEffort, modelList, setProv, setModel, setEff } = sessionCtl;
     const out: Command[] = [
       {
@@ -976,14 +953,6 @@ export function App() {
         icon: 'plus',
         keywords: 'new nuova chat scheda tab',
         run: () => (cli ? addTab() : resetSession()),
-      },
-      {
-        id: 'new-win-tab',
-        label: t('newWindowsTab'),
-        section: t('cpSecSession'),
-        icon: 'terminal',
-        keywords: 'windows nativo tab claude chrome browser conpty',
-        run: addWindowsTab,
       },
       {
         id: 'history',
@@ -1174,10 +1143,10 @@ export function App() {
           {conn === 'authed' && (
             <button
               className="mini ghost"
-              title={view === 'cli' ? t('cliNewChatTitle') : t('newChatTitle')}
-              onClick={() => (view === 'cli' ? addTab() : resetSession())}
+              title={view !== 'chat' ? t('cliNewChatTitle') : t('newChatTitle')}
+              onClick={() => (view !== 'chat' ? addTab() : resetSession())}
             >
-              {view === 'cli' ? t('cliNewChat') : t('newChat')}
+              {view !== 'chat' ? t('cliNewChat') : t('newChat')}
             </button>
           )}
           <button className="mini ghost" title={t('cpOpenTitle')} onClick={() => setPaletteOpen(true)}>
@@ -1310,9 +1279,9 @@ export function App() {
               }}
             />
             <div className="view-toggle" title={t('viewToggleTitle')}>
-              {(['cli', 'chat'] as const).map((v) => (
-                <button key={v} className={view === v ? 'on' : ''} onClick={() => setView(v)}>
-                  {v === 'cli' ? 'CLI' : t('chat')}
+              {(['cli', 'win', 'chat'] as const).map((v) => (
+                <button key={v} className={view === v ? 'on' : ''} onClick={() => setView(v)} title={v === 'win' ? t('winViewTitle') : undefined}>
+                  {v === 'cli' ? 'CLI' : v === 'win' ? 'Win' : t('chat')}
                 </button>
               ))}
             </div>
@@ -1345,14 +1314,14 @@ export function App() {
               onClose={() => setPicker(false)}
             />
           )}
-          {view === 'cli' && conn === 'authed' && client.current ? (
+          {view !== 'chat' && conn === 'authed' && client.current ? (
             <div className="cli-wrap">
               <TerminalPanel
-                key={`${activeKey}:cli:${osByKey[activeKey] ?? ''}:${cliNonce[activeKey] ?? 0}`}
+                key={`${activeKey}:${view}:${cliNonce[activeKey] ?? 0}`}
                 client={client.current}
                 project={activeKey}
                 cmd="claude"
-                os={osByKey[activeKey]}
+                os={view === 'win' ? 'windows' : undefined}
                 subscribe={(fn) => client.current!.subscribe(fn)}
                 takeLaunch={takeCliLaunch}
                 takeFresh={takeCliFresh}
@@ -1410,7 +1379,7 @@ export function App() {
             actions={quickActions.filter((q) => !q.project || q.project === activeProject)}
             disabled={conn !== 'authed' || (view === 'chat' && active.busy)}
             onRun={(text) => {
-              if (view === 'cli') cliInput.current?.(text + '\r');
+              if (view !== 'chat') cliInput.current?.(text + '\r');
               else submit(text);
             }}
           />
