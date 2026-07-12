@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.29.2
+- Fix: a failed Windows agent spawn (bad `claude.exe`/`powershell` path) used to leave a blank, stuck terminal with a leaked channel — the agent now reports the error and exits, the bridge renders agent errors in the terminal, and a 15s spawn watchdog closes the channel if neither `ready` nor `exit` arrives
+- Fix: killing a Windows tab now also exits the agent process explicitly, so the native Windows process isn't orphaned
+- Fix: the busy indicator no longer switches off after ~2s on native Windows tabs (the idle tick ignored `:win` channels)
+- The command palette view command now cycles CLI → Win → Chat, matching the three-way toggle introduced in 0.29.1
+- Engine version is now read from `engine/package.json` (single source of truth) instead of a hardcoded constant
+
 ## 0.29.1
 - The Windows terminal is now a third view toggle (**CLI / Win / Chat**) next to the others — switch the current tab between the WSL terminal, native Windows claude, and chat from one place, no separate window or dedicated tab. Replaces the earlier "New Windows tab" command
 

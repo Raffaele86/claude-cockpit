@@ -983,11 +983,11 @@ export function App() {
       },
       {
         id: 'view',
-        label: `${t('cmdToggleView')} ${cli ? 'Chat' : 'CLI'}`,
+        label: `${t('cmdToggleView')} ${view === 'cli' ? 'Win' : view === 'win' ? 'Chat' : 'CLI'}`,
         section: t('cpSecGoto'),
         icon: 'terminal',
-        keywords: 'view vista cli chat toggle',
-        run: () => setView(cli ? 'chat' : 'cli'),
+        keywords: 'view vista cli win chat toggle',
+        run: () => setView(view === 'cli' ? 'win' : view === 'win' ? 'chat' : 'cli'),
       },
       {
         id: 'provider',

@@ -19,7 +19,8 @@ import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 import { logUsage, usageReport } from './usage.js';
 
-const ENGINE_VERSION = '0.29.1';
+// Versione unica dal package.json (../ vale sia da src/ che da dist/).
+const ENGINE_VERSION = (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }).version;
 const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli smoke (istanza isolata)
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
@@ -100,7 +101,7 @@ setInterval(() => {
   for (const [key, active] of cliActive) {
     if (!active) continue;
     let latest = 0;
-    for (const cmd of ['claude', 'shell']) {
+    for (const cmd of ['claude', 'shell', 'claude:win', 'shell:win']) {
       const ch = ptys.get(ptyByKey.get(`${key}::${cmd}`) ?? '');
       if (ch) latest = Math.max(latest, ch.lastDataAt);
     }

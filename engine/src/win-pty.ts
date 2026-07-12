@@ -52,6 +52,8 @@ export class WinPtyChannel {
   private bufBytes = 0;
   private lineBuf = '';
   private exited = false;
+  private ready = false;
+  private spawnTimer: ReturnType<typeof setTimeout> | undefined;
   readonly startedAt = Date.now();
   lastDataAt = 0;
   // Le sessioni Windows le gestisce claude di Windows: niente session-id/model/configDir lato cockpit.
@@ -71,8 +73,11 @@ export class WinPtyChannel {
     const finish = (code: number) => {
       if (this.exited) return;
       this.exited = true;
+      clearTimeout(this.spawnTimer);
       onExit(code);
     };
+    // Testo di servizio (errori del ponte) reso nel terminale del tab.
+    const echo = (text: string) => onData(Buffer.from(`\r\n\x1b[31m${text}\x1b[0m\r\n`, 'utf8').toString('base64'));
     // cfg.node è un path Windows in win-agent.json → per il spawn Linux serve il path WSL (/mnt/c/…).
     this.p = spawn(toWslPath(cfg.node), [cfg.agent], { stdio: ['pipe', 'pipe', 'pipe'] });
     this.send({ t: 'spawn', file: cmd === 'claude' ? cfg.claude : 'powershell.exe', args: [], cwd: toWinPath(cwd), cols, rows });
@@ -83,7 +88,7 @@ export class WinPtyChannel {
         const line = this.lineBuf.slice(0, nl);
         this.lineBuf = this.lineBuf.slice(nl + 1);
         if (!line.trim()) continue;
-        let m: { t?: string; d?: string; code?: number };
+        let m: { t?: string; d?: string; code?: number; m?: string };
         try {
           m = JSON.parse(line) as typeof m;
         } catch {
@@ -98,6 +103,12 @@ export class WinPtyChannel {
           onData(m.d); // già base64: il protocollo pty_data lo vuole così
         } else if (m.t === 'exit') {
           finish(m.code ?? 0);
+        } else if (m.t === 'ready') {
+          this.ready = true;
+          clearTimeout(this.spawnTimer);
+        } else if (m.t === 'err') {
+          console.error('[win-agent]', m.m ?? '');
+          echo(`win-agent: ${m.m ?? 'errore'}`);
         }
       }
     });
@@ -107,6 +118,13 @@ export class WinPtyChannel {
       finish(1);
     });
     this.p.on('exit', (code) => finish(code ?? 0));
+    // Se in 15s non arriva né ready né exit, il ponte è appeso: chiudi con errore visibile.
+    this.spawnTimer = setTimeout(() => {
+      if (this.ready || this.exited) return;
+      echo('win-agent: nessuna risposta entro 15s, sessione Windows chiusa');
+      this.kill();
+      finish(1);
+    }, 15_000);
   }
 
   private send(obj: Record<string, unknown>): void {

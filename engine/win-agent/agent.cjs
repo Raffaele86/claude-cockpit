@@ -25,10 +25,16 @@ process.stdin.on('data', (c) => {
         term.write(Buffer.from(m.d, 'base64').toString('utf8'));
       } else if (m.t === 'resize' && term) {
         term.resize(m.cols, m.rows);
-      } else if (m.t === 'kill' && term) {
-        term.kill();
+      } else if (m.t === 'kill') {
+        try { term && term.kill(); } catch {}
+        // onExit manda {t:'exit'}; se non arriva (ConPTY già rotto) usciamo comunque
+        setTimeout(() => process.exit(0), 500);
       }
-    } catch (err) { send({ t: 'err', m: String(err) }); }
+    } catch (err) {
+      send({ t: 'err', m: String(err) });
+      // spawn fallito = sessione mai nata: chiudi il canale invece di restare appeso muto
+      if (m.t === 'spawn' && !term) { send({ t: 'exit', code: 1 }); process.exit(1); }
+    }
   }
 });
 process.stdin.on('end', () => { try { term && term.kill(); } catch {} process.exit(0); });
