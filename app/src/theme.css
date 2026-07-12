@@ -2345,13 +2345,33 @@ button .icon { pointer-events: none; }
   z-index: 60;
   min-width: 100%;
   max-width: 320px;
-  max-height: 280px;
-  overflow-y: auto;
   background: var(--elev);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   box-shadow: var(--shadow-2);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.sel-search {
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-size: var(--fs-sm);
+  font-family: inherit;
+  padding: 7px 10px;
+  outline: none;
+}
+.sel-list {
+  max-height: 280px;
+  overflow-y: auto;
   padding: 4px;
+}
+.sel-empty {
+  padding: 10px;
+  color: var(--text-3);
+  font-size: var(--fs-sm);
 }
 .sel-pop.up {
   top: auto;
@@ -2691,4 +2711,22 @@ button .icon { pointer-events: none; }
   .smenu-pop {
     animation: none;
   }
+}
+.smenu-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: -4px -6px 0 0;
+}
+.smenu-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text);
+}
+/* Electron: i popover fuori dalla topbar non devono mai ereditare la drag region */
+.smenu-pop,
+.sel-pop,
+.omenu-pop,
+.cpal-panel {
+  -webkit-app-region: no-drag;
 }

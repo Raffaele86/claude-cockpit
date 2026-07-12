@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon } from './icons';
+import { t } from '../strings';
 
 export interface SelectOption {
   value: string;
@@ -15,20 +16,30 @@ interface Props {
   title?: string;
   className?: string;
   dropUp?: boolean; // popover verso l'alto (contesti in fondo alla finestra)
+  searchable?: boolean; // casella di filtro in cima (liste lunghe, es. catalogo OpenRouter)
 }
 
-/** Select custom (sostituisce i <select> nativi): popover elevato, tastiera ↑↓⏎Esc. */
-export function Select({ value, options, onChange, placeholder, title, className, dropUp }: Props) {
+/** Select custom (sostituisce i <select> nativi): popover elevato, tastiera ↑↓⏎Esc,
+ *  filtro opzionale per le liste lunghe. */
+export function Select({ value, options, onChange, placeholder, title, className, dropUp, searchable }: Props) {
   const [open, setOpen] = useState(false);
   const [idx, setIdx] = useState(0);
+  const [q, setQ] = useState('');
   const wrap = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
   const current = options.find((o) => o.value === value);
+
+  const shown = useMemo(() => {
+    const query = q.trim().toLowerCase();
+    if (!searchable || !query) return options;
+    return options.filter((o) => `${o.label} ${o.value}`.toLowerCase().includes(query));
+  }, [options, q, searchable]);
 
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (!wrap.current?.contains(e.target as Node)) setOpen(false);
+      if (wrap.current && !wrap.current.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener('mousedown', onDown);
     return () => document.removeEventListener('mousedown', onDown);
@@ -36,10 +47,16 @@ export function Select({ value, options, onChange, placeholder, title, className
 
   useEffect(() => {
     if (open) {
+      setQ('');
       const i = options.findIndex((o) => o.value === value);
       setIdx(i >= 0 ? i : 0);
+      if (searchable) requestAnimationFrame(() => searchRef.current?.focus());
     }
-  }, [open, options, value]);
+  }, [open, options, value, searchable]);
+
+  useEffect(() => {
+    setIdx(0);
+  }, [q]);
 
   useEffect(() => {
     if (!open) return;
@@ -61,13 +78,13 @@ export function Select({ value, options, onChange, placeholder, title, className
     }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setIdx((i) => (i + 1) % options.length);
+      setIdx((i) => (shown.length ? (i + 1) % shown.length : 0));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setIdx((i) => (i - 1 + options.length) % options.length);
+      setIdx((i) => (shown.length ? (i - 1 + shown.length) % shown.length : 0));
     } else if (e.key === 'Enter') {
       e.preventDefault();
-      if (options[idx]) pick(options[idx].value);
+      if (shown[idx]) pick(shown[idx].value);
     } else if (e.key === 'Escape') {
       e.preventDefault();
       e.stopPropagation();
@@ -82,20 +99,32 @@ export function Select({ value, options, onChange, placeholder, title, className
         <Icon name="chevron-down" size={12} />
       </button>
       {open && (
-        <div className={dropUp ? 'sel-pop up' : 'sel-pop'} ref={listRef}>
-          {options.map((o, i) => (
-            <button
-              type="button"
-              key={o.value}
-              className={`sel-item ${i === idx ? 'focus' : ''} ${o.value === value ? 'on' : ''}`}
-              onMouseEnter={() => setIdx(i)}
-              onClick={() => pick(o.value)}
-            >
-              <span className="sel-item-label">{o.label}</span>
-              {o.hint && <span className="sel-item-hint">{o.hint}</span>}
-              {o.value === value && <Icon name="check" size={12} />}
-            </button>
-          ))}
+        <div className={dropUp ? 'sel-pop up' : 'sel-pop'}>
+          {searchable && (
+            <input
+              ref={searchRef}
+              className="sel-search"
+              placeholder={t('modelSearchPlaceholder')}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+            />
+          )}
+          <div className="sel-list" ref={listRef}>
+            {shown.map((o, i) => (
+              <button
+                type="button"
+                key={o.value}
+                className={`sel-item ${i === idx ? 'focus' : ''} ${o.value === value ? 'on' : ''}`}
+                onMouseEnter={() => setIdx(i)}
+                onClick={() => pick(o.value)}
+              >
+                <span className="sel-item-label">{o.label}</span>
+                {o.hint && <span className="sel-item-hint">{o.hint}</span>}
+                {o.value === value && <Icon name="check" size={12} />}
+              </button>
+            ))}
+            {!shown.length && <div className="sel-empty">{t('modelNoMatch')}</div>}
+          </div>
         </div>
       )}
     </div>

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.28.2
+- Fix: the session popover no longer closes while you pick values — it stays open through provider/model/effort/permission changes and closes only on outside click, Esc or the new ✕ (it used to auto-close on provider/permission changes in the CLI view, which read as "closes on every click")
+- **Model search is back**: the model dropdown gains a filter box on long lists (OpenRouter catalog) — same search that ModelCombo had before the redesign
+- Popovers explicitly opt out of the Electron drag region
+
 ## 0.28.1
 - **Session popover**: clicking the top-bar session pill now opens an anchored panel with provider, model, effort and permission controls — one click away again (they had moved into the command palette in 0.28.0). Stays open while you adjust multiple values; provider/permission changes in the CLI view close it because the terminal relaunches. The palette submenus still work for keyboard-first flow
 
