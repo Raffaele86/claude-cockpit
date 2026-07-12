@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.29.0
+- **New Windows tab (native claude)**: a cockpit CLI tab can now run `claude` in a real Windows ConPTY instead of WSL, embedded like any other tab — so it drives the real Windows Chrome. A small Windows agent (`engine/win-agent`, node-pty prebuilt) owns the ConPTY and bridges terminal bytes over stdio to the engine (the WSL node-pty can't host a Windows console). Sessions live in the Windows `~/.claude`, so they don't appear in the cockpit history
+- **Open on Windows**: menu/palette action that opens a native PowerShell window in the project directory with `claude` started — the separate-window alternative to the embedded tab. No MCP/CDP setup
+- **Native Windows builds**: the installer/portable now build natively on Windows via PowerShell (`build-win.ps1`) instead of electron-builder-in-WSL, dropping the wine dependency; the WSL script stages the app to a local Windows path and drives electron-builder there
+- **Security hardening**: markdown is sanitized with DOMPurify before rendering (closes an output→innerHTML→token-theft XSS); the WebSocket upgrade checks `Origin`; settings and bind reject wildcard hosts (`0.0.0.0`); the browser UI gets a CSP; Electron gains `sandbox: true`, denies external navigation/`window.open`, validates `openExternal`, and whitelists config keys; a cleartext-network warning prints at startup
+
 ## 0.28.4
 - Fix: scrolling long model lists (NVIDIA catalog) no longer snaps back — an effect re-ran on every render (options array identity) and kept re-scrolling to the selected entry; it now runs only when the dropdown opens. Same guard applied to the command palette list
 - Session popover widened to 400px so four provider chips fit on one line
