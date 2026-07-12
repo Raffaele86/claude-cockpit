@@ -25,12 +25,20 @@ const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessio
 
 // engine.json opzionale: { "hosts": ["127.0.0.1", "<ip-vpn>"] } — un listener per host.
 // Default solo localhost; aggiungere l'IP Tailscale abilita l'accesso dal telefono (browser).
+const WILDCARD_HOSTS = new Set(['0.0.0.0', '::', '::0', '*']);
 function loadEngineHosts(): string[] {
   try {
     const raw = readFileSync(join(COCKPIT_DIR, 'engine.json'), 'utf8');
     const cfg = JSON.parse(raw) as { hosts?: string[]; host?: string };
     const hosts = cfg.hosts ?? (cfg.host ? [cfg.host] : []);
-    return hosts.length > 0 ? hosts : ['127.0.0.1'];
+    // Il bind è l'ultimo chokepoint: la wildcard va scartata anche se è finita nel file per altre
+    // vie (config_import, edit a mano) — l'engine dà accesso a una shell dietro un solo token.
+    const safe = hosts.filter((h) => {
+      if (!WILDCARD_HOSTS.has(h.trim())) return true;
+      console.error(`[engine] host "${h}" ignorato: bind su tutte le interfacce non ammesso, indica un IP specifico`);
+      return false;
+    });
+    return safe.length > 0 ? safe : ['127.0.0.1'];
   } catch {
     return ['127.0.0.1'];
   }
@@ -55,6 +63,7 @@ const authed = new Set<WebSocket>();
 const busy = new Map<string, boolean>(); // project → turno in corso (per /status del gateway)
 // File config esportabili/importabili (backup 1-click). MAI: token, sessions.json, usage.jsonl, checkpoints/.
 const CONFIG_FILES = ['engine.json', 'providers.json', 'quickactions.json', 'telegram.json', 'projects.json', 'config.json'];
+const SECRET_FILES = new Set(['telegram.json', 'providers.json']); // scritti sempre 0600
 
 /** Modello REALE della sessione di un pty: ultimo "model" nelle righe assistant in coda al jsonl.
  *  È ciò che mostra la statusline del CLI — il --model di spawn può divergere (/model, /fast). */
@@ -184,11 +193,33 @@ const handleHttp = (req: import('node:http').IncomingMessage, res: import('node:
     res.writeHead(404).end('not found');
     return;
   }
-  res.writeHead(200, { 'content-type': MIME[extname(file)] ?? 'application/octet-stream' });
+  res.writeHead(200, {
+    'content-type': MIME[extname(file)] ?? 'application/octet-stream',
+    // La UI da browser (telefono) girava senza CSP, a differenza della shell Electron: secondo
+    // strato se un giorno rientrasse dell'HTML non sanificato. connect-src resta libero perché
+    // il WS punta all'host da cui la pagina è servita (localhost o IP VPN).
+    'content-security-policy':
+      "default-src 'self'; connect-src 'self' ws: wss:; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; form-action 'none'; frame-ancestors 'none'; base-uri 'none'",
+    'x-content-type-options': 'nosniff',
+  });
   res.end(readFileSync(file));
 };
 
 const wss = new WebSocketServer({ noServer: true });
+
+/** Origin ammessi sull'upgrade WS. Un browser NON può falsificare l'Origin: il check blocca
+ *  cross-site WebSocket hijacking e DNS-rebinding da una pagina malevola aperta dall'utente.
+ *  I client non-browser (app Electron su file://, script) non mandano Origin: ammessi — per loro
+ *  la barriera resta il token. */
+function originAllowed(origin: string | undefined): boolean {
+  if (!origin || origin === 'null' || origin.startsWith('file://')) return true; // shell Electron / client nativi
+  try {
+    const { hostname, port } = new URL(origin);
+    return HOSTS.includes(hostname) && (port === '' || Number(port) === PORT);
+  } catch {
+    return false;
+  }
+}
 
 function send(ws: WebSocket, msg: ServerMsg): void {
   if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
@@ -885,7 +916,8 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       try {
         for (const [name, content] of Object.entries(msg.files)) {
           if (!CONFIG_FILES.includes(name) || content == null) continue; // whitelist: mai token o path arbitrari
-          writeFileSync(join(COCKPIT_DIR, name), JSON.stringify(content, null, 2) + '\n', name === 'telegram.json' ? { mode: 0o600 } : {});
+          // telegram.json (botToken/sttApiKey) e providers.json (modelsKey) contengono segreti: 0600 come il token.
+          writeFileSync(join(COCKPIT_DIR, name), JSON.stringify(content, null, 2) + '\n', SECRET_FILES.has(name) ? { mode: 0o600 } : {});
           written.push(name);
         }
         // Hot-reload di ciò che si può ricaricare senza restart.
@@ -1174,10 +1206,21 @@ wss.on('connection', (ws) => {
 for (const host of HOSTS) {
   const server = createServer(handleHttp);
   server.on('upgrade', (req, socket, head) => {
+    if (!originAllowed(req.headers.origin)) {
+      console.error(`[engine] upgrade rifiutato da origin non ammesso: ${req.headers.origin}`);
+      socket.destroy();
+      return;
+    }
     wss.handleUpgrade(req, socket, head, (ws) => wss.emit('connection', ws, req));
   });
   server.on('error', (err) => console.error(`[engine] listener ${host} fallito:`, String(err)));
-  server.listen(PORT, host, () => console.log(`[engine] claude-cockpit-engine v${ENGINE_VERSION} su ws://${host}:${PORT}`));
+  server.listen(PORT, host, () => {
+    console.log(`[engine] claude-cockpit-engine v${ENGINE_VERSION} su ws://${host}:${PORT}`);
+    // Fuori da localhost il traffico (token compreso) è in chiaro: va incapsulato in una rete
+    // fidata (VPN/Tailscale) o dietro un reverse proxy TLS.
+    if (host !== '127.0.0.1' && host !== '::1' && host !== 'localhost')
+      console.warn(`[engine] ATTENZIONE: ${host} è raggiungibile in rete e il traffico è in CHIARO (no TLS). Usalo solo su VPN o dietro un proxy TLS.`);
+  });
 }
 console.log(`[engine] UI statica: ${existsSync(UI_DIR) ? UI_DIR : 'assente (solo WS)'}`);
 console.log(`[engine] token: ${TOKEN_PATH}`);

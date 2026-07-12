@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { marked } from 'marked';
+import { renderMarkdown } from '../md';
 import { t } from '../strings';
 import { FloatPanel } from './FloatPanel';
 import { Icon } from './icons';
@@ -80,7 +80,7 @@ export function MdViewer({ viewer, onClose }: { viewer: ViewerState; onClose: ()
       <div className="md-viewer-body">
         {viewer.error && <div className="md-viewer-error">{t('cannotOpen')(viewer.error)}</div>}
         {viewer.content !== undefined && (
-          <div className="md" dangerouslySetInnerHTML={{ __html: marked.parse(viewer.content) as string }} />
+          <div className="md" dangerouslySetInnerHTML={{ __html: renderMarkdown(viewer.content) }} />
         )}
         {viewer.content === undefined && !viewer.error && <div className="md-viewer-loading">{t('loading')}</div>}
       </div>

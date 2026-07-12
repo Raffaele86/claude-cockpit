@@ -11,8 +11,8 @@
     "build:renderer": "vite build",
     "dist:win": "vite build && electron-builder --win --config electron-builder.yml",
     "dist:win:installer": "vite build && electron-builder --win nsis --config electron-builder.yml",
-    "dev": "concurrently -k -n vite,electron \"vite\" \"wait-on tcp:127.0.0.1:5173 && cross-env COCKPIT_RENDERER_URL=http://127.0.0.1:5173 electron . --no-sandbox\"",
-    "electron": "electron . --no-sandbox",
+    "dev": "concurrently -k -n vite,electron \"vite\" \"wait-on tcp:127.0.0.1:5173 && cross-env COCKPIT_RENDERER_URL=http://127.0.0.1:5173 electron .\"",
+    "electron": "electron .",
     "dist:mac": "vite build && electron-builder --mac --config electron-builder.yml"
   },
   "devDependencies": {
@@ -23,6 +23,7 @@
     "@xterm/xterm": "^5.5.0",
     "concurrently": "^9.1.0",
     "cross-env": "^7.0.3",
+    "dompurify": "^3.4.12",
     "electron": "43.0.0",
     "electron-builder": "^26.15.3",
     "marked": "^14.1.4",

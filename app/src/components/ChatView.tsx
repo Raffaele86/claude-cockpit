@@ -1,11 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
-import { marked } from 'marked';
 import type { Item } from '../model';
+import { renderMarkdown } from '../md';
 import { ToolCard } from './ToolCard';
 import { t } from '../strings';
 import { Icon } from './icons';
-
-marked.setOptions({ breaks: true, gfm: true });
 
 function CopyButton({ getText, label = t('copy') }: { getText: () => string; label?: string }) {
   const [done, setDone] = useState(false);
@@ -109,7 +107,7 @@ export function ChatView({
         return (
           <div key={it.id} className="turn assistant">
             <span className="asst-mark"><Icon name="sparkle" size={13} /></span>
-            <div className="asst-body md" dangerouslySetInnerHTML={{ __html: marked.parse(it.text || '…') as string }} />
+            <div className="asst-body md" dangerouslySetInnerHTML={{ __html: renderMarkdown(it.text || '…') }} />
             <CopyButton getText={() => it.text} />
           </div>
         );

@@ -12,6 +12,8 @@ const ENGINE_PATH = join(COCKPIT_DIR, 'engine.json');
 const QUICKACTIONS_PATH = join(COCKPIT_DIR, 'quickactions.json');
 
 const MASK_PREFIX = '••••';
+/** Indirizzi jolly: bind su ogni interfaccia — mai accettati da settings/import. */
+const WILDCARD_HOSTS = new Set(['0.0.0.0', '::', '::0', '*']);
 
 function mask(secret: string | undefined): string | undefined {
   if (!secret) return undefined;
@@ -83,7 +85,9 @@ export function applySettings(patch: Partial<CockpitSettings>): { telegram: bool
   }
 
   if (patch.engine) {
-    const hosts = (patch.engine.hosts ?? []).map((h) => h.trim()).filter(Boolean);
+    // Wildcard vietata: l'engine pilota Claude Code (= shell) dietro un solo token, un bind su
+    // tutte le interfacce lo esporrebbe ben oltre la VPN. Si indica un IP specifico su cui restare.
+    const hosts = (patch.engine.hosts ?? []).map((h) => h.trim()).filter(Boolean).filter((h) => !WILDCARD_HOSTS.has(h));
     writeJson(ENGINE_PATH, {
       hosts: hosts.length ? hosts : ['127.0.0.1'],
       ...(patch.engine.defaultPermissionMode && patch.engine.defaultPermissionMode !== 'default'

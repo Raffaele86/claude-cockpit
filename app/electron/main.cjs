@@ -67,7 +67,12 @@ function readConfig() {
 }
 
 function writeConfig(patch) {
-  const merged = { ...readConfig(), ...patch };
+  // Solo le chiavi note: il renderer non deve poter scrivere campi arbitrari in config.json.
+  const clean = {};
+  for (const key of Object.keys(CONFIG_DEFAULT)) {
+    if (key in patch && typeof patch[key] === typeof CONFIG_DEFAULT[key]) clean[key] = patch[key];
+  }
+  const merged = { ...readConfig(), ...clean };
   try {
     writeFileSync(join(cockpitDir(), 'config.json'), JSON.stringify(merged, null, 2) + '\n');
   } catch {
@@ -188,6 +193,18 @@ async function runDoctor() {
   return { platform: process.platform, checks };
 }
 
+/** Apre un URL nel browser di sistema solo se è http(s): openExternal onora anche schemi che
+ *  lancerebbero programmi esterni, e l'URL può venire da contenuto non fidato (markdown, API). */
+function openExternalSafe(url) {
+  try {
+    const { protocol } = new URL(url);
+    if (protocol === 'http:' || protocol === 'https:') void shell.openExternal(url);
+    else process.stdout.write(`[main] openExternal negato per schema non ammesso: ${protocol}\n`);
+  } catch {
+    /* URL non valido: ignorato */
+  }
+}
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
@@ -198,7 +215,23 @@ function createWindow() {
       preload: join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
+      sandbox: true,
     },
+  });
+
+  // Il renderer non deve poter lasciare la UI locale né aprire finestre: se un contenuto
+  // (risposta del modello, file aperto) tentasse di navigare altrove, la richiesta va negata e
+  // l'eventuale link esterno passa al browser di sistema.
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    openExternalSafe(url);
+    return { action: 'deny' };
+  });
+  win.webContents.on('will-navigate', (e, url) => {
+    const current = win.webContents.getURL();
+    if (url !== current) {
+      e.preventDefault();
+      openExternalSafe(url);
+    }
   });
 
   // Menù contestuale tasto destro (Electron non lo ha di default): copia della selezione,
@@ -265,7 +298,7 @@ function setupAutoUpdate() {
         defaultId: 0,
         message: `Claude Cockpit v${latest} is available`,
         detail: 'This build cannot update itself — download the new version from the releases page.',
-      }).then((r) => { if (r.response === 0) shell.openExternal(rel.html_url); });
+      }).then((r) => { if (r.response === 0) openExternalSafe(rel.html_url); });
     })
     .catch(() => {});
 }
