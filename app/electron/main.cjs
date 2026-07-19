@@ -12,7 +12,8 @@ function detectWslUser() {
   if (process.env.COCKPIT_WSL_USER) return process.env.COCKPIT_WSL_USER;
   if (process.platform !== 'win32') return '';
   try {
-    return execFileSync('wsl.exe', ['-d', WSL_DISTRO, '-e', 'whoami'], { timeout: 5000 })
+    // A freddo wsl.exe deve prima avviare la VM: il timeout copre anche quello.
+    return execFileSync('wsl.exe', ['-d', WSL_DISTRO, '-e', 'whoami'], { timeout: 30000 })
       .toString()
       .replace(/\0/g, '')
       .trim();
@@ -20,12 +21,22 @@ function detectWslUser() {
     return '';
   }
 }
-const WSL_USER = detectWslUser();
+
+// Al boot del PC l'app può partire prima che WSL sia su: la detection va ritentata a ogni
+// lettura finché non riesce, mai congelata sul primo tentativo fallito (altrimenti i path
+// UNC restano senza utente e il token risulta introvabile per tutta la vita del processo).
+let wslUserCache = '';
+function wslUser() {
+  if (!wslUserCache) wslUserCache = detectWslUser();
+  return wslUserCache;
+}
 
 /** Candidati per il token: diretto se giriamo in WSL, via \\wsl$ se giriamo su Windows. */
 function tokenCandidates() {
   if (process.platform === 'win32') {
-    const rel = `home\\${WSL_USER}\\.claude-cockpit\\token`;
+    const user = wslUser();
+    if (!user) return [];
+    const rel = `home\\${user}\\.claude-cockpit\\token`;
     return [`\\\\wsl.localhost\\${WSL_DISTRO}\\${rel}`, `\\\\wsl$\\${WSL_DISTRO}\\${rel}`];
   }
   return [join(homedir(), '.claude-cockpit', 'token')];
@@ -45,9 +56,10 @@ function readToken() {
 /** Base dir ~/.claude-cockpit (locale in WSL, UNC \\wsl$ su Windows). */
 function cockpitDir() {
   if (process.platform === 'win32') {
+    const user = wslUser();
     const bases = [
-      `\\\\wsl.localhost\\${WSL_DISTRO}\\home\\${WSL_USER}\\.claude-cockpit`,
-      `\\\\wsl$\\${WSL_DISTRO}\\home\\${WSL_USER}\\.claude-cockpit`,
+      `\\\\wsl.localhost\\${WSL_DISTRO}\\home\\${user}\\.claude-cockpit`,
+      `\\\\wsl$\\${WSL_DISTRO}\\home\\${user}\\.claude-cockpit`,
     ];
     return bases.find((b) => existsSync(b)) ?? bases[0];
   }
@@ -175,7 +187,8 @@ async function runDoctor() {
   const checks = [];
   if (process.platform === 'win32') {
     checks.push(await check('wsl', 'wsl.exe', ['--status']));
-    checks.push({ id: 'wsluser', ok: !!WSL_USER, detail: WSL_USER || 'utente WSL non rilevato' });
+    const user = wslUser();
+    checks.push({ id: 'wsluser', ok: !!user, detail: user || 'utente WSL non rilevato' });
     checks.push(await check('node', ...inWsl('node --version'), nodeOk));
     checks.push(await check('claude', ...inWsl('claude --version')));
     checks.push(await check('engine', ...inWsl('systemctl --user is-active claude-cockpit-engine'), (o) => o.includes('active')));
