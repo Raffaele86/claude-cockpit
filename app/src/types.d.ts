@@ -7,6 +7,21 @@ interface CockpitConfig {
 }
 
 declare global {
+  interface UpdateState {
+    phase: 'checking' | 'available' | 'downloading' | 'ready' | 'uptodate' | 'error';
+    version?: string;
+    percent?: number;
+    error?: string;
+  }
+
+  interface UpdateRunResult {
+    mode: 'auto' | 'manual';
+    newer?: boolean;
+    latest?: string;
+    url?: string;
+    error?: string;
+  }
+
   interface Window {
     cockpit: {
       getToken: () => Promise<string | null>;
@@ -15,6 +30,9 @@ declare global {
       getConfig: () => Promise<CockpitConfig>;
       setConfig: (patch: Partial<CockpitConfig>) => Promise<CockpitConfig>;
       doctor: () => Promise<{ platform: string; checks: { id: string; ok: boolean; detail: string }[] }>;
+      updateRun: () => Promise<UpdateRunResult>;
+      updateInstall: () => Promise<{ ok: boolean; error?: string }>;
+      onUpdateState: (cb: (state: UpdateState) => void) => void;
     };
   }
 }

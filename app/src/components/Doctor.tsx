@@ -22,6 +22,8 @@ interface Props {
 export function Doctor({ connected, onStartEngine, onClose }: Props) {
   const [report, setReport] = useState<{ platform: string; checks: Check[] } | null>(null);
   const [running, setRunning] = useState(false);
+  const [updState, setUpdState] = useState<UpdateState | null>(null);
+  const [updManual, setUpdManual] = useState<UpdateRunResult | null>(null);
 
   const run = useCallback(() => {
     if (!IS_ELECTRON) return;
@@ -33,6 +35,19 @@ export function Doctor({ connected, onStartEngine, onClose }: Props) {
   }, []);
 
   useEffect(run, [run]);
+
+  useEffect(() => {
+    if (!IS_ELECTRON) return;
+    window.cockpit.onUpdateState(setUpdState);
+  }, []);
+
+  const checkForUpdates = useCallback(() => {
+    if (!IS_ELECTRON) return;
+    setUpdManual(null);
+    void window.cockpit.updateRun().then((res) => {
+      if (res.mode === 'manual') setUpdManual(res);
+    });
+  }, []);
 
   const hint = (c: Check, platform: string): string => {
     if (c.ok) return '';
@@ -86,6 +101,42 @@ export function Doctor({ connected, onStartEngine, onClose }: Props) {
                     {t('docLabel')(c.id)} <code>{c.detail}</code>
                   </span>
                   {!c.ok && <span className="doc-hint">{hint(c, report.platform)}</span>}
+                  {c.id === 'update' && IS_ELECTRON && (
+                    <div className="doc-upd">
+                      {updState?.phase === 'checking' && <span className="doc-hint">{t('updChecking')}</span>}
+                      {updState?.phase === 'available' && <span className="doc-hint">{t('updAvailable')(updState.version || '')}</span>}
+                      {updState?.phase === 'downloading' && (
+                        <span className="doc-hint">{t('updDownloading')(updState.version || '', updState.percent ?? 0)}</span>
+                      )}
+                      {updState?.phase === 'uptodate' && <span className="doc-hint">{t('updUptodate')}</span>}
+                      {updState?.phase === 'error' && <span className="doc-hint">{t('updError')(updState.error || '')}</span>}
+                      {updState?.phase === 'ready' ? (
+                        <button className="mini primary" onClick={() => window.cockpit.updateInstall()}>
+                          {t('updInstall')}
+                        </button>
+                      ) : (
+                        <button className="mini ghost" onClick={checkForUpdates}>
+                          {t('updCheck')}
+                        </button>
+                      )}
+                      {updManual && (
+                        updManual.newer ? (
+                          <span className="doc-hint">
+                            {t('updManualAvailable')(updManual.latest || '')}{' '}
+                            {updManual.url && (
+                              <button className="mini ghost" onClick={() => window.open(updManual.url, '_blank')}>
+                                {t('updOpenRelease')}
+                              </button>
+                            )}
+                          </span>
+                        ) : !updManual.error ? (
+                          <span className="doc-hint">{t('updUptodate')}</span>
+                        ) : (
+                          <span className="doc-hint">{t('updError')(updManual.error)}</span>
+                        )
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

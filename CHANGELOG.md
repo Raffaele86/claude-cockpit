@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.32.0
+- In-app update: manual check button in Doctor + command palette, live download progress, periodic 6h re-check (NSIS); portable/mac get an on-demand release link
+
 ## 0.31.0
 - Services health strip in System panel + ToDoMio actions panel (list/complete/archive via engine, config-driven)
 

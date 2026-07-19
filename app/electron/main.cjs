@@ -219,7 +219,7 @@ function openExternalSafe(url) {
 }
 
 function createWindow() {
-  const win = new BrowserWindow({
+  const win = mainWindow = new BrowserWindow({
     width: 1280,
     height: 860,
     backgroundColor: '#0f1115',
@@ -277,41 +277,83 @@ function createWindow() {
 // Auto-update: install nsis su Windows → electron-updater (GitHub Releases);
 // portable e mac (zip non firmata) non possono auto-applicare l'update → solo avviso con link.
 // Mai bloccante: offline o API giù = silenzio.
+let mainWindow = null;
+let nsisUpdater = null; // istanza autoUpdater con listener già agganciati (una sola volta)
+
+/** Inoltra una transizione di stato dell'update al renderer, se la finestra esiste ancora. */
+function sendUpdateState(state) {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('update-state', state);
+}
+
+/** Registra gli handler electron-updater una volta sola e ritorna l'istanza. Chiamate successive
+ *  riusano gli stessi listener invece di accumularne di nuovi ad ogni check. */
+function getNsisUpdater() {
+  if (nsisUpdater) return nsisUpdater;
+  const { autoUpdater } = require('electron-updater');
+  autoUpdater.on('checking-for-update', () => sendUpdateState({ phase: 'checking' }));
+  autoUpdater.on('update-available', (info) => sendUpdateState({ phase: 'available', version: info.version }));
+  autoUpdater.on('update-not-available', () => sendUpdateState({ phase: 'uptodate' }));
+  autoUpdater.on('download-progress', (p) => sendUpdateState({ phase: 'downloading', percent: Math.round(p.percent) }));
+  autoUpdater.on('error', (err) => {
+    process.stdout.write(`[updater] ${err?.message || err}\n`);
+    sendUpdateState({ phase: 'error', error: err?.message || String(err) });
+  });
+  autoUpdater.on('update-downloaded', (info) => {
+    sendUpdateState({ phase: 'ready', version: info.version });
+    dialog.showMessageBox({
+      type: 'info',
+      buttons: ['Restart now', 'Later'],
+      defaultId: 0,
+      message: `Update v${info.version} ready`,
+      detail: 'It will be installed when the app restarts.',
+    }).then((r) => { if (r.response === 0) autoUpdater.quitAndInstall(); });
+  });
+  nsisUpdater = autoUpdater;
+  return nsisUpdater;
+}
+
+/** Fetch diretta della release GitHub per i canali che non possono auto-applicare l'update
+ *  (portable/mac/unpackaged): usata sia dal check silenzioso all'avvio che da update-run. */
+async function fetchLatestRelease() {
+  const current = app.getVersion();
+  const r = await fetch(RELEASES_LATEST_URL, { headers: { accept: 'application/vnd.github+json' } });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const rel = await r.json();
+  const latest = String(rel?.tag_name || '').replace(/^v/, '');
+  const newer = !!latest && latest.localeCompare(current, undefined, { numeric: true }) > 0;
+  return { newer, latest, current, url: rel?.html_url };
+}
+
+function isNsisPackaged() {
+  const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR;
+  return app.isPackaged && process.platform === 'win32' && !isPortable;
+}
+
 function setupAutoUpdate() {
   if (!app.isPackaged) return;
-  const isPortable = !!process.env.PORTABLE_EXECUTABLE_DIR;
-  if (process.platform === 'win32' && !isPortable) {
+  if (isNsisPackaged()) {
     try {
-      const { autoUpdater } = require('electron-updater');
-      autoUpdater.on('error', (err) => process.stdout.write(`[updater] ${err?.message || err}\n`));
-      autoUpdater.on('update-downloaded', (info) => {
-        dialog.showMessageBox({
-          type: 'info',
-          buttons: ['Restart now', 'Later'],
-          defaultId: 0,
-          message: `Update v${info.version} ready`,
-          detail: 'It will be installed when the app restarts.',
-        }).then((r) => { if (r.response === 0) autoUpdater.quitAndInstall(); });
-      });
-      autoUpdater.checkForUpdates().catch(() => {});
+      getNsisUpdater().checkForUpdates().catch(() => {});
     } catch { /* electron-updater non pacchettizzato: nessun auto-update */ }
+    // Ricontrollo periodico ogni 6 ore, silenzioso (dialog solo su update-downloaded come oggi).
+    const timer = setInterval(() => {
+      try {
+        getNsisUpdater().checkForUpdates().catch(() => {});
+      } catch { /* ignora */ }
+    }, 6 * 60 * 60 * 1000);
+    timer.unref?.();
     return;
   }
-  fetch(RELEASES_LATEST_URL, {
-    headers: { accept: 'application/vnd.github+json' },
-  })
-    .then((r) => (r.ok ? r.json() : null))
-    .then((rel) => {
-      const latest = rel?.tag_name?.replace(/^v/, '');
-      const current = app.getVersion();
-      if (!latest || latest.localeCompare(current, undefined, { numeric: true }) <= 0) return;
+  fetchLatestRelease()
+    .then(({ newer, latest, url }) => {
+      if (!newer) return;
       dialog.showMessageBox({
         type: 'info',
         buttons: ['Open download page', 'Ignore'],
         defaultId: 0,
         message: `Claude Cockpit v${latest} is available`,
         detail: 'This build cannot update itself — download the new version from the releases page.',
-      }).then((r) => { if (r.response === 0) openExternalSafe(rel.html_url); });
+      }).then((r) => { if (r.response === 0) openExternalSafe(url); });
     })
     .catch(() => {});
 }
@@ -322,6 +364,30 @@ ipcMain.handle('notify', (_e, payload) => doNotify(payload || {}));
 ipcMain.handle('get-config', () => readConfig());
 ipcMain.handle('set-config', (_e, patch) => writeConfig(patch || {}));
 ipcMain.handle('doctor', () => runDoctor());
+ipcMain.handle('update-run', async () => {
+  if (isNsisPackaged()) {
+    try {
+      getNsisUpdater().checkForUpdates().catch(() => {});
+    } catch { /* nessun auto-update disponibile */ }
+    return { mode: 'auto' };
+  }
+  try {
+    const { newer, latest, url } = await fetchLatestRelease();
+    return { mode: 'manual', newer, latest, url };
+  } catch (err) {
+    return { mode: 'manual', newer: false, error: err?.message || String(err) };
+  }
+});
+ipcMain.handle('update-install', () => {
+  // No-op safe se non pacchettizzato NSIS o se nessun update è pronto: quitAndInstall gestisce da sé.
+  if (!nsisUpdater) return { ok: false };
+  try {
+    nsisUpdater.quitAndInstall();
+    return { ok: true };
+  } catch (err) {
+    return { ok: false, error: err?.message || String(err) };
+  }
+});
 
 app.whenReady().then(() => {
   // Microfono per la dettatura (Whisper via engine): consenti esplicitamente il permesso media.

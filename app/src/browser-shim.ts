@@ -32,6 +32,9 @@ if (typeof window !== 'undefined' && !window.cockpit) {
     getConfig: async () => ({ notify: true, notifyPhone: false, ntfyTopic: '' }),
     setConfig: async () => ({ notify: true, notifyPhone: false, ntfyTopic: '' }),
     doctor: async () => ({ platform: 'browser', checks: [] }),
+    updateRun: async () => ({ mode: 'manual', newer: false }),
+    updateInstall: async () => ({ ok: false }),
+    onUpdateState: () => {},
   };
 }
 

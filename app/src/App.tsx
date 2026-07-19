@@ -1077,6 +1077,17 @@ export function App() {
       { id: 'todos', label: t('todosOpen'), section: t('cpSecPanels'), icon: 'check', keywords: 'todomio todo azioni task', run: () => setTodosOpen(true) },
       { id: 'checkpoints', label: t('cpOpen'), section: t('cpSecPanels'), icon: 'camera', keywords: 'checkpoint snapshot restore', run: () => setCpOpen(true) },
       { id: 'doctor', label: t('docOpen'), section: t('cpSecPanels'), icon: 'pulse', keywords: 'doctor system check', run: () => setDoctorOpen(true) },
+      {
+        id: 'updates',
+        label: t('updCheck'),
+        section: t('cpSecPanels'),
+        icon: 'pulse',
+        keywords: 'update aggiornamento aggiornamenti version',
+        run: () => {
+          setDoctorOpen(true);
+          void window.cockpit.updateRun();
+        },
+      },
       { id: 'settings', label: t('settingsBtnTitle'), section: t('cpSecPanels'), icon: 'settings', keywords: 'settings impostazioni', run: openSettings },
       { id: 'win-cli', label: t('openOnWindows'), section: t('cpSecPanels'), icon: 'terminal', keywords: 'windows powershell chrome browser nativo', run: () => client.current?.send({ op: 'open_windows_cli', project: activeProject }) },
       {
@@ -1151,6 +1162,15 @@ export function App() {
       { id: 'todos', label: t('todosOpen'), icon: 'check', run: () => setTodosOpen(true) },
       { id: 'checkpoints', label: t('cpOpen'), icon: 'camera', run: () => setCpOpen(true) },
       { id: 'doctor', label: t('docOpen'), icon: 'pulse', run: () => setDoctorOpen(true) },
+      {
+        id: 'updates',
+        label: t('updCheck'),
+        icon: 'pulse',
+        run: () => {
+          setDoctorOpen(true);
+          void window.cockpit.updateRun();
+        },
+      },
       { id: 'settings', label: t('settingsTitle'), icon: 'settings', run: openSettings },
       {
         id: 'side',
