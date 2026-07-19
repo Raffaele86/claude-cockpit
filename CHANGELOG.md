@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.30.0
+- System panel — engine + child process memory (cgroup-accurate), per-row SIGTERM kill; new `engine_stats`/`proc_kill` ops
+
 ## 0.29.4
 - Engine: configurable `originHosts` in `engine.json` so WS upgrades are accepted from a TLS reverse proxy (e.g. `tailscale serve`); recommended setup is now bind 127.0.0.1 only + proxy
 

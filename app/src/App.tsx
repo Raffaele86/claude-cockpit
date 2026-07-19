@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CockpitClient, type ConnState } from './ws';
-import type { CatalogModel, CheckpointEntry, GlobalSearchResult, ProjectEntry, PtyLaunch, QuickActionEntry, ServerMsg, UsageDay } from './protocol';
+import type { CatalogModel, CheckpointEntry, EngineStats, GlobalSearchResult, ProjectEntry, PtyLaunch, QuickActionEntry, ServerMsg, UsageDay } from './protocol';
 import type { PermissionDecision } from './protocol';
 import { buildItemsFromMessages, emptyProject, itemsToMarkdown, toolResultText, type PendingPermission, type ProjectState, type QueuedPrompt, type Todo } from './model';
 import { ChatView } from './components/ChatView';
@@ -26,6 +26,7 @@ import { Icon } from './components/icons';
 const Settings = lazy(() => import('./components/Settings').then((m) => ({ default: m.Settings })));
 const Doctor = lazy(() => import('./components/Doctor').then((m) => ({ default: m.Doctor })));
 const UsagePanel = lazy(() => import('./components/UsagePanel').then((m) => ({ default: m.UsagePanel })));
+const SystemPanel = lazy(() => import('./components/SystemPanel').then((m) => ({ default: m.SystemPanel })));
 const Inbox = lazy(() => import('./components/Inbox').then((m) => ({ default: m.Inbox })));
 import { useDictation } from './components/useDictation';
 import { t, LOCALE } from './strings';
@@ -99,6 +100,8 @@ export function App() {
   const [cp, setCp] = useState<{ list: CheckpointEntry[]; busy: boolean; error: string | null }>({ list: [], busy: false, error: null });
   const [usageOpen, setUsageOpen] = useState(false);
   const [usageDays, setUsageDays] = useState<UsageDay[] | null>(null);
+  const [sysOpen, setSysOpen] = useState(false);
+  const [sysStats, setSysStats] = useState<EngineStats | null>(null);
   const [inboxOpen, setInboxOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [cliActive, setCliActive] = useState<Record<string, boolean>>({}); // ev pty_activity: schede CLI con output recente
@@ -149,6 +152,15 @@ export function App() {
       client.current?.send({ op: 'usage_report' });
     }
   }, [usageOpen]);
+
+  // Sistema: statistiche engine all'apertura + polling ogni 5s finché il pannello resta aperto.
+  useEffect(() => {
+    if (!sysOpen) return;
+    setSysStats(null);
+    client.current?.send({ op: 'engine_stats' });
+    const id = setInterval(() => client.current?.send({ op: 'engine_stats' }), 5000);
+    return () => clearInterval(id);
+  }, [sysOpen]);
 
   // Doctor automatico: nell'app desktop, se dopo qualche secondo non siamo connessi
   // all'engine c'è quasi certamente un prerequisito mancante → apri la verifica.
@@ -521,6 +533,13 @@ export function App() {
           break;
         case 'usage_report':
           setUsageDays(msg.days);
+          break;
+        case 'engine_stats':
+          setSysStats(msg.stats);
+          break;
+        case 'proc_killed':
+          if (msg.ok) client.current?.send({ op: 'engine_stats' });
+          else setEngineError(t('sysKillFailed')(msg.pid, msg.error ?? ''));
           break;
         case 'pty_activity':
           setCliActive((m) => ({ ...m, [msg.project]: msg.active }));
@@ -1024,6 +1043,7 @@ export function App() {
       },
       { id: 'inbox', label: t('inboxOpen'), section: t('cpSecPanels'), icon: 'inbox', keywords: 'inbox sessioni', run: () => setInboxOpen(true) },
       { id: 'usage', label: t('usageOpen'), section: t('cpSecPanels'), icon: 'chart', keywords: 'usage costi token', run: () => setUsageOpen(true) },
+      { id: 'system', label: t('sysOpen'), section: t('cpSecPanels'), icon: 'pulse', keywords: 'sistema system ram processi memoria', run: () => setSysOpen(true) },
       { id: 'checkpoints', label: t('cpOpen'), section: t('cpSecPanels'), icon: 'camera', keywords: 'checkpoint snapshot restore', run: () => setCpOpen(true) },
       { id: 'doctor', label: t('docOpen'), section: t('cpSecPanels'), icon: 'pulse', keywords: 'doctor system check', run: () => setDoctorOpen(true) },
       { id: 'settings', label: t('settingsBtnTitle'), section: t('cpSecPanels'), icon: 'settings', keywords: 'settings impostazioni', run: openSettings },
@@ -1096,6 +1116,7 @@ export function App() {
       },
       { id: 'notify', label: t('notifyTitle'), icon: 'bell', on: notifyOn, run: toggleNotify },
       { id: 'usage', label: t('usageOpen'), icon: 'chart', run: () => setUsageOpen(true) },
+      { id: 'system', label: t('sysOpen'), icon: 'pulse', run: () => setSysOpen(true) },
       { id: 'checkpoints', label: t('cpOpen'), icon: 'camera', run: () => setCpOpen(true) },
       { id: 'doctor', label: t('docOpen'), icon: 'pulse', run: () => setDoctorOpen(true) },
       { id: 'settings', label: t('settingsTitle'), icon: 'settings', run: openSettings },
@@ -1189,6 +1210,11 @@ export function App() {
       {usageOpen && (
         <Suspense fallback={null}>
           <UsagePanel days={usageDays} onClose={() => setUsageOpen(false)} />
+        </Suspense>
+      )}
+      {sysOpen && (
+        <Suspense fallback={null}>
+          <SystemPanel stats={sysStats} onClose={() => setSysOpen(false)} onKill={(pid) => client.current?.send({ op: 'proc_kill', pid })} />
         </Suspense>
       )}
       {inboxOpen && (

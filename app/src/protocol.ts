@@ -65,7 +65,9 @@ export type ClientMsg =
   | { op: 'usage_report' } // → ev usage_report (token per giorno/provider/progetto, ultimi 30gg)
   | { op: 'config_export' } // backup dei file config di ~/.claude-cockpit (token/stato esclusi)
   | { op: 'config_import'; files: Record<string, unknown> } // ripristino: solo nomi in whitelist
-  | { op: 'sessions_search_all'; query: string }; // ricerca full-text su TUTTI i progetti del registry
+  | { op: 'sessions_search_all'; query: string } // ricerca full-text su TUTTI i progetti del registry
+  | { op: 'engine_stats' } // → ev engine_stats (memoria cgroup + processi figli per sessione)
+  | { op: 'proc_kill'; pid: number }; // SIGTERM a un processo DISCENDENTE dell'engine (validato server-side)
 
 // Aggiunta server MCP (wrapper di `claude mcp add`): target = URL (http/sse) o comando completo (stdio);
 // headers = righe "Chiave: valore" (http/sse), env = righe "KEY=VALUE" (stdio).
@@ -221,6 +223,8 @@ export type ServerMsg =
   | { ev: 'config_export'; files: Record<string, unknown> }
   | { ev: 'config_import_done'; written: string[]; error?: string }
   | { ev: 'sessions_search_all'; query: string; results: GlobalSearchResult[] }
+  | { ev: 'engine_stats'; stats: EngineStats } // solo al richiedente
+  | { ev: 'proc_killed'; pid: number; ok: boolean; error?: string }
   | { ev: 'error'; message: string; project?: string };
 
 // Risultato di ricerca cross-progetto: come SearchResult più il progetto di appartenenza.
@@ -246,4 +250,26 @@ export interface CheckpointEntry {
   ts: number; // epoch ms di creazione
   label: string; // etichetta utente ('' se assente; 'pre-restore' = rete di sicurezza automatica)
   size: number; // byte
+}
+
+// Un processo discendente dell'engine (ps -e ricorsivo su process.pid).
+export interface EngineProc {
+  pid: number;
+  rssMb: number;
+  etime: string;
+  cmd: string; // args troncati a 120 char
+  kind: 'sdk' | 'pty' | 'mcp' | 'other';
+  project?: string;
+}
+
+// Osservabilità engine: memoria (cgroup, fonte esatta) + processi figli attribuiti alle sessioni.
+export interface EngineStats {
+  version: string;
+  pid: number;
+  rssMb: number;
+  currentMb?: number;
+  peakMb?: number;
+  maxMb?: number; // undefined = memory.max = "max" (illimitato)
+  uptimeSec: number;
+  procs: EngineProc[];
 }
