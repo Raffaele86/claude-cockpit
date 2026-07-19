@@ -32,6 +32,8 @@ WorkingDirectory=$ENGINE
 ExecStart=/bin/bash -lc 'exec "$NODE_BIN" "$ENGINE/dist/server.js"'
 Restart=always
 RestartSec=2
+MemoryHigh=3G
+MemoryMax=4G
 
 [Install]
 WantedBy=default.target
