@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.31.0
+- Services health strip in System panel + ToDoMio actions panel (list/complete/archive via engine, config-driven)
+
 ## 0.30.0
 - System panel — engine + child process memory (cgroup-accurate), per-row SIGTERM kill; new `engine_stats`/`proc_kill` ops
 

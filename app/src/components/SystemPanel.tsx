@@ -2,10 +2,11 @@ import { useMemo } from 'react';
 import { t } from '../strings';
 import { FloatPanel } from './FloatPanel';
 import { Icon } from './icons';
-import type { EngineProc, EngineStats } from '../protocol';
+import type { EngineProc, EngineStats, ServiceStatus } from '../protocol';
 
 interface Props {
   stats: EngineStats | null; // null = statistiche in caricamento
+  services: ServiceStatus[] | null; // null = non ancora arrivato, [] = feature spenta (config assente)
   onClose: () => void;
   onKill: (pid: number) => void;
 }
@@ -32,12 +33,23 @@ function projectLabel(p?: string): string {
 }
 
 /** Memoria engine (cgroup-accurate) + processi discendenti, con kill selettivo (SIGTERM). */
-export function SystemPanel({ stats, onClose, onKill }: Props) {
+export function SystemPanel({ stats, services, onClose, onKill }: Props) {
   const procs = useMemo(() => [...(stats?.procs ?? [])].sort((a, b) => b.rssMb - a.rssMb), [stats]);
 
   return (
     <FloatPanel icon="pulse" title={t('sysTitle')} className="doctor usage-win" onClose={onClose}>
       <div className="doctor-body">
+        {services && services.length > 0 && (
+          <div className="sys-services">
+            {services.map((s) => (
+              <div className="sys-svc" key={s.name} title={s.error ?? s.url}>
+                <span className={`sys-svc-dot ${s.ok ? 'ok' : 'bad'}`} />
+                <span className="sys-svc-name">{s.name}</span>
+                <span className="sys-svc-info">{s.ok ? `${s.code ?? ''} · ${s.ms ?? 0}ms` : s.error ?? '—'}</span>
+              </div>
+            ))}
+          </div>
+        )}
         {!stats ? (
           <p className="doc-note">{t('sysLoading')}</p>
         ) : (
