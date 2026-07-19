@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.29.4
+- Engine: configurable `originHosts` in `engine.json` so WS upgrades are accepted from a TLS reverse proxy (e.g. `tailscale serve`); recommended setup is now bind 127.0.0.1 only + proxy
+
 ## 0.29.3
 - Cap of 8 concurrent native Windows sessions (each one is a node.exe+ConPTY process on Windows) — opening more shows an error instead of silently piling up processes
 - Browser UI CSP tightened: `connect-src` now allows only the serving host's ws/wss instead of any host

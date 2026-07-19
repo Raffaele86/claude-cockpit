@@ -26,7 +26,9 @@ const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
 const WIN_PTY_CAP = 8; // sessioni Windows native concorrenti (una = un node.exe+ConPTY su Windows)
 
-// engine.json opzionale: { "hosts": ["127.0.0.1", "<ip-vpn>"] } — un listener per host.
+// engine.json opzionale: { "hosts": ["127.0.0.1", "<ip-vpn>"], "originHosts": ["<hostname-proxy-tls>"] } —
+// un listener per host, più opzionalmente gli hostname di un reverse proxy TLS (es. tailscale serve)
+// da cui accettare l'Origin del WS senza aprire un bind dedicato.
 // Default solo localhost; aggiungere l'IP Tailscale abilita l'accesso dal telefono (browser).
 const WILDCARD_HOSTS = new Set(['0.0.0.0', '::', '::0', '*']);
 function loadEngineHosts(): string[] {
@@ -47,6 +49,18 @@ function loadEngineHosts(): string[] {
   }
 }
 const HOSTS = loadEngineHosts();
+
+// engine.json: hostname del reverse proxy TLS (es. tailscale serve) da cui accettare l'Origin del WS.
+function loadOriginHosts(): string[] {
+  try {
+    const raw = readFileSync(join(COCKPIT_DIR, 'engine.json'), 'utf8');
+    const cfg = JSON.parse(raw) as { originHosts?: string[] };
+    return cfg.originHosts ?? [];
+  } catch {
+    return [];
+  }
+}
+const ORIGIN_HOSTS = loadOriginHosts();
 
 // engine.json: modalità permessi di partenza delle sessioni (es. bypassPermissions); riletta a ogni sessione.
 function loadDefaultPermissionMode(): PermissionModeName {
@@ -213,12 +227,16 @@ const wss = new WebSocketServer({ noServer: true });
 /** Origin ammessi sull'upgrade WS. Un browser NON può falsificare l'Origin: il check blocca
  *  cross-site WebSocket hijacking e DNS-rebinding da una pagina malevola aperta dall'utente.
  *  I client non-browser (app Electron su file://, script) non mandano Origin: ammessi — per loro
- *  la barriera resta il token. */
+ *  la barriera resta il token. Caso reverse-proxy TLS (es. tailscale serve davanti a un bind
+ *  solo-127.0.0.1): l'hostname pubblico non compare in HOSTS (che sono gli IP di bind), quindi va
+ *  ammesso esplicitamente via ORIGIN_HOSTS, solo su https e senza porta custom (443 implicita). */
 function originAllowed(origin: string | undefined): boolean {
   if (!origin || origin === 'null' || origin.startsWith('file://')) return true; // shell Electron / client nativi
   try {
-    const { hostname, port } = new URL(origin);
-    return HOSTS.includes(hostname) && (port === '' || Number(port) === PORT);
+    const { hostname, port, protocol } = new URL(origin);
+    if (HOSTS.includes(hostname) && (port === '' || Number(port) === PORT)) return true;
+    if (ORIGIN_HOSTS.includes(hostname) && protocol === 'https:' && (port === '' || port === '443')) return true;
+    return false;
   } catch {
     return false;
   }
