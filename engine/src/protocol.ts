@@ -67,7 +67,11 @@ export type ClientMsg =
   | { op: 'config_import'; files: Record<string, unknown> } // ripristino: solo nomi in whitelist
   | { op: 'sessions_search_all'; query: string } // ricerca full-text su TUTTI i progetti del registry
   | { op: 'engine_stats' } // → ev engine_stats (memoria cgroup + processi figli per sessione)
-  | { op: 'proc_kill'; pid: number }; // SIGTERM a un processo DISCENDENTE dell'engine (validato server-side)
+  | { op: 'proc_kill'; pid: number } // SIGTERM a un processo DISCENDENTE dell'engine (validato server-side)
+  | { op: 'services_status' } // → ev services_status (health dei servizi configurati in ~/.claude-cockpit/services.json)
+  | { op: 'todos_list' } // → ev todos_list (azioni aperte da ToDoMio, se configurato in ~/.claude-cockpit/todomio.json)
+  | { op: 'todo_done'; id: string }
+  | { op: 'todo_archive'; id: string };
 
 // Aggiunta server MCP (wrapper di `claude mcp add`): target = URL (http/sse) o comando completo (stdio);
 // headers = righe "Chiave: valore" (http/sse), env = righe "KEY=VALUE" (stdio).
@@ -225,6 +229,10 @@ export type ServerMsg =
   | { ev: 'sessions_search_all'; query: string; results: GlobalSearchResult[] }
   | { ev: 'engine_stats'; stats: EngineStats } // solo al richiedente
   | { ev: 'proc_killed'; pid: number; ok: boolean; error?: string }
+  | { ev: 'services_status'; services: ServiceStatus[] }
+  | { ev: 'todos_list'; todos: TodomioTask[]; error?: string }
+  | { ev: 'todo_done'; id: string; ok: boolean; error?: string }
+  | { ev: 'todo_archive'; id: string; ok: boolean; error?: string }
   | { ev: 'error'; message: string; project?: string };
 
 // Risultato di ricerca cross-progetto: come SearchResult più il progetto di appartenenza.
@@ -272,4 +280,23 @@ export interface EngineStats {
   maxMb?: number; // undefined = memory.max = "max" (illimitato)
   uptimeSec: number;
   procs: EngineProc[];
+}
+
+// Health-check di un servizio da ~/.claude-cockpit/services.json.
+export interface ServiceStatus {
+  name: string;
+  url: string;
+  ok: boolean;
+  code?: number;
+  ms?: number;
+  error?: string;
+}
+
+// Azione aperta da ToDoMio (~/.claude-cockpit/todomio.json).
+export interface TodomioTask {
+  id: string;
+  title: string;
+  project?: string;
+  priority?: string;
+  dueAt?: string;
 }

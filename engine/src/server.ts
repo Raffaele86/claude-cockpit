@@ -19,6 +19,8 @@ import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 import { logUsage, usageReport } from './usage.js';
 import { collectStats, isDescendant } from './stats.js';
+import { checkServices } from './services.js';
+import { archive as todomioArchive, listTodos, markDone } from './todomio.js';
 
 // Versione unica dal package.json (../ vale sia da src/ che da dist/).
 const ENGINE_VERSION = (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }).version;
@@ -1285,6 +1287,29 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       } catch (err) {
         send(ws, { ev: 'proc_killed', pid: msg.pid, ok: false, error: String(err instanceof Error ? err.message : err) });
       }
+      break;
+    }
+    case 'services_status': {
+      try {
+        send(ws, { ev: 'services_status', services: await checkServices() });
+      } catch (err) {
+        send(ws, { ev: 'error', message: `services_status: ${String(err)}` });
+      }
+      break;
+    }
+    case 'todos_list': {
+      const { todos, error } = await listTodos();
+      send(ws, { ev: 'todos_list', todos, error });
+      break;
+    }
+    case 'todo_done': {
+      const { ok, error } = await markDone(msg.id);
+      send(ws, { ev: 'todo_done', id: msg.id, ok, error });
+      break;
+    }
+    case 'todo_archive': {
+      const { ok, error } = await todomioArchive(msg.id);
+      send(ws, { ev: 'todo_archive', id: msg.id, ok, error });
       break;
     }
     default:
