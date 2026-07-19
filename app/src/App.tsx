@@ -765,12 +765,15 @@ export function App() {
   );
 
   /** Primo attach CLI di questa chiave nella run corrente? → pty pulito. sessionStorage
-   *  sopravvive al reload (pty persiste) e muore alla chiusura (riapertura = sessione nuova). */
+   *  sopravvive al reload (pty persiste) e muore alla chiusura (riapertura = sessione nuova).
+   *  Eccezione: riavvio-da-update (marker del main) — le schede devono tornare al loro stato
+   *  pre-update, quindi niente fresh: i pty vivi si ri-attaccano, quelli morti risorgono
+   *  via record persistito nell'engine. */
   const takeCliFresh = useCallback(() => {
     const sk = `cli-fresh::${activeKey}`;
     if (sessionStorage.getItem(sk)) return false;
     sessionStorage.setItem(sk, '1');
-    return true;
+    return !window.cockpit.updateRelaunch;
   }, [activeKey]);
 
   /** Nuova scheda = chat indipendente: id UNICO (mai riusato — un id riciclato si

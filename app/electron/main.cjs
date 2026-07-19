@@ -1,6 +1,6 @@
-const { app, BrowserWindow, ipcMain, session, Menu, Notification, dialog, shell } = require('electron');
+const { app, BrowserWindow, clipboard, ipcMain, session, Menu, Notification, dialog, shell } = require('electron');
 const { spawn, execFileSync } = require('node:child_process');
-const { existsSync, readFileSync, writeFileSync } = require('node:fs');
+const { existsSync, readFileSync, unlinkSync, writeFileSync } = require('node:fs');
 const { homedir } = require('node:os');
 const { join } = require('node:path');
 
@@ -280,6 +280,31 @@ function createWindow() {
 let mainWindow = null;
 let nsisUpdater = null; // istanza autoUpdater con listener già agganciati (una sola volta)
 
+// Riavvio-da-update: marker su disco scritto PRIMA di quitAndInstall. Alla riapertura il
+// renderer lo legge (una volta sola) e NON tratta le schede come "prima apertura" → i pty
+// vivi nell'engine (systemd, non toccato dall'update dell'app) vengono ri-attaccati con la
+// sessione e lo scrollback pre-update invece di essere killati dal guard fresh.
+const updateMarkerPath = () => join(app.getPath('userData'), 'update-relaunch.json');
+function markUpdateRelaunch() {
+  try {
+    writeFileSync(updateMarkerPath(), JSON.stringify({ ts: Date.now() }));
+  } catch { /* best effort: senza marker si perde solo la continuità delle schede */ }
+}
+let updateRelaunchFlag = null; // lazy: letto (e consumato) alla prima richiesta del renderer
+function takeUpdateRelaunch() {
+  if (updateRelaunchFlag !== null) return updateRelaunchFlag;
+  updateRelaunchFlag = false;
+  try {
+    const p = updateMarkerPath();
+    if (existsSync(p)) {
+      const { ts } = JSON.parse(readFileSync(p, 'utf8'));
+      unlinkSync(p);
+      updateRelaunchFlag = Date.now() - ts < 15 * 60 * 1000; // marker stantio = riapertura normale
+    }
+  } catch { /* marker illeggibile = riapertura normale */ }
+  return updateRelaunchFlag;
+}
+
 /** Inoltra una transizione di stato dell'update al renderer, se la finestra esiste ancora. */
 function sendUpdateState(state) {
   if (mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('update-state', state);
@@ -306,7 +331,7 @@ function getNsisUpdater() {
       defaultId: 0,
       message: `Update v${info.version} ready`,
       detail: 'It will be installed when the app restarts.',
-    }).then((r) => { if (r.response === 0) autoUpdater.quitAndInstall(); });
+    }).then((r) => { if (r.response === 0) { markUpdateRelaunch(); autoUpdater.quitAndInstall(); } });
   });
   nsisUpdater = autoUpdater;
   return nsisUpdater;
@@ -378,10 +403,25 @@ ipcMain.handle('update-run', async () => {
     return { mode: 'manual', newer: false, error: err?.message || String(err) };
   }
 });
+// Copia negli appunti dal main: navigator.clipboard nel renderer dipende dal permesso
+// 'clipboard-sanitized-write' e in passato falliva in silenzio (entrambe le voci "Copia path"
+// incollavano il contenuto vecchio degli appunti). Il modulo clipboard di Electron è deterministico.
+ipcMain.handle('copy-text', (_e, text) => {
+  try {
+    clipboard.writeText(String(text ?? ''));
+    return true;
+  } catch {
+    return false;
+  }
+});
+ipcMain.on('take-update-relaunch', (e) => {
+  e.returnValue = takeUpdateRelaunch(); // sync: serve al renderer PRIMA del primo pty_attach
+});
 ipcMain.handle('update-install', () => {
   // No-op safe se non pacchettizzato NSIS o se nessun update è pronto: quitAndInstall gestisce da sé.
   if (!nsisUpdater) return { ok: false };
   try {
+    markUpdateRelaunch();
     nsisUpdater.quitAndInstall();
     return { ok: true };
   } catch (err) {
@@ -390,9 +430,10 @@ ipcMain.handle('update-install', () => {
 });
 
 app.whenReady().then(() => {
-  // Microfono per la dettatura (Whisper via engine): consenti esplicitamente il permesso media.
+  // Microfono per la dettatura (Whisper via engine) + scrittura appunti (bottoni copia):
+  // tutto il resto resta negato.
   session.defaultSession.setPermissionRequestHandler((_wc, permission, cb) => {
-    cb(permission === 'media');
+    cb(permission === 'media' || permission === 'clipboard-sanitized-write');
   });
   // CSP nel pacchetto (file://): consenti solo self + WS localhost verso l'engine.
   // In dev (COCKPIT_RENDERER_URL) niente CSP, così Vite HMR non si rompe.

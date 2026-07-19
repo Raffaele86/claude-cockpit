@@ -33,6 +33,10 @@ declare global {
       updateRun: () => Promise<UpdateRunResult>;
       updateInstall: () => Promise<{ ok: boolean; error?: string }>;
       onUpdateState: (cb: (state: UpdateState) => void) => void;
+      /** Copia via IPC (modulo clipboard di Electron). Assente nel browser-shim. */
+      copyText?: (text: string) => Promise<boolean>;
+      /** true SOLO alla prima apertura dopo un riavvio-da-update: le schede ri-attaccano i pty vivi. */
+      updateRelaunch?: boolean;
     };
   }
 }

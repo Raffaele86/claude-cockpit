@@ -11,6 +11,7 @@ import { CockpitSession } from './session.js';
 import { loadProjects, loadQuickActions, removeProject, upsertProject } from './projects.js';
 import { clearStoredSession, getStoredSession, setStoredSession } from './sessions-store.js';
 import { PtyChannel } from './pty.js';
+import { clearPtyRecord, getPtyRecord, setPtyRecord } from './pty-store.js';
 import { WinPtyChannel, loadWinAgent } from './win-pty.js';
 import type { ClientMsg, PermissionModeName, ServerMsg, SessionCategory } from './protocol.js';
 import { randomUUID } from 'node:crypto';
@@ -1125,7 +1126,12 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       // In entrambi i casi: via il pty vecchio, il nuovo parte coi flag richiesti.
       let launchOpts: { extraArgs?: string[]; env?: Record<string, string>; sessionId?: string } | undefined;
       if (msg.cmd === 'claude' && (msg.launch || msg.fresh)) {
-        const prev = channel; // pty precedente: il SUO sessionId è l'unica conversazione riprendibile
+        // pty precedente: il SUO sessionId è l'unica conversazione riprendibile. Se l'engine è
+        // stato riavviato (update) il pty vivo non c'è più → vale il record persistito della scheda.
+        const prev = channel
+          ? { sessionId: channel.sessionId, configDir: channel.configDir }
+          : getPtyRecord(mapKey);
+        if (msg.fresh && !msg.launch) clearPtyRecord(mapKey); // sessione pulita voluta: niente resurrezione
         if (channel && ptyId) {
           ptys.delete(ptyId);
           ptyByKey.delete(mapKey);
@@ -1188,8 +1194,23 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
         // Anche l'attach semplice di claude (senza launch) riceve un session-id assegnato:
         // è ciò che rende riprendibile la conversazione della scheda senza indovinare.
         if (msg.cmd === 'claude' && !launchOpts) {
-          const sessionId = randomUUID();
-          launchOpts = { extraArgs: ['--session-id', sessionId], sessionId };
+          // Resurrezione post-restart engine (es. update in mezzo a una sessione): se la scheda
+          // ha un record persistito e il suo jsonl esiste ancora, riprende QUELLA conversazione.
+          const rec = getPtyRecord(mapKey);
+          const slug = cwdOf(key).replace(/[/.]/g, '-');
+          const jsonl = rec ? join(rec.configDir ?? join(homedir(), '.claude'), 'projects', slug, `${rec.sessionId}.jsonl`) : '';
+          if (rec && existsSync(jsonl)) {
+            const args = ['--resume', rec.sessionId];
+            if (rec.model) args.push('--model', rec.model);
+            launchOpts = {
+              extraArgs: args,
+              env: rec.configDir ? { CLAUDE_CONFIG_DIR: rec.configDir } : undefined,
+              sessionId: rec.sessionId,
+            };
+          } else {
+            const sessionId = randomUUID();
+            launchOpts = { extraArgs: ['--session-id', sessionId], sessionId };
+          }
         }
         // Pty nuovo, persistente: sopravvive al detach (reload/cambio scheda); muore solo
         // a pty_kill o all'uscita del processo.
@@ -1215,6 +1236,10 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
         );
         ptys.set(ptyId, channel);
         ptyByKey.set(mapKey, ptyId);
+        // Persisti la sessione della scheda: è ciò che permette di riprenderla dopo un
+        // restart dell'engine (update). Si cancella solo su fresh/kill espliciti.
+        if (msg.cmd === 'claude' && channel.sessionId)
+          setPtyRecord(mapKey, { sessionId: channel.sessionId, configDir: channel.configDir, model: channel.model });
       } else {
         channel.resize(msg.cols, msg.rows);
       }
@@ -1237,6 +1262,7 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
       break;
     case 'pty_kill': {
       const ch = ptys.get(msg.ptyId);
+      for (const [mk, id] of ptyByKey) if (id === msg.ptyId) clearPtyRecord(mk);
       if (ch) ch.kill(); // cleanup mappe nel callback onExit
       break;
     }
@@ -1248,6 +1274,7 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
         for (const mk of [`${key}::${cmd}`, `${key}::${cmd}:win`]) {
           const id = ptyByKey.get(mk);
           if (id) ptys.get(id)?.kill();
+          clearPtyRecord(mk); // anche a pty già morto (engine riavviato): la scheda chiusa non risorge
         }
       }
       break;

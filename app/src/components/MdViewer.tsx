@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { renderMarkdown } from '../md';
+import { copyText } from '../copy';
 import { t } from '../strings';
 import { FloatPanel } from './FloatPanel';
 import { Icon } from './icons';
@@ -44,12 +45,9 @@ export function MdViewer({ viewer, onClose }: { viewer: ViewerState; onClose: ()
   const name = viewer.path.split('/').filter(Boolean).at(-1) ?? viewer.path;
 
   async function copy(kind: string, text: string) {
-    try {
-      await navigator.clipboard.writeText(text);
+    if (await copyText(text)) {
       setCopied(kind);
       setTimeout(() => setCopied(null), 1200);
-    } catch {
-      /* clipboard non disponibile */
     }
   }
 

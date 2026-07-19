@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.33.0
+- Fix: "Copy path" / "Copy path Windows" (and every other copy button) actually reach the clipboard in the desktop app — clipboard writes now go through Electron IPC with browser fallbacks; previously the renderer's clipboard permission was denied and both menu items silently left the old clipboard content in place
+- Open sessions survive updates: an update-triggered restart re-attaches every tab to its live CLI session (scrollback and conversation intact) instead of starting clean
+- Open sessions survive an **engine** restart too: each tab's CLI session id is persisted (`~/.claude-cockpit/pty-sessions.json`) and deterministically resumed with `--resume` when the engine comes back — cleared only by explicit "new chat"/tab close, never guessed from other sessions in the same cwd
+- New smoke: `engine/scripts/pty-resume-check.mjs` (isolated engine instance, real prompt, engine kill + resume)
+
 ## 0.32.0
 - In-app update: manual check button in Doctor + command palette, live download progress, periodic 6h re-check (NSIS); portable/mac get an on-demand release link
 

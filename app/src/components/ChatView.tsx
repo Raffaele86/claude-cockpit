@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Item } from '../model';
 import { renderMarkdown } from '../md';
+import { copyText } from '../copy';
 import { ToolCard } from './ToolCard';
 import { t } from '../strings';
 import { Icon } from './icons';
@@ -11,12 +12,9 @@ function CopyButton({ getText, label = t('copy') }: { getText: () => string; lab
     <button
       className="copy-btn"
       onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(getText());
+        if (await copyText(getText())) {
           setDone(true);
           setTimeout(() => setDone(false), 1200);
-        } catch {
-          /* clipboard non disponibile */
         }
       }}
     >
@@ -62,7 +60,8 @@ export function ChatView({
       btn.textContent = t('copy');
       btn.onclick = () => {
         const code = pre.querySelector('code')?.textContent ?? pre.textContent ?? '';
-        navigator.clipboard.writeText(code).then(() => {
+        void copyText(code).then((ok) => {
+          if (!ok) return;
           btn.textContent = '✓';
           setTimeout(() => (btn.textContent = t('copy')), 1200);
         });

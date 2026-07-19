@@ -10,4 +10,7 @@ contextBridge.exposeInMainWorld('cockpit', {
   updateRun: () => ipcRenderer.invoke('update-run'),
   updateInstall: () => ipcRenderer.invoke('update-install'),
   onUpdateState: (cb) => { ipcRenderer.on('update-state', (_e, s) => cb(s)); },
+  copyText: (text) => ipcRenderer.invoke('copy-text', text),
+  // Sync: il renderer deve saperlo PRIMA del primo pty_attach (guard fresh delle schede).
+  updateRelaunch: ipcRenderer.sendSync('take-update-relaunch'),
 });

@@ -5,6 +5,7 @@ import type { CockpitClient } from '../ws';
 import type { DirEntry, ProjectEntry, ServerMsg } from '../protocol';
 import { ContextMenu, type MenuItem, type MenuState } from './ContextMenu';
 import { t } from '../strings';
+import { copyText } from '../copy';
 import { Icon } from './icons';
 
 interface Props {
@@ -77,7 +78,7 @@ export function FileNav({
   }
 
   function copy(text: string) {
-    void navigator.clipboard.writeText(text).catch(() => {});
+    void copyText(text);
   }
 
   function openMenu(e: React.MouseEvent, full: string, entry: DirEntry) {
