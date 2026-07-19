@@ -21,6 +21,10 @@ export class PtyChannel {
   readonly sessionId?: string;
   /** Modello passato con --model allo spawn/relaunch (undefined = default del CLI). */
   readonly model?: string;
+  /** PID del processo pty (per l'attribuzione in engine_stats). */
+  get pid(): number {
+    return this.p.pid;
+  }
 
   constructor(
     cwd: string,

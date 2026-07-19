@@ -60,6 +60,10 @@ export class WinPtyChannel {
   readonly sessionId: string | undefined = undefined;
   readonly model: string | undefined = undefined;
   readonly configDir: string | undefined = undefined;
+  /** PID del ponte node.exe (interop WSL): non è il claude.exe reale su Windows, ma è il discendente locale. */
+  get pid(): number | undefined {
+    return this.p.pid;
+  }
 
   constructor(
     cwd: string,

@@ -18,6 +18,7 @@ import { startTelegramGateway, type TelegramGateway } from './telegram.js';
 import { applySettings, hostsChanged, readSettings } from './settings.js';
 import { transcribeAudio } from './stt.js';
 import { logUsage, usageReport } from './usage.js';
+import { collectStats, isDescendant } from './stats.js';
 
 // Versione unica dal package.json (../ vale sia da src/ che da dist/).
 const ENGINE_VERSION = (JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')) as { version: string }).version;
@@ -76,6 +77,16 @@ const token = loadOrCreateToken();
 const sessions = new Map<string, CockpitSession>();
 const ptys = new Map<string, PtyChannel | WinPtyChannel>();
 const ptyByKey = new Map<string, string>(); // "<chiave-canale>::<cmd>" → ptyId (pty persistenti, re-attach)
+
+/** pid → chiave progetto dei canali pty vivi (per l'attribuzione in engine_stats). */
+function ptyPids(): Map<number, string> {
+  const out = new Map<number, string>();
+  for (const [mapKey, ptyId] of ptyByKey) {
+    const pid = ptys.get(ptyId)?.pid;
+    if (pid) out.set(pid, mapKey.split('::')[0]);
+  }
+  return out;
+}
 const authed = new Set<WebSocket>();
 const busy = new Map<string, boolean>(); // project → turno in corso (per /status del gateway)
 // File config esportabili/importabili (backup 1-click). MAI: token, sessions.json, usage.jsonl, checkpoints/.
@@ -1252,6 +1263,28 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
     case 'permission_decision': {
       if (!decidePermissionAny(msg.requestId, msg.decision, msg.updatedInput))
         send(ws, { ev: 'error', message: `Richiesta permesso sconosciuta: ${msg.requestId}` });
+      break;
+    }
+    case 'engine_stats': {
+      try {
+        send(ws, { ev: 'engine_stats', stats: collectStats(ENGINE_VERSION, ptyPids()) });
+      } catch (err) {
+        send(ws, { ev: 'error', message: `engine_stats: ${String(err)}` });
+      }
+      break;
+    }
+    case 'proc_kill': {
+      if (msg.pid === process.pid || !isDescendant(msg.pid)) {
+        send(ws, { ev: 'proc_killed', pid: msg.pid, ok: false, error: 'pid non è un processo dell\'engine' });
+        break;
+      }
+      try {
+        process.kill(msg.pid, 'SIGTERM');
+        console.log(`[engine] proc_kill: SIGTERM a ${msg.pid}`);
+        send(ws, { ev: 'proc_killed', pid: msg.pid, ok: true });
+      } catch (err) {
+        send(ws, { ev: 'proc_killed', pid: msg.pid, ok: false, error: String(err instanceof Error ? err.message : err) });
+      }
       break;
     }
     default:
