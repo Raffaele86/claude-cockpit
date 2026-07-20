@@ -222,7 +222,7 @@ function createWindow() {
   const win = mainWindow = new BrowserWindow({
     width: 1280,
     height: 860,
-    backgroundColor: '#0f1115',
+    backgroundColor: '#1c1b19',
     title: 'Claude Cockpit',
     webPreferences: {
       preload: join(__dirname, 'preload.cjs'),

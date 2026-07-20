@@ -1,7 +1,11 @@
 import { useEffect, useRef, type MutableRefObject } from 'react';
 import { Terminal as XTerm } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
-import '@xterm/xterm/css/xterm.css';
+// xterm.css NON si importa qui: importato da un modulo TS il suo ordine rispetto
+// al nostro foglio non e' garantito da Vite fra dev e build (causa classica di
+// "il terminale si scassa solo dopo la build"). Sta in theme.css, in @layer vendor,
+// cosi' i nostri override vincono sempre in modo deterministico.
+import { xtermTheme, xtermFont } from '../term-theme';
 import type { CockpitClient } from '../ws';
 import type { PtyLaunch, ServerMsg } from '../protocol';
 
@@ -32,12 +36,22 @@ export function TerminalPanel({ client, project, cmd, os, subscribe, takeLaunch,
 
   useEffect(() => {
     const host = hostRef.current!;
+    const coarse = window.matchMedia('(pointer: coarse)').matches;
     const term = new XTerm({
-      fontFamily: 'Cascadia Code, Fira Code, ui-monospace, monospace',
-      fontSize: 13,
-      theme: { background: '#0c0e12', foreground: '#d7dce5' },
+      ...xtermFont(),
+      theme: xtermTheme(),
       cursorBlink: true,
       scrollback: 5000,
+      lineHeight: 1.25,
+      fontWeight: 400,
+      fontWeightBold: 700,
+      // il grassetto dev'essere PESO, non un cambio di tinta: col default xterm
+      // ogni testo in grassetto saltava sul colore "bright" corrispondente
+      drawBoldTextInBrightColors: false,
+      // niente ritocchi automatici: la palette e' deliberata
+      minimumContrastRatio: 1,
+      cursorStyle: coarse ? 'bar' : 'block',
+      cursorInactiveStyle: 'outline',
     });
     const fit = new FitAddon();
     term.loadAddon(fit);
@@ -76,12 +90,18 @@ export function TerminalPanel({ client, project, cmd, os, subscribe, takeLaunch,
       if (ptyId) client.send({ op: 'pty_resize', ptyId, cols: term.cols, rows: term.rows });
     };
     window.addEventListener('resize', onResize);
+    // Su Android l'apertura della tastiera ridimensiona il VISUAL viewport senza
+    // far scattare window.resize in modo affidabile: senza questo fit.fit() non
+    // gira, le righe del pty restano quelle vecchie e la TUI si ridisegna sopra
+    // se' stessa. E' il difetto piu' fastidioso nell'uso dal telefono.
+    window.visualViewport?.addEventListener('resize', onResize);
     const ro = new ResizeObserver(onResize);
     ro.observe(host);
 
     return () => {
       // Detach senza kill: il pty resta vivo lato engine per il re-attach.
       window.removeEventListener('resize', onResize);
+      window.visualViewport?.removeEventListener('resize', onResize);
       ro.disconnect();
       dataDisp.dispose();
       unsub();

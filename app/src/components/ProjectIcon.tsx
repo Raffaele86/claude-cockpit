@@ -20,8 +20,22 @@ export const PROJECT_ICONS: IconName[] = [
   'pulse',
 ];
 
-/** Tinte progetto in armonia col tema (corallo, verde, azzurro, viola, rosa, ambra, teal, grigio). */
-export const PROJECT_COLORS = ['#d97757', '#7fbf7f', '#6aa9d8', '#a78bda', '#d883a6', '#d9a94a', '#55b3a8', '#a6a39a'];
+/** Tinte progetto: gli STESSI colori degli stati semantici, non una tavolozza a
+ *  parte. Prima quattro di questi otto valori non esistevano da nessun'altra
+ *  parte nel sistema — colori orfani proprio dove sono piu' visibili. Ora il
+ *  pallino teal di un progetto e' letteralmente lo stesso ciano del terminale.
+ *  var() funziona negli stili inline, che e' come vengono consumati
+ *  (ProjectSwitcher.tsx background, ProjectIcon color). */
+export const PROJECT_COLORS = [
+  'var(--accent)',
+  'var(--ok)',
+  'var(--info)',
+  'var(--busy)',
+  'var(--hue-pink)',
+  'var(--warn)',
+  'var(--hue-teal)',
+  'var(--text-2)',
+];
 
 /** Icona di un progetto: nome del set → SVG tinto; emoji legacy → testo; assente → folder. */
 export function ProjectIcon({ icon, color, size = 15 }: { icon?: string; color?: string; size?: number }) {

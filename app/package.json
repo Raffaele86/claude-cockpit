@@ -7,6 +7,7 @@
   "main": "electron/main.cjs",
   "scripts": {
     "sync-protocol": "cp ../engine/src/protocol.ts src/protocol.ts",
+    "typecheck": "tsc --noEmit",
     "css:audit": "node scripts/css-audit.mjs",
     "css:baseline": "node scripts/css-audit.mjs --css src/theme.css --baseline",
     "dev:vite": "vite",
