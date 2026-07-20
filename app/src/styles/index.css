@@ -30,6 +30,8 @@
 
 /* Guscio dell'app e strati di base. */
 @import './components/base.css';
+/* Guscio alternativo del telefono: barra in basso, fogli, tasti accessori. */
+@import './components/mobile-shell.css';
 
 /* Mattoni riusati ovunque: bottoni, pallini, chip, banner, anello di fuoco. */
 @import './components/primitives.css';
