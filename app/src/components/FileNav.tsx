@@ -1,12 +1,14 @@
 // Navigatore file stile Esplora Risorse: barra drive (Home + /mnt/*), breadcrumb,
-// pannello singolo con ".." per salire, menu contestuale col tasto destro.
-import { useEffect, useState } from 'react';
+// pannello singolo con ".." per salire, menu contestuale col tasto destro
+// (su touch: pressione prolungata o bottone overflow per riga).
+import { useEffect, useRef, useState } from 'react';
 import type { CockpitClient } from '../ws';
 import type { DirEntry, ProjectEntry, ServerMsg } from '../protocol';
 import { ContextMenu, type MenuItem, type MenuState } from './ContextMenu';
 import { t } from '../strings';
 import { copyText } from '../copy';
 import { Icon } from './icons';
+import { useLayoutMode } from '../useLayoutMode';
 
 interface Props {
   client: CockpitClient;
@@ -46,6 +48,12 @@ export function FileNav({
   const [cwd, setCwd] = useState(root);
   const [drives, setDrives] = useState<string[]>([]);
   const [menu, setMenu] = useState<MenuState | null>(null);
+  // Touch: il tasto destro non esiste, servono pressione prolungata + bottone overflow.
+  // `coarse` viene dall'hook condiviso: e' reattivo, quindi un ibrido che passa da
+  // dito a mouse aggiorna i bersagli senza ricaricare.
+  const { coarse } = useLayoutMode();
+  const press = useRef<{ timer: number; x: number; y: number } | null>(null);
+  const pressFired = useRef(false);
 
   useEffect(() => {
     const unsub = client.subscribe((m: ServerMsg) => {
@@ -81,9 +89,7 @@ export function FileNav({
     void copyText(text);
   }
 
-  function openMenu(e: React.MouseEvent, full: string, entry: DirEntry) {
-    e.preventDefault();
-    e.stopPropagation();
+  function buildItems(full: string, entry: DirEntry): MenuItem[] {
     const inRegistry = registry.some((p) => p.path === full);
     const win = toWinPath(full);
     const items: MenuItem[] = [];
@@ -128,7 +134,66 @@ export function FileNav({
           client.send({ op: 'file_op', kind: 'delete', path: full });
       },
     });
-    setMenu({ x: e.clientX, y: e.clientY, items });
+    return items;
+  }
+
+  function openMenu(e: React.MouseEvent, full: string, entry: DirEntry) {
+    e.preventDefault();
+    e.stopPropagation();
+    // Android emette un `contextmenu` nativo sulla pressione prolungata e annulla
+    // il puntatore: il nostro timer non scatta mai, quindi il flag va alzato anche
+    // qui o il click che segue naviga sotto al menu appena aperto.
+    if (coarse) pressFired.current = true;
+    setMenu({ x: e.clientX, y: e.clientY, items: buildItems(full, entry) });
+  }
+
+  function cancelPress() {
+    if (press.current) {
+      clearTimeout(press.current.timer);
+      press.current = null;
+    }
+  }
+
+  // FileNav si smonta appena cade la connessione: un timer in volo scriverebbe
+  // stato su un componente morto.
+  useEffect(() => cancelPress, []);
+
+  /** Pressione prolungata (500ms) = tasto destro sul touch. */
+  function pressHandlers(full: string, entry: DirEntry) {
+    if (!coarse) return {};
+    return {
+      onPointerDown: (ev: React.PointerEvent) => {
+        // Azzerare PRIMA di qualunque uscita: un flag rimasto alzato da una
+        // pressione precedente mangerebbe il click successivo.
+        pressFired.current = false;
+        cancelPress();
+        // Su un ibrido (portatile touch col mouse) `coarse` e' vero ma il mouse ha
+        // gia' il suo tasto destro: la pressione prolungata non deve raddoppiarlo.
+        if (ev.pointerType === 'mouse') return;
+        const x = ev.clientX;
+        const y = ev.clientY;
+        const timer = window.setTimeout(() => {
+          press.current = null;
+          pressFired.current = true; // il click che segue non deve navigare
+          setMenu({ x, y, items: buildItems(full, entry) });
+        }, 500);
+        press.current = { timer, x, y };
+      },
+      onPointerMove: (ev: React.PointerEvent) => {
+        const p = press.current;
+        if (p && (Math.abs(ev.clientX - p.x) > 8 || Math.abs(ev.clientY - p.y) > 8)) cancelPress();
+      },
+      onPointerUp: cancelPress,
+      onPointerCancel: cancelPress,
+    };
+  }
+
+  /** Sopprime il click sintetico generato dalla pressione prolungata. */
+  function unlessPressed(fn: () => void) {
+    return () => {
+      if (pressFired.current) return;
+      fn();
+    };
   }
 
   // Breadcrumb: dentro la home mostra ~; sui drive mostra C: / segmenti.
@@ -157,7 +222,7 @@ export function FileNav({
     <div className="fnav">
       <div className="rail-section">{t('filesSection')}</div>
       <div className="fnav-drives">
-        <button className={cwd.startsWith(root) ? 'drive on' : 'drive'} title={root} onClick={() => goTo(root)}>
+        <button className={cwd.startsWith(root) ? 'drive on' : 'drive'} title={root} aria-label={root} onClick={() => goTo(root)}>
           <Icon name="home" size={13} />
         </button>
         {drives.map((d) => (
@@ -196,8 +261,9 @@ export function FileNav({
               <div
                 key={full}
                 className={`fnav-item dir ${e.project ? 'project' : ''} ${full === active ? 'on' : ''}`}
-                onClick={() => goTo(full)}
+                onClick={unlessPressed(() => goTo(full))}
                 onContextMenu={(ev) => openMenu(ev, full, e)}
+                {...pressHandlers(full, e)}
                 title={full}
               >
                 <span className="fnav-icon"><Icon name={e.project ? 'rocket' : 'folder'} size={13} /></span>
@@ -205,13 +271,25 @@ export function FileNav({
                 {e.project && (
                   <button
                     className="fnav-use"
-                    title={t('useAsActiveTitle')}
+                    title={t('useAsActiveTitle')} aria-label={t('useAsActiveTitle')}
                     onClick={(ev) => {
                       ev.stopPropagation();
                       onSelectProject(full);
                     }}
                   >
                     <Icon name="play" size={11} />
+                  </button>
+                )}
+                {coarse && (
+                  <button
+                    type="button"
+                    className="fnav-more"
+                    title={t('moreActions')}
+                    aria-label={t('moreActions')}
+                    onPointerDown={(ev) => ev.stopPropagation()}
+                    onClick={(ev) => openMenu(ev, full, e)}
+                  >
+                    <Icon name="menu" size={13} />
                   </button>
                 )}
               </div>
@@ -222,12 +300,25 @@ export function FileNav({
             <div
               key={full}
               className={`fnav-item file ${isMd ? 'md' : ''}`}
-              onClick={isMd ? () => onOpenFile(full) : undefined}
+              onClick={isMd ? unlessPressed(() => onOpenFile(full)) : undefined}
               onContextMenu={(ev) => openMenu(ev, full, e)}
+              {...pressHandlers(full, e)}
               title={isMd ? t('openInReader') : full}
             >
               <span className="fnav-icon">{isMd ? <Icon name="file" size={13} /> : '·'}</span>
               <span className="fnav-name">{e.name}</span>
+              {coarse && (
+                <button
+                  type="button"
+                  className="fnav-more"
+                  title={t('moreActions')}
+                  aria-label={t('moreActions')}
+                  onPointerDown={(ev) => ev.stopPropagation()}
+                  onClick={(ev) => openMenu(ev, full, e)}
+                >
+                  <Icon name="menu" size={13} />
+                </button>
+              )}
             </div>
           );
         })}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Icon, type IconName } from './icons';
 import { t } from '../strings';
+import { restoreFocus, trapTab } from './useDialogA11y';
 
 export interface CommandChild {
   id: string;
@@ -52,15 +53,24 @@ export function CommandPalette({ open, commands, onClose }: Props) {
   const [page, setPage] = useState<{ title: string; items: CommandChild[] } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (open) {
-      setQ('');
-      setPage(null);
-      setIdx(0);
-      // focus dopo il mount del pannello
-      requestAnimationFrame(() => inputRef.current?.focus());
-    }
+    if (!open) return;
+    // Il pannello resta montato a vuoto: il fuoco va salvato all'apertura e
+    // restituito alla chiusura qui, non allo smontaggio che non avviene mai.
+    const previous = document.activeElement;
+    setQ('');
+    setPage(null);
+    setIdx(0);
+    // focus dopo il mount del pannello
+    const raf = requestAnimationFrame(() => inputRef.current?.focus());
+    return () => {
+      // Annullato: se la palette si apre e chiude nello stesso fotogramma il
+      // frame pendente arriverebbe dopo la restituzione del fuoco.
+      cancelAnimationFrame(raf);
+      restoreFocus(previous);
+    };
   }, [open]);
 
   const rows: Row[] = useMemo(() => {
@@ -107,6 +117,9 @@ export function CommandPalette({ open, commands, onClose }: Props) {
   }, [q, page, commands, onClose]);
 
   const itemIdx = rows.map((r, i) => (r.kind === 'item' ? i : -1)).filter((i) => i >= 0);
+  // Il fuoco resta nel campo di ricerca: la voce evidenziata la annuncia
+  // aria-activedescendant, che punta all'id della riga.
+  const activeId = itemIdx[idx] === undefined ? undefined : `cpal-opt-${itemIdx[idx]}`;
 
   useEffect(() => {
     setIdx(0);
@@ -145,12 +158,21 @@ export function CommandPalette({ open, commands, onClose }: Props) {
       e.preventDefault();
       setPage(null);
       setIdx(0);
+    } else {
+      trapTab(e, panelRef.current);
     }
   }
 
   return (
     <div className="cpal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className="cpal-panel" onKeyDown={onKey}>
+      <div
+        className="cpal-panel"
+        ref={panelRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('cpOpenTitle')}
+        onKeyDown={onKey}
+      >
         <div className="cpal-input-row">
           {page && (
             <span className="cpal-crumb">
@@ -163,15 +185,27 @@ export function CommandPalette({ open, commands, onClose }: Props) {
             placeholder={page ? t('cpFilterPh') : t('cpPlaceholder')}
             value={q}
             onChange={(e) => setQ(e.target.value)}
+            role="combobox"
+            aria-label={page ? t('cpFilterPh') : t('cpPlaceholder')}
+            aria-expanded={rows.length > 0}
+            aria-controls="cpal-list"
+            aria-activedescendant={activeId}
+            aria-autocomplete="list"
           />
         </div>
-        <div className="cpal-list" ref={listRef}>
+        <div className="cpal-list" ref={listRef} id="cpal-list" role="listbox" aria-label={page ? page.title : t('cpOpenTitle')}>
           {rows.map((r, i) =>
             r.kind === 'header' ? (
-              <div key={`h-${r.label}`} className="cpal-section">{r.label}</div>
+              // Dentro una listbox valgono solo le option: l'intestazione di gruppo
+              // resta un separatore visivo e non viene annunciata.
+              <div key={`h-${r.label}`} className="cpal-section" role="presentation">{r.label}</div>
             ) : (
               <button
                 key={`i-${i}-${r.label}`}
+                id={`cpal-opt-${i}`}
+                role="option"
+                aria-selected={itemIdx[idx] === i}
+                tabIndex={-1}
                 className={`cpal-item ${itemIdx[idx] === i ? 'focus' : ''}`}
                 onMouseEnter={() => setIdx(itemIdx.indexOf(i))}
                 onClick={() => r.exec()}

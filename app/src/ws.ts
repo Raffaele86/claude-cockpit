@@ -22,9 +22,16 @@ export class CockpitClient {
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly listeners = new Set<(m: ServerMsg) => void>();
 
+  /** Connessioni aperte e poi chiuse SENZA arrivare ad auth_ok. */
+  private authRejects = 0;
+
   constructor(
     private readonly onState: (s: ConnState) => void,
     private readonly onMessage: (m: ServerMsg) => void,
+    /** Il token e' quasi certamente sbagliato: l'engine non manda nessun evento
+     *  di rifiuto, chiude e basta, e senza questo il client riprovava
+     *  all'infinito senza mai dire che il problema era il token. */
+    private readonly onAuthReject?: () => void,
   ) {}
 
   /** Ascoltatore aggiuntivo per lo stesso stream (es. il pannello Terminale). */
@@ -78,8 +85,14 @@ export class CockpitClient {
     this.onState('connecting');
     const ws = new WebSocket(ENGINE_URL);
     this.ws = ws;
+    /* Distinguere "token rifiutato" da "engine spento" richiede di sapere se il
+       socket si e' MAI aperto: se non si apre, e' un problema di raggiungibilita'
+       e mostrare la schermata del token manderebbe fuori strada. */
+    let opened = false;
+    let authed = false;
 
     ws.onopen = () => {
+      opened = true;
       if (this.token) ws.send(JSON.stringify({ op: 'auth', token: this.token } satisfies ClientMsg));
     };
 
@@ -92,6 +105,8 @@ export class CockpitClient {
       }
       if (msg.ev === 'auth_ok') {
         this.backoff = 500;
+        authed = true;
+        this.authRejects = 0;
         this.onState('authed');
       }
       this.onMessage(msg);
@@ -101,6 +116,18 @@ export class CockpitClient {
     ws.onclose = () => {
       this.ws = null;
       if (this.stopped) return;
+      // Aperto, autenticazione inviata, chiuso senza auth_ok: due volte di fila
+      // non e' sfortuna. Meglio chiedere di nuovo il token che riprovare per
+      // sempre lasciando l'utente davanti a un pallino che non diventa mai verde.
+      if (opened && !authed && this.token) {
+        this.authRejects++;
+        if (this.authRejects >= 2 && this.onAuthReject) {
+          this.stopped = true;
+          this.onState('disconnected');
+          this.onAuthReject();
+          return;
+        }
+      }
       this.onState('disconnected');
       const delay = this.backoff;
       this.backoff = Math.min(this.backoff * 2, MAX_BACKOFF_MS);

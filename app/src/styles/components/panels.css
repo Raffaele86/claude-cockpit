@@ -72,6 +72,9 @@
     color: var(--text-2);
     cursor: move;
     user-select: none;
+    /* Il drag e' su pointer events: senza questo il dito farebbe scorrere/zoomare
+       la pagina invece di spostare la finestra. */
+    touch-action: none;
   }
 
   .float-title {
@@ -838,6 +841,7 @@
     .float-bar {
       padding-top: var(--safe-t);
       cursor: default;
+      touch-action: auto;
     }
 
     /* Il tetto del 40% serviva a non far crescere una finestra centrata. A tutto

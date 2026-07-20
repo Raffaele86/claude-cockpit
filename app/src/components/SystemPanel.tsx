@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { t } from '../strings';
+import { useConfirm } from './ConfirmDialog';
 import { FloatPanel } from './FloatPanel';
 import { Icon } from './icons';
 import type { EngineProc, EngineStats, ServiceStatus } from '../protocol';
@@ -34,9 +35,11 @@ function projectLabel(p?: string): string {
 
 /** Memoria engine (cgroup-accurate) + processi discendenti, con kill selettivo (SIGTERM). */
 export function SystemPanel({ stats, services, onClose, onKill }: Props) {
+  const { confirm, dialog } = useConfirm();
   const procs = useMemo(() => [...(stats?.procs ?? [])].sort((a, b) => b.rssMb - a.rssMb), [stats]);
 
   return (
+    <>
     <FloatPanel icon="pulse" title={t('sysTitle')} className="doctor usage-win" onClose={onClose}>
       <div className="doctor-body">
         {services && services.length > 0 && (
@@ -96,9 +99,9 @@ export function SystemPanel({ stats, services, onClose, onKill }: Props) {
                         <td>
                           <button
                             className="mini ghost btn-icon"
-                            title={t('sysKillTitle')}
+                            title={t('sysKillTitle')} aria-label={t('sysKillTitle')}
                             onClick={() => {
-                              if (window.confirm(t('sysKillConfirm')(p.pid))) onKill(p.pid);
+                              void confirm({ message: t('sysKillConfirm')(p.pid), danger: true }).then((ok) => ok && onKill(p.pid));
                             }}
                           >
                             <Icon name="close" />
@@ -114,5 +117,7 @@ export function SystemPanel({ stats, services, onClose, onKill }: Props) {
         )}
       </div>
     </FloatPanel>
+      {dialog}
+    </>
   );
 }

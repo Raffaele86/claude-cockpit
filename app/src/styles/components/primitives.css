@@ -115,6 +115,17 @@
     color: var(--on-accent);
   }
 
+  /* Un primario disabilitato deve SMETTERE di sembrare premibile: `.mini.primary`
+     e' dichiarato dopo `.mini:disabled`, quindi il pieno corallo vinceva e ogni
+     azione primaria disattivata restava invitante. Vale in tutta l'app, non solo
+     dove l'ho notato. */
+  .mini.primary:disabled,
+  .mini.primary:disabled:hover {
+    background: var(--hover);
+    border-color: var(--line);
+    color: var(--text-faint);
+  }
+
   .mini.on {
     background: var(--accent-wash);
     border-color: var(--accent-line);

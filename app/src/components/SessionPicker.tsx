@@ -59,7 +59,7 @@ export function SessionPicker({ sessions, searchResults, globalResults, currentI
     <div className="session-picker">
       <div className="session-picker-bar">
         <span>{t('chatHistory')}</span>
-        <button className="mini ghost btn-icon" onClick={onClose}><Icon name="close" /></button>
+        <button className="mini ghost btn-icon" aria-label={t('close')} onClick={onClose}><Icon name="close" /></button>
       </div>
       <div className="session-filters">
         <div className="session-search-row">
@@ -92,7 +92,7 @@ export function SessionPicker({ sessions, searchResults, globalResults, currentI
           >
             {t('inContents')}
           </button>
-          <button className={allProjects ? 'cat on' : 'cat'} title={t('allProjectsTitle')} onClick={() => setAllProjects((v) => !v)}>
+          <button className={allProjects ? 'cat on' : 'cat'} title={t('allProjectsTitle')} aria-label={t('allProjectsTitle')} onClick={() => setAllProjects((v) => !v)}>
             <Icon name="globe" />
           </button>
         </div>

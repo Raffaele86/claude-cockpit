@@ -55,6 +55,7 @@ export function MdViewer({ viewer, onClose }: { viewer: ViewerState; onClose: ()
     <FloatPanel
       icon="book"
       title={<span title={viewer.path}>{name}</span>}
+      ariaLabel={name}
       className="md-viewer"
       onClose={onClose}
       actions={

@@ -150,13 +150,13 @@ export function Composer({ disabled, busy, queued, slashCommands, client, onSend
       {mic.msg && (
         <div className="mic-msg">
           {mic.msg}
-          <button onClick={() => mic.setMsg(null)}><Icon name="close" /></button>
+          <button aria-label={t('close')} onClick={() => mic.setMsg(null)}><Icon name="close" /></button>
         </div>
       )}
       {dropMsg && (
         <div className="mic-msg">
           {dropMsg}
-          <button onClick={() => setDropMsg(null)}><Icon name="close" /></button>
+          <button aria-label={t('close')} onClick={() => setDropMsg(null)}><Icon name="close" /></button>
         </div>
       )}
       {(images.length > 0 || queued > 0) && (
@@ -164,7 +164,7 @@ export function Composer({ disabled, busy, queued, slashCommands, client, onSend
           {images.map((img, i) => (
             <span key={i} className="img-chip">
               <Icon name="image" /> {img.media_type.replace('image/', '')}
-              <button onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}><Icon name="close" /></button>
+              <button aria-label={t('removeImage')} onClick={() => setImages((prev) => prev.filter((_, j) => j !== i))}><Icon name="close" /></button>
             </span>
           ))}
           {queued > 0 && <span className="queue-chip">{t('queuedChip')(queued)}</span>}
@@ -191,6 +191,7 @@ export function Composer({ disabled, busy, queued, slashCommands, client, onSend
           <button
             className={mic.state === 'recording' ? 'mic on' : 'mic'}
             title={mic.state === 'busy' ? t('micTranscribing') : t('dictateTitle')}
+            aria-label={mic.state === 'busy' ? t('micTranscribing') : t('dictateTitle')}
             onClick={() => void mic.toggle()}
           >
             {mic.state === 'recording' ? <Icon name="record" /> : mic.state === 'busy' ? <Icon name="spinner" className="spin" /> : <Icon name="mic" />}
@@ -203,6 +204,7 @@ export function Composer({ disabled, busy, queued, slashCommands, client, onSend
           <button
             className="send"
             title={busy ? t('enqueue') : t('send')}
+            aria-label={busy ? t('enqueue') : t('send')}
             onClick={submit}
             disabled={disabled || !text.trim()}
           >

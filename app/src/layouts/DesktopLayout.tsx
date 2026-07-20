@@ -29,7 +29,7 @@ export interface LayoutSlots {
 
 interface Props extends LayoutSlots {
   /** Maniglia di ridimensionamento della colonna: solo qui, sul telefono non esiste. */
-  onRailResize: (e: React.MouseEvent) => void;
+  onRailResize: (e: React.PointerEvent<HTMLDivElement>) => void;
   resizerTitle: string;
 }
 
@@ -52,7 +52,7 @@ export function DesktopLayout({
       {overlays}
       <div className="body">
         {rail}
-        <div className="rail-resizer" title={resizerTitle} onMouseDown={onRailResize} />
+        <div className="rail-resizer" title={resizerTitle} onPointerDown={onRailResize} />
         <div className="main">{main}</div>
         {sideOpen && <div className="side-backdrop mobile-only" onClick={onCloseSide} />}
         <aside className={sideOpen ? 'side open' : 'side'}>{side}</aside>

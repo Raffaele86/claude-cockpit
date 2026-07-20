@@ -32,7 +32,7 @@ export function OverflowMenu({ items, title }: { items: MenuItem[]; title?: stri
 
   return (
     <div className="omenu" ref={wrap}>
-      <button className={open ? 'mini on btn-icon' : 'mini ghost btn-icon'} title={title} onClick={() => setOpen((o) => !o)}>
+      <button className={open ? 'mini on btn-icon' : 'mini ghost btn-icon'} title={title} aria-label={title} onClick={() => setOpen((o) => !o)}>
         <Icon name="menu" />
       </button>
       {open && (

@@ -216,7 +216,7 @@ export function Settings({ snapshot, engineVersion, home, configMsg, projects, o
                         value={p.name}
                         onChange={(e) => setProvs(provs.map((x, j) => (j === i ? { ...x, name: e.target.value } : x)))}
                       />
-                      <button className="mini ghost" title={t('provRemove')} onClick={() => setProvs(provs.filter((_, j) => j !== i))}>
+                      <button className="mini ghost" title={t('provRemove')} aria-label={t('provRemove')} onClick={() => setProvs(provs.filter((_, j) => j !== i))}>
                         <Icon name="close" />
                       </button>
                     </div>
@@ -268,7 +268,7 @@ export function Settings({ snapshot, engineVersion, home, configMsg, projects, o
                       onChange={(v) => setQa(qa.map((x, j) => (j === i ? { ...x, project: v || undefined } : x)))}
                       options={[{ value: '', label: t('qaGlobal') }, ...projects.map((p) => ({ value: p.path, label: p.name }))]}
                     />
-                    <button onClick={() => setQa(qa.filter((_, j) => j !== i))}><Icon name="close" /></button>
+                    <button aria-label={t('qaRemove')} onClick={() => setQa(qa.filter((_, j) => j !== i))}><Icon name="close" /></button>
                   </div>
                 ))}
                 <button className="set-qa-add" onClick={() => setQa([...qa, { label: '', text: '' }])}>

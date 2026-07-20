@@ -1,4 +1,5 @@
 import { t, LOCALE } from '../strings';
+import { useConfirm } from './ConfirmDialog';
 import { FloatPanel } from './FloatPanel';
 import { Icon } from './icons';
 import type { TodomioTask } from '../protocol';
@@ -21,13 +22,15 @@ function fmtDue(iso?: string): string {
 
 /** Azioni aperte da ToDoMio: completa/archivia senza lasciare il Cockpit. */
 export function TodosPanel({ todos, error, onClose, onDone, onArchive, onRefresh }: Props) {
+  const { confirm, dialog } = useConfirm();
   const actions = (
-    <button className="mini ghost btn-icon" title={t('todosRefresh')} onClick={onRefresh}>
+    <button className="mini ghost btn-icon" title={t('todosRefresh')} aria-label={t('todosRefresh')} onClick={onRefresh}>
       <Icon name="refresh" />
     </button>
   );
 
   return (
+    <>
     <FloatPanel icon="check" title={t('todosTitle')} className="doctor usage-win" onClose={onClose} actions={actions}>
       <div className="doctor-body">
         {error && <p className="doc-note">{error}</p>}
@@ -51,18 +54,18 @@ export function TodosPanel({ todos, error, onClose, onDone, onArchive, onRefresh
                 </div>
                 <button
                   className="mini ghost btn-icon"
-                  title={t('todosDoneTitle')}
+                  title={t('todosDoneTitle')} aria-label={t('todosDoneTitle')}
                   onClick={() => {
-                    if (window.confirm(t('todosDoneConfirm')(td.title))) onDone(td.id);
+                    void confirm(t('todosDoneConfirm')(td.title)).then((ok) => ok && onDone(td.id));
                   }}
                 >
                   <Icon name="check" />
                 </button>
                 <button
                   className="mini ghost btn-icon"
-                  title={t('todosArchiveTitle')}
+                  title={t('todosArchiveTitle')} aria-label={t('todosArchiveTitle')}
                   onClick={() => {
-                    if (window.confirm(t('todosArchiveConfirm')(td.title))) onArchive(td.id);
+                    void confirm({ message: t('todosArchiveConfirm')(td.title), danger: true }).then((ok) => ok && onArchive(td.id));
                   }}
                 >
                   <Icon name="folder" />
@@ -73,5 +76,7 @@ export function TodosPanel({ todos, error, onClose, onDone, onArchive, onRefresh
         )}
       </div>
     </FloatPanel>
+      {dialog}
+    </>
   );
 }

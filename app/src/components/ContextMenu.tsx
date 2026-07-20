@@ -16,6 +16,12 @@ export interface MenuState {
 
 export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
+  // Il velo nasce SOTTO il dito che ha appena fatto la pressione prolungata, e al
+  // rilascio il browser sintetizza un click su di lui: chiudere sul solo click
+  // farebbe sparire il menu nell'istante in cui appare. Chiudiamo quindi solo se
+  // anche la pressione e' iniziata sul velo — per il mouse e' sempre vero, quindi
+  // il comportamento col tasto destro resta identico.
+  const armed = useRef(false);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -25,6 +31,7 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () =>
 
   // Clamp ai bordi finestra dopo il primo render.
   useEffect(() => {
+    armed.current = false; // ogni apertura riparte disarmata
     const el = ref.current;
     if (!el) return;
     const r = el.getBoundingClientRect();
@@ -34,7 +41,12 @@ export function ContextMenu({ menu, onClose }: { menu: MenuState; onClose: () =>
 
   return (
     <>
-      <div className="ctx-backdrop" onClick={onClose} onContextMenu={(e) => (e.preventDefault(), onClose())} />
+      <div
+        className="ctx-backdrop"
+        onPointerDown={() => (armed.current = true)}
+        onClick={() => armed.current && onClose()}
+        onContextMenu={(e) => (e.preventDefault(), onClose())}
+      />
       <div ref={ref} className="ctx-menu" style={{ left: menu.x, top: menu.y }}>
         {menu.items.map((it, i) => (
           <button

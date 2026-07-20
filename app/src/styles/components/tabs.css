@@ -34,16 +34,37 @@
     overscroll-behavior-x: contain;
   }
 
-  .tab {
+  /* Il guscio della scheda: bottone-etichetta + pin + chiusura come FRATELLI
+     (un <button> dentro un <button> e' HTML non valido). `flex: none` sta qui
+     e non piu' sul bottone, perche' ora l'elemento della striscia scorrevole
+     e' il guscio: senza, le schede si comprimerebbero invece di scorrere. */
+  .tab-wrap {
     position: relative;
     display: inline-flex;
     flex: none;
     align-items: center;
-    gap: var(--sp-3);
-    padding: var(--sp-3) var(--sp-5);
-    border: none;
     border-bottom: var(--sp-1) solid transparent;
     border-radius: var(--r-2) var(--r-2) 0 0;
+    transition: background var(--dur-1) var(--ease-out);
+  }
+
+  /* Il fondo e la sottolineatura corallo stanno sul guscio: sul solo bottone
+     si fermerebbero prima del pin e della chiusura. */
+  .tab-wrap.on {
+    background: var(--surface-base);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-5);
+    /* <button> vero: senza `background: none` il browser mette ButtonFace
+       grigio su ogni scheda non attiva (.tab.on un fondo ce l'ha gia'). */
+    background: none;
+    border: none;
     color: var(--text-3);
     font-family: var(--font-sans);
     font-size: var(--fs-sm);
@@ -61,8 +82,6 @@
   /* La scheda attiva scende al valore del contenuto che comanda: e' il pannello
      sottostante che risale nella barra, non un riquadro appiccicato sopra. */
   .tab.on {
-    background: var(--surface-base);
-    border-bottom-color: var(--accent);
     color: var(--text-1);
   }
 
@@ -205,6 +224,10 @@
      aree espanse che si sovrappongono farebbero vincere l'ultima nel DOM — un
      tocco sulla puntina chiuderebbe la sessione. */
   @media (pointer: coarse) {
+    .tab-wrap {
+      min-height: var(--tap-min);
+    }
+
     .tab {
       min-height: var(--tap-min);
       padding-block: 0;

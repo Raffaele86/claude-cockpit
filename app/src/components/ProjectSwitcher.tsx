@@ -54,35 +54,29 @@ export function ProjectSwitcher({ projects, active, busy, onSelect, onAdd, onRem
     <nav className="rail" style={width ? { width } : undefined}>
       <div className="rail-section">{t('projectsSection')}</div>
       {projects.map((p) => (
-        <div
-          key={p.path}
-          className={`rail-item ${p.path === active ? 'on' : ''}`}
-          onClick={() => onSelect(p.path)}
-          title={p.path}
-        >
-          <span className="rail-icon">
-            <ProjectIcon icon={p.icon} color={p.color} />
-          </span>
-          <span className="rail-name">{p.name}</span>
-          {busy[p.path] && <span className="rail-busy" />}
+        <div key={p.path} className={`rail-row ${p.path === active ? 'on' : ''}`}>
           <button
+            type="button"
+            className={`rail-item ${p.path === active ? 'on' : ''}`}
+            onClick={() => onSelect(p.path)}
+            title={p.path}
+            aria-current={p.path === active ? 'true' : undefined}
+          >
+            <span className="rail-icon">
+              <ProjectIcon icon={p.icon} color={p.color} />
+            </span>
+            <span className="rail-name">{p.name}</span>
+            {busy[p.path] && <span className="rail-busy" />}
+          </button>
+          <button
+            type="button"
             className="rail-x rail-pencil"
-            title={t('editProject')}
-            onClick={(e) => {
-              e.stopPropagation();
-              startEdit(p);
-            }}
+            title={t('editProject')} aria-label={t('editProject')}
+            onClick={() => startEdit(p)}
           >
             <Icon name="pencil" size={12} />
           </button>
-          <button
-            className="rail-x"
-            title={t('removeFromList')}
-            onClick={(e) => {
-              e.stopPropagation();
-              onRemove(p.path);
-            }}
-          >
+          <button type="button" className="rail-x" title={t('removeFromList')} aria-label={t('removeFromList')} onClick={() => onRemove(p.path)}>
             ×
           </button>
         </div>
@@ -96,7 +90,7 @@ export function ProjectSwitcher({ projects, active, busy, onSelect, onAdd, onRem
               <button
                 key={ic}
                 className={ic === icon ? 'mini on btn-icon' : 'mini ghost btn-icon'}
-                title={ic}
+                title={ic} aria-label={ic}
                 onClick={() => setIcon(ic)}
               >
                 <Icon name={ic} size={13} />

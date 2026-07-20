@@ -1,0 +1,190 @@
+/* Schermata di accesso da browser e dialogo di conferma.
+ *
+ * Sostituiscono prompt(), confirm() e alert() nativi. Il guadagno non e' estetico:
+ * il prompt del browser era la PRIMA schermata del Cockpit dal telefono e non
+ * poteva ne' spiegare dove si prende il token ne' dire che quello inserito era
+ * sbagliato; il confirm nativo su Android compare in cima allo schermo, cioe' il
+ * piu' lontano possibile dal pollice, su un bottone che conferma qualcosa di
+ * irreversibile e si chiama "OK".
+ */
+
+@layer components {
+  /* ---- Accesso ---- */
+
+  .authgate {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100dvh;
+    padding: var(--sp-6);
+    padding-top: max(var(--sp-6), var(--safe-t));
+    padding-bottom: max(var(--sp-6), var(--safe-b));
+    background: var(--surface-base);
+  }
+
+  .authgate-card {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--sp-5);
+    width: 100%;
+    max-width: 34ch;
+  }
+
+  .authgate-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: var(--sp-10);
+    height: var(--sp-10);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-2);
+    color: var(--accent);
+  }
+
+  .authgate-title {
+    margin: 0;
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-xl);
+    font-weight: 600;
+    line-height: var(--lh-tight);
+  }
+
+  .authgate-hint {
+    margin: 0;
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    line-height: var(--lh-ui);
+  }
+
+  .authgate-err {
+    margin: 0;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--banner-err-bg);
+    border: 1px solid var(--banner-err-line);
+    border-radius: var(--r-2);
+    color: var(--banner-err-fg);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-ui);
+  }
+
+  /* Il token e' un dato: mono, e --fs-lg perche' sotto i 16px Android e iOS
+     zoomano il viewport appena il campo prende il fuoco. */
+  .authgate-input {
+    width: 100%;
+    min-height: var(--tap-min);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-sunken);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-1);
+    color: var(--text-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-lg);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    letter-spacing: var(--tr-data);
+  }
+
+  .authgate-input::placeholder {
+    color: var(--text-faint);
+  }
+
+  .authgate-input:focus-visible {
+    border-color: var(--accent-line);
+    outline: var(--sp-1) solid var(--accent);
+    /* anello all'INTERNO: il campo e' un pozzo, e un anello esterno verrebbe
+       tagliato dal bordo della carta */
+    outline-offset: calc(var(--sp-1) * -1);
+  }
+
+  .authgate-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+  }
+
+  .authgate-actions .mini {
+    min-height: var(--tap-min);
+  }
+
+  .authgate-note {
+    margin: 0;
+    /* Un percorso in mono non ha punti di spezzatura naturali: senza questo
+       ~/.claude-cockpit/token sborda dalla scheda invece di andare a capo. */
+    overflow-wrap: anywhere;
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    line-height: var(--lh-mono);
+  }
+
+  /* ---- Conferma ---- */
+
+  .confirm-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    /* In basso e non al centro: su un telefono il pollice arriva li'. */
+    align-items: flex-end;
+    justify-content: center;
+    padding: var(--sp-6);
+    padding-bottom: max(var(--sp-6), var(--safe-b));
+    background: var(--scrim);
+    z-index: var(--z-modal);
+  }
+
+  .confirm-modal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-6);
+    width: 100%;
+    max-width: 44ch;
+    padding: var(--sp-6);
+    background: var(--surface-overlay);
+    border-radius: var(--r-3);
+    box-shadow: var(--ring);
+  }
+
+  .confirm-msg {
+    margin: 0;
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    line-height: var(--lh-ui);
+  }
+
+  .confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--sp-4);
+  }
+
+  .confirm-actions .mini {
+    min-height: var(--tap-min);
+    padding: var(--sp-2) var(--sp-6);
+  }
+
+  /* Distruttiva: rossa, non corallo. L'accento e' riservato all'azione primaria,
+     e "uccidi il processo" non e' l'azione che si vuole invitare a premere. */
+  .c-danger {
+    background: var(--err);
+    border: 1px solid var(--err);
+    color: var(--on-accent);
+    font-weight: 600;
+  }
+
+  .c-danger:hover {
+    background: var(--diff-del-fg);
+    border-color: var(--diff-del-fg);
+  }
+
+  @media (min-width: 768px) {
+    .confirm-overlay {
+      align-items: center;
+    }
+  }
+}

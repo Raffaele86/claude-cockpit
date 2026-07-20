@@ -8,9 +8,13 @@ import { Composer } from './components/Composer';
 import { TodoPanel } from './components/TodoPanel';
 import { PermissionPrompt } from './components/PermissionPrompt';
 import { AccessoryKeys } from './components/AccessoryKeys';
+import { AuthGate } from './components/AuthGate';
 import { DesktopLayout } from './layouts/DesktopLayout';
 import { MobileLayout } from './layouts/MobileLayout';
 import { useLayoutMode } from './useLayoutMode';
+import { USING_SHIM } from './browser-shim';
+
+
 import { ProjectSwitcher } from './components/ProjectSwitcher';
 import { QuickActions } from './components/QuickActions';
 import { TerminalPanel } from './components/Terminal';
@@ -100,6 +104,10 @@ export function App() {
   /* Quale foglio e' aperto sul telefono. Sul desktop non esiste: la, progetti e
      schede stanno a schermo in permanenza e c'e' spazio per tenerceli. */
   const [sheet, setSheet] = useState<'projects' | 'files' | 'side' | null>(null);
+  /* Nessun token in localStorage, oppure l'engine l'ha rifiutato: si mostra la
+     schermata di accesso al posto dell'app. In Electron non capita — la' il
+     token lo passa il processo principale. */
+  const [auth, setAuth] = useState<null | 'missing' | 'rejected'>(null);
   const { mode } = useLayoutMode();
   const isPhone = mode === 'phone';
   const [viewer, setViewer] = useState<ViewerState | null>(null);
@@ -323,22 +331,31 @@ export function App() {
   );
 
   // Trascinamento del bordo destro della rail (desktop): larghezza persistita.
-  const startRailResize = useCallback((e: React.MouseEvent) => {
+  const startRailResize = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
+    const handle = e.currentTarget;
     const startX = e.clientX;
     const startW = Number(localStorage.getItem('cockpit-rail-w')) || 200;
-    const onMove = (ev: MouseEvent) => {
-      const w = Math.min(480, Math.max(140, startW + ev.clientX - startX));
-      setRailW(w);
+    let lastW = Math.min(480, Math.max(140, startW));
+    const onMove = (ev: PointerEvent) => {
+      lastW = Math.min(480, Math.max(140, startW + ev.clientX - startX));
+      setRailW(lastW);
     };
-    const onUp = (ev: MouseEvent) => {
-      const w = Math.min(480, Math.max(140, startW + ev.clientX - startX));
-      localStorage.setItem('cockpit-rail-w', String(w));
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
+    // Un solo terminatore: lostpointercapture arriva DOPO pointerup e
+    // pointercancel, ma anche quando il capture cade da solo (maniglia nascosta
+    // sotto i 768px a meta' gesto). Ascoltare solo up/cancel lasciava il
+    // listener di move attaccato alla maniglia, che a differenza della finestra
+    // resta montata: i gesti successivi ne accumulavano uno per volta.
+    const onEnd = () => {
+      localStorage.setItem('cockpit-rail-w', String(lastW));
+      handle.removeEventListener('pointermove', onMove);
+      handle.removeEventListener('lostpointercapture', onEnd);
     };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
+    // Il capture ridirige i move sulla maniglia anche fuori dai suoi bordi:
+    // niente listener su window da rimuovere a mano.
+    handle.setPointerCapture(e.pointerId);
+    handle.addEventListener('pointermove', onMove);
+    handle.addEventListener('lostpointercapture', onEnd);
   }, []);
 
   const decide = useCallback((requestId: string, decision: PermissionDecision, updatedInput?: Record<string, unknown>) => {
@@ -715,15 +732,20 @@ export function App() {
   );
 
   useEffect(() => {
-    const c = new CockpitClient((s) => {
-      if (s === 'disconnected') wasDisconnected.current = true;
-      setConn(s);
-    }, handle);
+    const c = new CockpitClient(
+      (s) => {
+        if (s === 'disconnected') wasDisconnected.current = true;
+        setConn(s);
+      },
+      handle,
+      () => setAuth('rejected'),
+    );
     client.current = c;
     let cancelled = false;
     window.cockpit.getToken().then((token) => {
       if (cancelled) return;
       if (token) c.start(token);
+      else if (USING_SHIM) setAuth('missing');
       else setEngineError(t('tokenNotFound'));
     });
     return () => {
@@ -1255,10 +1277,10 @@ export function App() {
             {view !== 'chat' ? t('cliNewChat') : t('newChat')}
           </button>
         )}
-        <button className="mini ghost" title={t('cpOpenTitle')} onClick={() => setPaletteOpen(true)}>
+        <button className="mini ghost" title={t('cpOpenTitle')} aria-label={t('cpOpenTitle')} onClick={() => setPaletteOpen(true)}>
           <kbd className="kbd-chip">⌘K</kbd>
         </button>
-        <button className={`has-badge btn-icon ${inboxOpen ? 'mini on' : 'mini ghost'}`} title={t('inboxOpen')} onClick={() => setInboxOpen((o) => !o)}>
+        <button className={`has-badge btn-icon ${inboxOpen ? 'mini on' : 'mini ghost'}`} title={t('inboxOpen')} aria-label={t('inboxOpen')} onClick={() => setInboxOpen((o) => !o)}>
           <Icon name="inbox" />
           {busyCount > 0 && <span className="badge-busy">{busyCount}</span>}
         </button>
@@ -1284,7 +1306,7 @@ export function App() {
         <Icon name="chevron-down" size={11} />
       </button>
       <div className="status">
-        <button className={`has-badge btn-icon ${inboxOpen ? 'mini on' : 'mini ghost'}`} title={t('inboxOpen')} onClick={() => setInboxOpen((o) => !o)}>
+        <button className={`has-badge btn-icon ${inboxOpen ? 'mini on' : 'mini ghost'}`} title={t('inboxOpen')} aria-label={t('inboxOpen')} onClick={() => setInboxOpen((o) => !o)}>
           <Icon name="inbox" />
           {busyCount > 0 && <span className="badge-busy">{busyCount}</span>}
         </button>
@@ -1309,7 +1331,7 @@ export function App() {
           <button className="mini ghost" onClick={() => setDoctorOpen(true)}>
             {t('docOpen')}
           </button>
-          <button className="mini ghost btn-icon" onClick={() => setEngineError(null)}>
+          <button className="mini ghost btn-icon" aria-label={t('close')} onClick={() => setEngineError(null)}>
             <Icon name="close" />
           </button>
         </div>
@@ -1392,7 +1414,10 @@ export function App() {
           />
         </Suspense>
       )}
-      {req && <PermissionPrompt req={req} onDecide={(d, input) => decide(req.requestId, d, input)} />}
+      {/* key sulla richiesta: quando ne subentra un'altra (coda, o cambio scheda con
+          due prompt pendenti) il dialogo va rimontato, altrimenti resta con il JSON e
+          lo stato "modifica" della richiesta precedente — e il fuoco non ci rientra. */}
+      {req && <PermissionPrompt key={req.requestId} req={req} onDecide={(d, input) => decide(req.requestId, d, input)} />}
     </>
   );
 
@@ -1528,6 +1553,7 @@ export function App() {
               <button
                 className={`cli-mic ${cliDict.state}`}
                 title={cliDict.state === 'busy' ? t('micTranscribing') : t('dictateTitle')}
+                aria-label={cliDict.state === 'busy' ? t('micTranscribing') : t('dictateTitle')}
                 onClick={() => void cliDict.toggle()}
               >
                 {cliDict.state === 'recording' ? <Icon name="record" /> : cliDict.state === 'busy' ? <Icon name="spinner" className="spin" /> : <Icon name="mic" />}
@@ -1535,7 +1561,7 @@ export function App() {
               {cliDict.msg && (
                 <div className="cli-mic-msg">
                   {cliDict.msg}
-                  <button onClick={() => cliDict.setMsg(null)}><Icon name="close" size={12} /></button>
+                  <button aria-label={t('close')} onClick={() => cliDict.setMsg(null)}><Icon name="close" size={12} /></button>
                 </div>
               )}
             </div>
@@ -1570,7 +1596,9 @@ export function App() {
             }}
           />
           {conn === 'authed' && view === 'chat' && (
-            <div className="statusline">
+            // polite e non atomic: a fine turno cambiano ctx/costo/sessione e il
+            // lettore di schermo annuncia solo quelli, senza rileggere tutta la riga.
+            <div className="statusline" aria-live="polite">
               <span title={activeProject}><Icon name="folder" size={12} /> {shortOf(activeKey)}</span>
               {active.branch && <span><Icon name="branch" size={12} /> {active.branch}</span>}
               {active.model && <span>{active.model}</span>}
@@ -1634,6 +1662,19 @@ export function App() {
           />
     </>
   );
+
+  if (auth) {
+    return (
+      <AuthGate
+        rejected={auth === 'rejected'}
+        onToken={(tok) => {
+          localStorage.setItem('cockpit-token', tok);
+          setAuth(null);
+          client.current?.start(tok);
+        }}
+      />
+    );
+  }
 
   if (!isPhone) {
     return (

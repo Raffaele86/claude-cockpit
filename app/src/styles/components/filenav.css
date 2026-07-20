@@ -288,4 +288,28 @@
       color: var(--accent);
     }
   }
+
+  /* Bottone di overflow per riga, SOLO su puntatore grossolano. La pressione
+     prolungata apre lo stesso menu, ma nessuno la scopre da solo: senza un
+     bersaglio visibile il menu contestuale resta di fatto irraggiungibile dal
+     telefono, che e' esattamente com'era prima. */
+  .fnav-more {
+    display: none;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    border-radius: var(--r-1);
+    color: var(--text-3);
+    cursor: pointer;
+  }
+
+  @media (pointer: coarse) {
+    .fnav-more {
+      display: inline-flex;
+      min-width: var(--tap-min);
+      min-height: var(--tap-min);
+    }
+  }
 }

@@ -54,4 +54,6 @@
 @import './components/palette.css';
 @import './components/panels.css';
 @import './components/permission.css';
+/* Accesso da browser e dialogo di conferma: sostituiscono prompt/confirm/alert. */
+@import './components/dialogs.css';
 @import './components/mcp.css';

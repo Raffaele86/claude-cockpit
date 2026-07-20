@@ -54,10 +54,10 @@ export function McpStatus({ servers, op, importMsg, onRefresh, onAdd, onRemove, 
           </span>
           <span className="tchevron"><Icon name={open ? 'chevron-down' : 'chevron-right'} size={12} /></span>
         </button>
-        <button className="mcp-refresh" title={t('refresh')} onClick={onRefresh}>
+        <button className="mcp-refresh" title={t('refresh')} aria-label={t('refresh')} onClick={onRefresh}>
           <Icon name="refresh" size={13} />
         </button>
-        <button className="mcp-refresh" title={t('mcpAddTitle')} onClick={() => { setOpen(true); setAdding((a) => !a); }}>
+        <button className="mcp-refresh" title={t('mcpAddTitle')} aria-label={t('mcpAddTitle')} onClick={() => { setOpen(true); setAdding((a) => !a); }}>
           ＋
         </button>
       </div>
@@ -72,10 +72,10 @@ export function McpStatus({ servers, op, importMsg, onRefresh, onAdd, onRemove, 
                 <button className="mcp-rm danger" disabled={op.busy} onClick={() => onRemove(s.name)}>
                   {op.busy ? '…' : t('mcpConfirmRemove')}
                 </button>
-                <button className="mcp-rm" onClick={() => setConfirmRm(null)}><Icon name="close" /></button>
+                <button className="mcp-rm" aria-label={t('cancel')} onClick={() => setConfirmRm(null)}><Icon name="close" /></button>
               </>
             ) : (
-              <button className="mcp-rm" title={t('mcpRemoveTitle')} onClick={() => setConfirmRm(s.name)}>
+              <button className="mcp-rm" title={t('mcpRemoveTitle')} aria-label={t('mcpRemoveTitle')} onClick={() => setConfirmRm(s.name)}>
                 <Icon name="close" />
               </button>
             )}

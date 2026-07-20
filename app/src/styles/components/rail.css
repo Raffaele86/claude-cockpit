@@ -37,13 +37,45 @@
 
   /* ---- Riga di progetto ---- */
 
+  /* E' un <button> vero: senza questo azzeramento arrivano dal browser il fondo
+     grigio (ButtonFace), il bordo outset e il testo centrato. */
+  /* La riga contiene il bottone-etichetta e le azioni come FRATELLI: un
+     <button> dentro un <button> e' HTML non valido e il browser lo srotola.
+     L'evidenziazione sta qui e non sul bottone, altrimenti la pillola si
+     fermerebbe prima della matita e della ×. */
+  .rail-row {
+    position: relative;
+    display: flex;
+    align-items: center;
+    border-radius: var(--r-2);
+    transition: background var(--dur-1) var(--ease-out);
+  }
+
+  .rail-row:hover {
+    background: var(--hover);
+  }
+
+  .rail-row:active {
+    background: var(--press);
+  }
+
+  /* Selezione attiva: e' l'unico corallo ammesso in questa colonna. */
+  .rail-row.on {
+    background: var(--accent-wash);
+  }
+
   .rail-item {
     position: relative;
+    flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
     gap: var(--sp-4);
     padding: var(--sp-3) var(--sp-4);
+    background: none;
+    border: none;
     border-radius: var(--r-2);
+    text-align: left;
     font-family: var(--font-sans);
     font-size: var(--fs-md);
     line-height: var(--lh-ui);
@@ -52,18 +84,8 @@
     transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
   }
 
-  .rail-item:hover {
-    background: var(--hover);
-    color: var(--text-1);
-  }
-
-  .rail-item:active {
-    background: var(--press);
-  }
-
-  /* Selezione attiva: e' l'unico corallo ammesso in questa colonna. */
+  .rail-row:hover .rail-item,
   .rail-item.on {
-    background: var(--accent-wash);
     color: var(--text-1);
   }
 
@@ -123,7 +145,7 @@
 
   /* Il focus da tastiera le rivela: altrimenti tabulando si finisce su un
      bottone invisibile. */
-  .rail-item:hover .rail-x,
+  .rail-row:hover .rail-x,
   .rail-x:focus-visible {
     opacity: 1;
   }
@@ -224,6 +246,9 @@
     width: 1px;
     background: var(--line);
     cursor: col-resize;
+    /* Il ridimensionamento e' su pointer events: senza questo il dito farebbe
+       scorrere la pagina invece di muovere la maniglia. */
+    touch-action: none;
     transition: background var(--dur-1) var(--ease-out);
   }
 
@@ -303,7 +328,9 @@
       display: none;
     }
 
-    .rail-item {
+    /* Nella striscia orizzontale l'elemento flex e' la RIGA, non piu' il
+       bottone: senza flex: none qui i progetti si comprimerebbero. */
+    .rail-row {
       flex: none;
     }
 

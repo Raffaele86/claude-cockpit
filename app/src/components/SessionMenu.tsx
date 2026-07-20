@@ -60,7 +60,7 @@ export function SessionMenu({ ctl, providers, onOpen, children }: Props) {
         <div className="smenu-pop">
           <div className="smenu-head">
             <span className="smenu-title">{t('smTitle')}</span>
-            <button className="mini ghost btn-icon" onClick={() => setOpen(false)}>
+            <button className="mini ghost btn-icon" aria-label={t('close')} onClick={() => setOpen(false)}>
               <Icon name="close" size={13} />
             </button>
           </div>
