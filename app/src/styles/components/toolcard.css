@@ -1,0 +1,249 @@
+/* Schede strumento e diff.
+ *
+ * Il contenuto di uno strumento e' output di macchina: mono su --surface-sunken.
+ * La scheda vive nel flusso della chat (--surface-base) e sta su --surface-raised:
+ * superficie diversa = nessun bordo, l'elevazione la fa il valore del fondo.
+ */
+
+@layer components {
+  .tool-card {
+    align-self: center;
+    width: 100%;
+    /* La scheda contiene mono, non prosa, ma condivide la colonna della chat:
+       usa la stessa misura cosi' non balla rispetto ai turni che la circondano. */
+    max-width: var(--col-prose);
+    background: var(--surface-raised);
+    border-radius: var(--r-2);
+    /* Clip necessario: la velatura di stato sulla testa e' un rettangolo pieno
+       che senza questo sborderebbe dagli angoli tondi. */
+    overflow: hidden;
+  }
+
+  /* Lo stato e' leggibile a colpo d'occhio dal telefono grazie alla velatura
+     sulla testa, non a un filo da 1px che a quella distanza non esiste. */
+  .tool-card.running .tool-head {
+    background: var(--busy-dim);
+  }
+
+  .tool-card.error .tool-head {
+    background: var(--err-dim);
+  }
+
+  .tool-head {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    width: 100%;
+    padding: var(--sp-4) var(--sp-5);
+    border: none;
+    background: transparent;
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    line-height: var(--lh-ui);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out);
+  }
+
+  .tool-head:hover {
+    background: var(--hover);
+  }
+
+  .tool-head:active {
+    background: var(--press);
+  }
+
+  .tstatus {
+    flex: none;
+    width: var(--sp-4);
+    height: var(--sp-4);
+    border-radius: var(--r-full);
+    /* Fondo di riposo: significa "stato non dichiarato". Se un pallino resta
+       grigio e' un bug del modello, non un esito — e si vede subito. --text-3 e
+       non --text-faint: un pallino e' un oggetto grafico e deve reggere il 3:1,
+       stesso scalino di .dot e .session-cat-dot. */
+    background: var(--text-3);
+  }
+
+  /* "done" e' il valore che emette ToolCard.tsx, ok/completed arrivano dagli
+     altri pannelli che riusano lo stesso pallino: stesso esito, stesso verde. */
+  .tstatus.done,
+  .tstatus.ok,
+  .tstatus.completed {
+    background: var(--ok);
+  }
+
+  .tstatus.running,
+  .tstatus.in_progress {
+    background: var(--busy);
+  }
+
+  .tstatus.bad,
+  .tstatus.error {
+    background: var(--err);
+  }
+
+  .tsummary {
+    flex: 1;
+    /* Senza questo un figlio flex non scende sotto il proprio contenuto e
+       l'ellissi non scatta mai: percorsi e comandi lunghi sfondano la scheda. */
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+  }
+
+  .tool-body {
+    display: grid;
+    gap: var(--sp-4);
+    padding: var(--sp-4) var(--sp-5);
+    border-top: 1px solid var(--line);
+  }
+
+  /* L'input e' il promemoria di cosa e' stato chiesto, il risultato e' la cosa
+     che si legge davvero: stessa scatola, due livelli di testo. */
+  .tool-input {
+    margin: 0;
+    padding: var(--sp-4);
+    background: var(--surface-sunken);
+    border-radius: var(--r-1);
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    line-height: var(--lh-mono);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    white-space: pre-wrap;
+    word-break: break-word;
+    /* Tetto relativo al viewport e non fisso: 260px su un S23 mangiavano meta'
+       schermo, sul desktop sprecavano spazio. */
+    max-height: 40vh;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .tool-result {
+    margin: 0;
+    padding: var(--sp-4);
+    background: var(--surface-sunken);
+    border-radius: var(--r-1);
+    color: var(--text-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    line-height: var(--lh-mono);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 40vh;
+    overflow: auto;
+    overscroll-behavior: contain;
+  }
+
+  .tool-result.error {
+    color: var(--banner-err-fg);
+  }
+
+  .diff-block {
+    display: grid;
+    gap: var(--sp-2);
+  }
+
+  .diff-header {
+    color: var(--text-3);
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    /* Peso 600 e --lh-tight: stessa voce di .rail-section e degli altri
+       maiuscoletti di sezione, che non sono righe di testo ma etichette. */
+    font-weight: 600;
+    line-height: var(--lh-tight);
+    text-transform: uppercase;
+    letter-spacing: var(--tr-label);
+  }
+
+  .diff {
+    margin: 0;
+    padding-block: var(--sp-2);
+    background: var(--surface-sunken);
+    border-radius: var(--r-1);
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    line-height: var(--lh-mono);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+
+  .diff-row {
+    display: flex;
+    padding-inline: var(--sp-3);
+    white-space: pre;
+    /* La velatura di riga deve coprire anche la parte che sta fuori dalla
+       finestra di scorrimento: senza max-content si taglia al bordo visibile e
+       una riga aggiunta lunga sembra meta' verde e meta' no. */
+    min-width: max-content;
+  }
+
+  .diff-row .gutter {
+    flex: none;
+    padding-inline-end: var(--sp-3);
+    color: var(--diff-gutter);
+    user-select: none;
+  }
+
+  .diff-row.add {
+    background: var(--diff-add-bg);
+  }
+
+  .diff-row.add .line {
+    color: var(--diff-add-fg);
+  }
+
+  .diff-row.del {
+    background: var(--diff-del-bg);
+  }
+
+  .diff-row.del .line {
+    color: var(--diff-del-fg);
+  }
+
+  /* Gli esiti della lista todo (.todo-item.completed/.in_progress) e le spie di
+     Doctor/System (.doc-conn, .doc-dot, .sys-svc-dot) stanno in panels.css,
+     accanto alle loro basi. Erano dichiarati anche qui e, poiche' panels.css e'
+     importato DOPO toolcard.css, questo blocco non aveva alcun effetto: era una
+     gara silenziosa vinta dall'ordine degli import. Il conflitto vero era su
+     .todo-item.completed .todo-text, dove i due file dicevano --text-3 e
+     --text-faint: vince --text-3, perche' una voce fatta resta informazione (e
+     nel cassetto su --surface-overlay --text-faint sarebbe illeggibile). */
+
+  @media (max-width: 767px) {
+    .tool-card {
+      /* Sul telefono la colonna e' gia' il viewport: centrare e limitare
+         toglierebbe soltanto larghezza a testo che ne ha bisogno. */
+      max-width: none;
+    }
+
+    .tool-head,
+    .tool-body {
+      padding-inline: var(--sp-4);
+    }
+  }
+
+  @media (pointer: coarse) {
+    .tool-head {
+      min-height: var(--tap-min);
+    }
+  }
+}

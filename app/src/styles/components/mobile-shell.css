@@ -1,0 +1,292 @@
+/* Guscio del layout telefono: barra in alto compatta, barra in basso, fogli,
+ * tasti accessori del terminale.
+ *
+ * Queste classi NON esistono nel layout desktop — sono l'albero alternativo, non
+ * lo stesso albero con delle toppe. Vivono comunque dentro una media query di
+ * larghezza perche' se si allarga la finestra il ramo React cambia e questi nodi
+ * spariscono: la query e' una cintura di sicurezza, non il meccanismo.
+ */
+
+@layer layout {
+  /* ---- Struttura ---- */
+
+  .app-mobile {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  /* Il contenuto si prende tutto lo spazio che resta. min-height:0 e'
+     obbligatorio: senza, un figlio che scorre (terminale, chat) sfonda il
+     contenitore flex invece di scorrere al suo interno. */
+  .mobile-main {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+  }
+
+  /* ---- Barra in alto: una riga di comandi + una riga sottile di stato ---- */
+
+  .topbar-mobile {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--sp-4);
+    padding: calc(var(--safe-t) + var(--sp-3)) var(--sp-5) var(--sp-3);
+    padding-left: max(var(--sp-5), var(--safe-l));
+    padding-right: max(var(--sp-5), var(--safe-r));
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--line);
+    /* niente trascinamento finestra: qui non c'e' una finestra */
+    -webkit-app-region: no-drag;
+  }
+
+  /* Il progetto e' un bersaglio, non un'etichetta: apre il foglio con progetti
+     e schede — cioe' due delle tre barre che prima stavano sempre a schermo. */
+  .mtop-proj {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-3);
+    min-width: 0;
+    min-height: var(--tap-min);
+    padding: var(--sp-2) var(--sp-3);
+    margin-left: calc(var(--sp-3) * -1);
+    background: none;
+    border: none;
+    border-radius: var(--r-2);
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    cursor: pointer;
+  }
+
+  .mtop-proj:active {
+    background: var(--press);
+  }
+
+  .mtop-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-1);
+    font-weight: 600;
+  }
+
+  /* Seconda riga: modello e sforzo. Prima erano display:none sotto gli 840px —
+     il controllo che serve di piu' da fuori casa era l'unico irraggiungibile. */
+  .mtop-status {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    margin-top: var(--sp-2);
+  }
+
+  /* ---- Barra in basso: zona del pollice ---- */
+
+  .bottombar {
+    display: grid;
+    grid-auto-flow: column;
+    /* minmax(0, 1fr) e non 1fr: `1fr` vale `minmax(auto, 1fr)`, quindi la voce
+       con l'etichetta piu' lunga si allarga oltre la sua colonna invece di
+       stringersi, e l'ultima finisce contro il bordo dello schermo. */
+    grid-auto-columns: minmax(0, 1fr);
+    align-items: stretch;
+    background: var(--surface-raised);
+    border-top: 1px solid var(--line);
+    /* In orizzontale il notch mangia i bordi: senza questo la prima e l'ultima
+       voce finiscono sotto la cornice dello schermo. */
+    padding: 0 var(--safe-r) var(--safe-b) var(--safe-l);
+    z-index: var(--z-sticky);
+  }
+
+  .bottombar-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-1);
+    min-height: var(--h-bar-touch);
+    padding: var(--sp-3) var(--sp-2);
+    background: none;
+    border: none;
+    color: var(--text-3);
+    font-family: var(--font-sans);
+    font-size: var(--fs-micro);
+    line-height: var(--lh-tight);
+    cursor: pointer;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  .bottombar-item.on {
+    color: var(--accent);
+  }
+
+  .bottombar-item:active {
+    background: var(--press);
+  }
+
+  .bottombar-icon {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .bottombar-badge {
+    position: absolute;
+    top: calc(var(--sp-2) * -1);
+    right: calc(var(--sp-3) * -1);
+    min-width: var(--sp-6);
+    padding: 0 var(--sp-2);
+    border-radius: var(--r-full);
+    background: var(--busy);
+    color: var(--on-accent);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    line-height: var(--sp-6);
+    text-align: center;
+  }
+
+  /* Cinque voci su 360px lasciano ~72px a testa: l'etichetta piu' lunga deve
+     poter rimpicciolire invece di sbordare. */
+  .bottombar-label {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: min(var(--fs-micro), 3.2vw);
+  }
+
+  /* ---- Fogli dal basso ---- */
+
+  .sheet-backdrop {
+    position: fixed;
+    inset: 0;
+    background: var(--scrim);
+    z-index: var(--z-scrim);
+  }
+
+  .sheet {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    /* Non a tutto schermo: lasciare scoperto un lembo di app dice da dove sei
+       arrivato e rende ovvio che si chiude toccando sopra. Il minimo evita che
+       un foglio con poco dentro (nessun progetto, nessun todo) si presenti come
+       una striscia di due centimetri che sembra un errore di resa. */
+    min-height: 32dvh;
+    max-height: 82dvh;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-overlay);
+    border-top: 1px solid var(--line-strong);
+    border-radius: var(--r-3) var(--r-3) 0 0;
+    padding-bottom: var(--safe-b);
+    z-index: var(--z-drawer);
+  }
+
+  .sheet-bar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    gap: var(--sp-4);
+    padding: var(--sp-4) var(--sp-5);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .sheet-grip {
+    width: var(--sp-8);
+    height: var(--sp-1);
+    border-radius: var(--r-full);
+    background: var(--line-strong);
+  }
+
+  .sheet-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    font-weight: 600;
+  }
+
+  .sheet-close {
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
+    justify-self: end;
+  }
+
+  .sheet-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    /* il foglio non trascina con se' lo scorrimento della pagina sotto */
+    overscroll-behavior: contain;
+    padding: var(--sp-4) 0;
+  }
+
+  /* Dentro il foglio la colonna progetti torna verticale: e' un elenco, non piu'
+     una striscia che deve stare stretta in cima. */
+  .sheet-body .rail {
+    width: 100%;
+    height: auto;
+    flex-direction: column;
+    border: none;
+    overflow: visible;
+  }
+
+  .sheet-body .fnav {
+    display: block;
+  }
+
+  /* ---- Tasti accessori del terminale ---- */
+
+  .acckeys {
+    display: flex;
+    gap: var(--sp-2);
+    overflow-x: auto;
+    /* la barra scorre in orizzontale senza rubare il gesto verticale */
+    touch-action: pan-x;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    padding: var(--sp-2) var(--sp-3);
+    background: var(--surface-raised);
+    border-top: 1px solid var(--line);
+  }
+
+  .acckeys::-webkit-scrollbar {
+    display: none;
+  }
+
+  .acckey {
+    flex: none;
+    min-width: var(--tap-min);
+    min-height: var(--tap-min);
+    padding: 0 var(--sp-4);
+    background: var(--surface-overlay);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-2);
+    color: var(--text-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    letter-spacing: var(--tr-data);
+    cursor: pointer;
+  }
+
+  .acckey:active {
+    background: var(--press);
+    border-color: var(--accent-line);
+  }
+
+  .acckey.wide {
+    min-width: calc(var(--tap-min) * 1.6);
+  }
+}

@@ -1,0 +1,156 @@
+/* Barra superiore — identita', sessione corrente, stato della connessione.
+ *
+ * Tre gruppi su una riga sola: .brand a sinistra, .pill-wrap elastico al centro,
+ * .status a destra. Nessun flex-wrap: una barra che cambia altezza quando il
+ * nome del progetto si allunga sposta tutto il contenuto sotto di se'.
+ */
+
+@layer components {
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    min-height: var(--h-bar);
+    padding: 0 var(--sp-6);
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--line);
+
+    /* La barra E' la maniglia della finestra Electron. I discendenti
+       interattivi si riprendono i propri eventi con no-drag, uno per uno:
+       la vecchia regola disattivava il drag sull'intera barra sotto una certa
+       larghezza, cioe' toglieva la maniglia anche a un desktop stretto. */
+    -webkit-app-region: drag;
+  }
+
+  .brand {
+    flex: 0 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    font-weight: 600;
+    line-height: var(--lh-tight);
+    color: var(--text-2);
+  }
+
+  /* Il nome del progetto attivo e' un identificatore, non un'etichetta: mono, e
+     piu' acceso del marchio che lo precede. NON corallo: nella stessa barra il
+     corallo spetta a "avvia motore" (.mini primary), e due accenti in una
+     schermata vogliono dire che uno dei due non e' l'azione primaria. */
+  .brand .proj {
+    margin-left: var(--sp-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    font-weight: 400;
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--text-1);
+  }
+
+  .pill-wrap {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    justify-content: center;
+    -webkit-app-region: no-drag;
+  }
+
+  /* Modello ed effort: i due dati che si cambiano piu' spesso, quindi mono.
+     Raggio --r-2 e non --r-full malgrado il nome: la forma a pastiglia e'
+     riservata ai pallini di stato e al FAB del microfono. */
+  .session-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-3);
+    max-width: 100%;
+    padding: var(--sp-2) var(--sp-5);
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    line-height: var(--lh-tight);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+
+  /* Il filo resta --line-strong anche sotto il puntatore: il vocabolario dei
+     fili si ferma li', e schiarire il bordo con un token di TESTO farebbe
+     leggere un controllo secondario come selezionato. Il feedback lo danno
+     --hover e il testo che sale a --text-1. */
+  .session-pill:hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  .pill-part {
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  .pill-sep {
+    color: var(--text-faint);
+  }
+
+  /* I comandi non si comprimono mai: se lo spazio manca lo cede il pill, che ha
+     l'ellissi, non il bottone che deve restare cliccabile. */
+  .status {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: var(--sp-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    color: var(--text-2);
+    -webkit-app-region: no-drag;
+  }
+
+  @media (max-width: 767px) {
+    .topbar {
+      gap: var(--sp-3);
+      /* Il notch e la status bar del telefono stanno sopra la prima barra
+         dell'app: e' questa che deve scansarli, nessun altro. */
+      padding-top: var(--safe-t);
+      padding-right: calc(var(--sp-4) + var(--safe-r));
+      padding-left: calc(var(--sp-4) + var(--safe-l));
+    }
+
+    /* "Claude Cockpit" e' rumore su uno schermo da 360px: il testo nudo dentro
+       .brand si collassa con font-size 0, mentre .proj — l'unica informazione
+       del gruppo — sopravvive perche' dichiara il proprio corpo. Senza toccare
+       il markup non c'e' altro modo di raggiungere quel nodo di testo. */
+    .brand {
+      font-size: 0;
+    }
+
+    .session-pill {
+      gap: var(--sp-2);
+      padding: var(--sp-2) var(--sp-3);
+    }
+  }
+
+  /* Bersagli, non layout: vale anche su un portatile touch a 1400px, che ha le
+     stesse dita di un telefono. */
+  @media (pointer: coarse) {
+    .topbar {
+      min-height: var(--h-bar-touch);
+    }
+
+    .session-pill {
+      min-height: var(--tap-min);
+    }
+
+    .topbar .mini {
+      min-height: var(--tap-min);
+    }
+  }
+}

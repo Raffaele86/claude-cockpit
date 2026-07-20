@@ -1,12 +1,15 @@
 {
   "name": "claude-cockpit",
-  "version": "0.34.0",
+  "version": "0.35.0",
   "private": true,
   "description": "Claude Cockpit — pilota Claude Code da un'app desktop",
   "author": "Raffaele",
   "main": "electron/main.cjs",
   "scripts": {
     "sync-protocol": "cp ../engine/src/protocol.ts src/protocol.ts",
+    "typecheck": "tsc --noEmit",
+    "css:audit": "node scripts/css-audit.mjs",
+    "css:baseline": "node scripts/css-audit.mjs --css src/theme.css --baseline",
     "dev:vite": "vite",
     "build:renderer": "vite build",
     "dist:win": "vite build && electron-builder --win --config electron-builder.yml",

@@ -1,0 +1,277 @@
+/* Terminale e sua cornice: il pannello shell in fondo alla colonna (.term-panel)
+   e il terminale a tutta area della vista CLI (.cli-wrap), piu' i controlli che
+   ci galleggiano sopra (riavvio, microfono, messaggi di dettatura).
+   Il fondo e' sempre --surface-sunken: il terminale e' un pozzo, non un pannello. */
+
+@layer components {
+  /* ---- Pannello shell ---- */
+
+  .term-panel {
+    /* Il 40vh e' il vero vincolo: a 320px fissi, sul telefono con la tastiera
+       aperta il pannello mangiava tutta la chat che sta sopra. */
+    height: min(320px, 40vh);
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    background: var(--surface-sunken);
+    border-top: 1px solid var(--line);
+  }
+
+  .term-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    padding: var(--sp-2) var(--sp-5);
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--line);
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-ui);
+  }
+
+  /* Il contenuto della barra e' "terminale · shell · <percorso>": un
+     identificatore, non un'etichetta. Mono. */
+  .term-bar > span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+  }
+
+  .term-bar-actions {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: var(--sp-3);
+  }
+
+  .term-bar-actions button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--sp-2) var(--sp-5);
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-2);
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-ui);
+    cursor: pointer;
+    transition:
+      color var(--dur-1) var(--ease-out),
+      background var(--dur-1) var(--ease-out),
+      border-color var(--dur-1) var(--ease-out);
+  }
+
+  .term-bar-actions button:hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  .term-bar-actions button:active {
+    background: var(--press);
+  }
+
+  .term-bar-actions button:focus-visible {
+    outline: var(--sp-1) solid var(--accent);
+    outline-offset: var(--sp-1);
+  }
+
+  /* Interruttore acceso = selezione attiva: secondo uso legittimo del corallo. */
+  .term-bar-actions button.on {
+    background: var(--accent-wash);
+    border-color: var(--accent-line);
+    color: var(--accent);
+  }
+
+  /* ---- Area del terminale ---- */
+
+  .terminal-host {
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+    padding: var(--sp-3) var(--sp-4);
+  }
+
+  .cli-wrap {
+    position: relative;
+    display: flex;
+    flex: 1;
+    min-height: 0;
+    padding: var(--sp-3) var(--sp-1) var(--sp-1) var(--sp-4);
+    background: var(--surface-sunken);
+  }
+
+  /* Il DOM iniettato da xterm. Senza touch-action esplicito il browser lascia il
+     gesto agli handler di xterm e sul telefono il terminale non si scorre col
+     dito; overscroll-behavior evita che il rimbalzo trascini la pagina sotto. */
+  .xterm-viewport {
+    touch-action: pan-y;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .xterm-screen {
+    touch-action: pan-y;
+  }
+
+  /* ---- Controlli flottanti ---- */
+
+  .cli-restart {
+    position: absolute;
+    left: 50%;
+    bottom: calc(var(--safe-b) + var(--sp-7));
+    transform: translateX(-50%);
+    z-index: var(--z-sticky);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-3);
+    min-height: var(--tap-min);
+    padding: var(--sp-4) var(--sp-7);
+    background: var(--accent);
+    /* Filo --accent e peso 600 come ogni altra azione primaria dell'app
+       (.mini.primary, .p-allow, .composer .send): il pieno corallo ha una sola
+       ricetta, non una per file. */
+    border: 1px solid var(--accent);
+    border-radius: var(--r-2);
+    color: var(--on-accent);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    font-weight: 600;
+    line-height: var(--lh-ui);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out),
+      border-color var(--dur-1) var(--ease-out);
+  }
+
+  .cli-restart:hover {
+    background: var(--accent-hi);
+    border-color: var(--accent-hi);
+  }
+
+  .cli-restart:focus-visible {
+    outline: var(--sp-1) solid var(--accent);
+    outline-offset: var(--sp-1);
+  }
+
+  .cli-mic {
+    position: absolute;
+    right: calc(var(--safe-r) + var(--sp-7));
+    bottom: calc(var(--safe-b) + var(--sp-6));
+    z-index: var(--z-sticky);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* Il FAB e' sempre --tap-min: e' il bersaglio piu' usato dal telefono e non
+       ha senso tenerlo sotto la soglia sul desktop per due pixel. */
+    width: var(--tap-min);
+    height: var(--tap-min);
+    padding: 0;
+    background: var(--surface-overlay);
+    border: 1px solid var(--line);
+    border-radius: var(--r-full);
+    color: var(--text-2);
+    cursor: pointer;
+    transition:
+      color var(--dur-1) var(--ease-out),
+      border-color var(--dur-1) var(--ease-out);
+  }
+
+  .cli-mic:hover {
+    border-color: var(--line-strong);
+    color: var(--text-1);
+  }
+
+  .cli-mic:focus-visible {
+    outline: var(--sp-1) solid var(--accent);
+    outline-offset: var(--sp-1);
+  }
+
+  /* Rosso e non viola: qui non conta "sta lavorando" ma "il microfono e' APERTO".
+     Un mic aperto che nessuno nota e' un difetto, non uno stato in volo. */
+  .cli-mic.recording {
+    background: var(--err-dim);
+    border-color: var(--err);
+    color: var(--err);
+    animation: micpulse calc(var(--dur-3) * 5) var(--ease-out) infinite;
+  }
+
+  @keyframes micpulse {
+    50% {
+      border-color: var(--err-line);
+      color: var(--err-line);
+    }
+  }
+
+  .cli-mic-msg {
+    position: absolute;
+    right: calc(var(--safe-r) + var(--sp-7));
+    /* Appoggiato sopra il FAB: stesso zoccolo, piu' l'altezza del FAB, piu' aria. */
+    bottom: calc(var(--safe-b) + var(--sp-6) + var(--tap-min) + var(--sp-4));
+    z-index: var(--z-sticky);
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    max-width: calc(100% - var(--sp-9));
+    padding: var(--sp-3) var(--sp-5);
+    background: var(--surface-overlay);
+    border: 1px solid var(--warn-line);
+    border-radius: var(--r-3);
+    color: var(--warn);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-ui);
+  }
+
+  .cli-mic-msg button {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    padding: var(--sp-2);
+    background: none;
+    border: none;
+    border-radius: var(--r-1);
+    color: var(--warn);
+    cursor: pointer;
+  }
+
+  .cli-mic-msg button:hover {
+    background: var(--hover);
+  }
+
+  /* .session-cat-dot.cli vive in sessions.css insieme al resto della famiglia
+     (base + cockpit + cli + scheduler + tech): il pallino appartiene alla lista
+     sessioni, non al terminale. Duplicarlo qui darebbe lo stesso selettore due
+     volte nello stesso layer. */
+
+  /* I bersagli seguono il PUNTATORE, non la larghezza: un portatile touch a
+     1400px ha le stesse dita di un telefono. */
+  @media (pointer: coarse) {
+    .term-bar-actions button {
+      min-height: var(--tap-min);
+    }
+
+    .cli-mic-msg button {
+      min-width: var(--tap-min);
+      min-height: var(--tap-min);
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    /* La durata del respiro esce gia' dai token (calc su --dur-3), quindi qui
+       vale 0ms e il mic si ferma da solo; lo spegnimento per nome resta come
+       rete, sulla scorta di .icon.spin in primitives.css. */
+    .cli-mic.recording {
+      animation: none;
+    }
+  }
+}

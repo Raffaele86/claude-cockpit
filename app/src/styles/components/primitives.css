@@ -1,0 +1,350 @@
+/* PRIMITIVES — i mattoni riusati ovunque.
+ *
+ * Tre famiglie, in quest'ordine:
+ *   1. regole globali di interazione (focus visibile, icone)
+ *   2. i mattoni veri e propri (.mini, .dot, .kbd-chip, .banner, .swatch...)
+ *   3. i modificatori condivisi (.on, .error, .danger, .focus, .up) dei soli
+ *      componenti che NON hanno un file proprio. Se il componente ha un file,
+ *      il suo modificatore sta la': primitives.css e' importato per primo e
+ *      una regola ripetuta qui perderebbe in silenzio.
+ *
+ * Politica dell'accento, derivata dalla regola 4 del contratto: il corallo
+ * PIENO e' esclusivo dell'azione primaria (.mini.primary). Ogni altra
+ * "selezione attiva" usa l'accento in versione quieta — testo --accent, fondo
+ * --accent-wash, filo --accent-line — cosi' in una schermata resta un solo
+ * blocco di corallo saturo. "In esecuzione" non e' mai corallo: e' --busy.
+ */
+
+@layer components {
+  /* ---- 1. INTERAZIONE GLOBALE ---- */
+
+  /* Prima esistevano solo 8 selettori con :focus-visible scelti a mano: tutto
+     il resto era navigabile da tastiera ma invisibile. :where() azzera la
+     specificita' della lista, quindi qualunque componente puo' ridefinire il
+     proprio focus senza dover rincorrere questa regola. */
+  :where(button, [role='button'], a, input, select, textarea, [tabindex]):focus-visible {
+    outline: var(--sp-1) solid var(--accent);
+    outline-offset: var(--sp-1);
+  }
+
+  /* L'allineamento ottico e' in em, non in px: le icone stanno dentro testo che
+     cambia corpo tra desktop e telefono, e un -3px fisso scivolava. */
+  .icon {
+    flex-shrink: 0;
+    vertical-align: -0.145em;
+  }
+
+  /* Il click deve arrivare al bottone, non al path svg: senza questo
+     event.target e' l'icona e i confronti con currentTarget saltano. */
+  button .icon {
+    pointer-events: none;
+  }
+
+  /* La durata esce dai token di proposito: sotto prefers-reduced-motion i
+     --dur-* valgono 0ms, quindi lo spinner si ferma da solo anche se qualcuno
+     dimenticasse il blocco in fondo al file. */
+  .icon.spin {
+    animation: iconspin calc(var(--dur-3) * 4) linear infinite;
+  }
+
+  @keyframes iconspin {
+    to {
+      transform: rotate(1turn);
+    }
+  }
+
+  /* ---- 2. MINI — il bottone base di tutta l'app ---- */
+
+  .mini {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-5);
+    background: transparent;
+    /* filo trasparente, non assente: le varianti accendono solo il colore e il
+       bottone non si sposta di un pixel quando cambia stato */
+    border: 1px solid transparent;
+    border-radius: var(--r-2);
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-ui);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out),
+      color var(--dur-1) var(--ease-out), border-color var(--dur-1) var(--ease-out);
+  }
+
+  .mini:hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  .mini:active {
+    background: var(--press);
+  }
+
+  .mini:disabled {
+    color: var(--text-faint);
+    cursor: not-allowed;
+  }
+
+  .mini:disabled:hover {
+    background: transparent;
+    color: var(--text-faint);
+  }
+
+  /* Alias storico: il .mini base E' gia' il bottone fantasma. Non si puo'
+     togliere (lo usano decine di call site .tsx), quindi lo si dichiara invece
+     di lasciarlo scoperto e farlo sembrare una dimenticanza. */
+  .mini.ghost {
+    background: transparent;
+    color: var(--text-2);
+  }
+
+  .mini.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+    font-weight: 600;
+  }
+
+  .mini.primary:hover {
+    background: var(--accent-hi);
+    border-color: var(--accent-hi);
+    color: var(--on-accent);
+  }
+
+  .mini.on {
+    background: var(--accent-wash);
+    border-color: var(--accent-line);
+    color: var(--accent);
+  }
+
+  .mini.on:hover {
+    background: var(--accent-wash);
+    color: var(--accent-hi);
+  }
+
+  /* Raggio --r-1 e non il --r-2 ereditato da .mini: la regola condivisa in tutta
+     l'app e' "bottone con etichetta -> --r-2, bottone di sola icona -> --r-1".
+     Senza questa riga sarebbe l'unico quadratino con il raggio dei bottoni
+     testuali, contro tutti gli altri bottoni di sola icona dei componenti. */
+  .btn-icon {
+    min-width: var(--sp-8);
+    height: var(--sp-8);
+    padding: var(--sp-2);
+    border-radius: var(--r-1);
+  }
+
+  /* ---- 3. KBD-CHIP ---- */
+
+  /* Mono perche' un tasto e' un simbolo a larghezza fissa: in grottesco "⌘K" e
+     "Ctrl" ballano di larghezza dentro la stessa barra. --fs-micro e' il caso
+     d'uso che il token nomina esplicitamente. */
+  .kbd-chip {
+    padding: 0 var(--sp-2);
+    background: var(--surface-overlay);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-1);
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    letter-spacing: var(--tr-data);
+    white-space: nowrap;
+  }
+
+  /* ---- 4. DOT — stato della connessione ---- */
+
+  .dot {
+    display: inline-block;
+    width: var(--sp-4);
+    height: var(--sp-4);
+    border-radius: var(--r-full);
+    /* "Stato non dichiarato", stesso token di .session-cat-dot e .tstatus: un
+       pallino e' un oggetto grafico e --text-faint non regge il 3:1. Su
+       --surface-overlay lo scalino sale a --text-2 (vedi .mcp-dot). */
+    background: var(--text-3);
+    flex-shrink: 0;
+  }
+
+  .dot.authed {
+    background: var(--ok);
+  }
+
+  .dot.connecting {
+    background: var(--warn);
+  }
+
+  .dot.disconnected {
+    background: var(--err);
+  }
+
+  /* ---- 5. BADGE ---- */
+
+  .has-badge {
+    position: relative;
+  }
+
+  /* Contatore di sessioni in volo: --busy, mai corallo. Il testo e' la
+     superficie di fondo perche' non esiste un --on-busy e il viola e' chiaro
+     abbastanza da reggere l'inversione. */
+  .badge-busy {
+    position: absolute;
+    top: calc(var(--sp-2) * -1);
+    right: calc(var(--sp-2) * -1);
+    min-width: var(--sp-6);
+    height: var(--sp-6);
+    padding: 0 var(--sp-1);
+    border-radius: var(--r-full);
+    background: var(--busy);
+    color: var(--surface-base);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    line-height: var(--sp-6);
+    text-align: center;
+  }
+
+  /* ---- 6. BANNER ---- */
+
+  .banner {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-5);
+    padding: var(--sp-4) var(--sp-6);
+    border-bottom: 1px solid var(--line);
+    font-size: var(--fs-md);
+    line-height: var(--lh-ui);
+  }
+
+  .banner.error {
+    background: var(--banner-err-bg);
+    border-bottom-color: var(--banner-err-line);
+    color: var(--banner-err-fg);
+  }
+
+  /* Il messaggio e' un nodo di testo anonimo e non accetta margini: e' il primo
+     bottone a spingere se stesso e i successivi contro il bordo destro. */
+  .banner.error .mini:first-of-type {
+    margin-left: auto;
+  }
+
+  /* ---- 7. SWATCH E GRIGLIA ICONE ---- */
+
+  .swatch-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    padding: var(--sp-1) 0;
+  }
+
+  /* Il colore arriva da uno style inline. background-clip: padding-box e'
+     obbligatorio: senza, il bordo trasparente lascia trasparire il colore
+     stesso e l'anello di selezione non si vede. */
+  .swatch {
+    width: var(--sp-6);
+    height: var(--sp-6);
+    padding: 0;
+    border: var(--sp-1) solid transparent;
+    border-radius: var(--r-full);
+    background-clip: padding-box;
+    cursor: pointer;
+  }
+
+  .swatch.on {
+    border-color: var(--text-1);
+  }
+
+  .icon-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: var(--sp-1);
+  }
+
+  /* Otto colonne su un telefono stanno in piedi solo se le celle possono
+     scendere sotto la larghezza minima del bottone: qui vince l'altezza. */
+  .icon-grid .btn-icon {
+    min-width: 0;
+  }
+
+  /* ---- 8. MODIFICATORI CONDIVISI ---- */
+
+  /* .on — selezione attiva, accento quieto (vedi politica in testa al file).
+     Qui stanno SOLO i .on senza casa. Quelli di un componente che ha un file
+     proprio sono dichiarati la', accanto alla loro base: .tab/.tab-x in
+     tabs.css, .mode e .mic in composer.css, .fnav-* in filenav.css,
+     .set-badge in panels.css, .rail-item in rail.css, i bottoni della barra
+     del terminale in terminal.css. Ridichiararli anche qui non li rafforza —
+     primitives.css e' importato per PRIMO, quindi perderebbe in silenzio
+     contro il file del componente, ed e' esattamente la gara silenziosa che
+     questa riscrittura sta smontando. */
+  .session-cats .cat.on {
+    border-color: var(--accent-line);
+    color: var(--accent);
+  }
+
+  /* .error / .danger — sempre --err, cambia solo il peso del segnale.
+     Gli .error interni alle tool card vivono in toolcard.css, dove sta la base
+     che colorano: duplicarli qui rifarebbe gli strati che questa riscrittura
+     sta togliendo. */
+  .tool-card.error {
+    border-color: var(--err-line);
+  }
+
+  /* .danger non esiste mai da sola nel markup: e' sempre il modificatore di una
+     voce concreta, e sta nel file di quella voce — .ctx-item.danger e
+     .sel-pop/.sel-item in menu.css, .mcp-rm.danger in mcp.css. */
+
+  /* ---- 9. TELEFONO ----
+     --fs-micro e' un corpo da desktop (lo dice il contratto): sul telefono i
+     tasti scendono di scala con il resto. Stessa correzione gia' applicata a
+     .cpal-panel kbd in palette.css — e' lo stesso oggetto in due schermate. */
+  @media (max-width: 767px) {
+    .kbd-chip {
+      font-size: var(--fs-xs);
+    }
+  }
+
+  /* ---- 10. BERSAGLI TOUCH ----
+     Legati al tipo di puntatore, non alla larghezza: un portatile Windows touch
+     a 1400px ha le stesse dita di un telefono. */
+  @media (pointer: coarse) {
+    .mini {
+      min-height: var(--tap-min);
+      padding: var(--sp-2) var(--sp-6);
+    }
+
+    .btn-icon {
+      min-width: var(--tap-min);
+      height: var(--tap-min);
+    }
+
+    /* Il campione di colore diventa esso stesso il bersaglio: ingrandirlo e'
+       piu' onesto che nascondere un'area cliccabile invisibile intorno. */
+    .swatch {
+      width: var(--tap-min);
+      height: var(--tap-min);
+    }
+  }
+
+  /* ---- 11. MOTO RIDOTTO ---- */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      animation-duration: 0s;
+      animation-iteration-count: 1;
+      transition-duration: 0s;
+    }
+
+    /* La regola universale ha specificita' zero e perderebbe contro .icon.spin,
+       che e' (0,2,0): va spenta per nome. */
+    .icon.spin {
+      animation: none;
+    }
+  }
+}

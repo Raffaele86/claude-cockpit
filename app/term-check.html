@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="it">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cockpit — collaudo terminale</title>
+  </head>
+  <body>
+    <!--
+      Banco di prova del tema del terminale. NON fa parte dell'app: Vite builda
+      solo index.html, quindi questo file esiste solo in `npm run dev:vite`
+      (http://127.0.0.1:5173/term-check.html).
+
+      Serve a collaudare le 16 ANSI, il font mono e i caratteri di cornice SENZA
+      connettersi all'engine: aprire una sessione vera per guardare i colori
+      farebbe nascere un processo claude che poi resterebbe orfano.
+    -->
+    <div id="host" style="height: 100vh"></div>
+    <script type="module">
+      import { Terminal } from '@xterm/xterm';
+      import { FitAddon } from '@xterm/addon-fit';
+      import '@xterm/xterm/css/xterm.css';
+      import './src/styles/fonts.css';
+      import './src/styles/tokens.css';
+      import { xtermTheme, xtermFont } from './src/term-theme.ts';
+
+      document.body.style.margin = '0';
+      document.body.style.background = getComputedStyle(document.documentElement)
+        .getPropertyValue('--surface-base')
+        .trim();
+
+      const term = new Terminal({
+        ...xtermFont(),
+        theme: xtermTheme(),
+        drawBoldTextInBrightColors: false,
+        minimumContrastRatio: 1,
+        lineHeight: 1.25,
+      });
+      const fit = new FitAddon();
+      term.loadAddon(fit);
+      term.open(document.getElementById('host'));
+      fit.fit();
+
+      const e = (n) => `\x1b[${n}m`;
+      const R = e(0);
+      const names = ['nero', 'rosso', 'verde', 'giallo', 'blu', 'magenta', 'ciano', 'bianco'];
+
+      term.writeln(`${e(1)}COCKPIT — COLLAUDO TEMA TERMINALE${R}`);
+      term.writeln('');
+
+      term.writeln(`${e(2)}16 ANSI — normale / brillante${R}`);
+      names.forEach((n, i) => {
+        const pad = n.padEnd(8);
+        term.writeln(`  ${e(30 + i)}${pad}${R} ${e(90 + i)}${pad}${R}  ${e(40 + i)}    ${R}${e(100 + i)}    ${R}`);
+      });
+      term.writeln('');
+
+      term.writeln(`${e(2)}testo secondario: e' cosi' che Claude Code scrive i suggerimenti${R}`);
+      term.writeln(`${e(90)}  \\e[90m — deve leggersi come secondario, non sparire${R}`);
+      term.writeln(`${e(1)}  grassetto: deve essere PESO, non un cambio di tinta${R}`);
+      term.writeln('');
+
+      term.writeln(`${e(2)}caratteri di cornice (U+2500-257F) — se il font di ripiego li perde,`);
+      term.writeln(`  le colonne si disallineano${R}`);
+      term.writeln('  ┌────────────┬────────────┐');
+      term.writeln('  │ colonna A  │ colonna B  │');
+      term.writeln('  ├────────────┼────────────┤');
+      term.writeln('  │ 1234567890 │ ██▓▓▒▒░░   │');
+      term.writeln('  └────────────┴────────────┘');
+      term.writeln('  ╭──────────╮  ▏▎▍▌▋▊▉█  ← blocchi parziali');
+      term.writeln('  ╰──────────╯  ✓ ✗ ● ◆ → ↑ ↓ … ·');
+      term.writeln('');
+
+      term.writeln(`${e(2)}cifre tabulari e zero barrato (per i contatori che si aggiornano)${R}`);
+      term.writeln('  0123456789   1111111111   0O 1lI');
+      term.write('\r\n$ ');
+    </script>
+  </body>
+</html>

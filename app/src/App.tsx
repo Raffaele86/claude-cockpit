@@ -7,6 +7,10 @@ import { ChatView } from './components/ChatView';
 import { Composer } from './components/Composer';
 import { TodoPanel } from './components/TodoPanel';
 import { PermissionPrompt } from './components/PermissionPrompt';
+import { AccessoryKeys } from './components/AccessoryKeys';
+import { DesktopLayout } from './layouts/DesktopLayout';
+import { MobileLayout } from './layouts/MobileLayout';
+import { useLayoutMode } from './useLayoutMode';
 import { ProjectSwitcher } from './components/ProjectSwitcher';
 import { QuickActions } from './components/QuickActions';
 import { TerminalPanel } from './components/Terminal';
@@ -93,6 +97,11 @@ export function App() {
   const [notifyOn, setNotifyOn] = useState(true);
   const [picker, setPicker] = useState(false);
   const [sideOpen, setSideOpen] = useState(() => localStorage.getItem('cockpit-side') === '1');
+  /* Quale foglio e' aperto sul telefono. Sul desktop non esiste: la, progetti e
+     schede stanno a schermo in permanenza e c'e' spazio per tenerceli. */
+  const [sheet, setSheet] = useState<'projects' | 'files' | 'side' | null>(null);
+  const { mode } = useLayoutMode();
+  const isPhone = mode === 'phone';
   const [viewer, setViewer] = useState<ViewerState | null>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [mcpImportMsg, setMcpImportMsg] = useState<string | null>(null);
@@ -1212,59 +1221,86 @@ export function App() {
     [ttsOn, notifyOn, sideOpen, toggleNotify, openSettings],
   );
 
-  return (
-    <div className="app">
-      <header className="topbar">
-        <div className="brand">
-          Claude Cockpit <span className="proj">{shortProject}</span>
-        </div>
-        {conn === 'authed' && (
-          <div className="pill-wrap">
-            <SessionMenu
-              ctl={sessionCtl}
-              providers={providerNames}
-              onOpen={() => {
-                if (hasCatalog(sessionCtl.curProv)) requestCatalog(sessionCtl.curProv);
-              }}
-            >
-              <button className="session-pill" title={t('sessionPillTitle')}>
-                <Icon name="sparkle" size={12} />
-                <span className="pill-part">{(sessionCtl.curModel || 'model').split(',').pop()}</span>
-                <span className="pill-sep">·</span>
-                <span className="pill-part">{sessionCtl.curEffort || 'effort'}</span>
-                <Icon name="chevron-down" size={11} />
-              </button>
-            </SessionMenu>
-          </div>
-        )}
-        <div className="status">
-          {conn === 'authed' && (
-            <button
-              className="mini ghost"
-              title={view !== 'chat' ? t('cliNewChatTitle') : t('newChatTitle')}
-              onClick={() => (view !== 'chat' ? addTab() : resetSession())}
-            >
-              {view !== 'chat' ? t('cliNewChat') : t('newChat')}
-            </button>
-          )}
-          <button className="mini ghost" title={t('cpOpenTitle')} onClick={() => setPaletteOpen(true)}>
-            <kbd className="kbd-chip">⌘K</kbd>
-          </button>
-          <button className={`has-badge btn-icon ${inboxOpen ? 'mini on' : 'mini ghost'}`} title={t('inboxOpen')} onClick={() => setInboxOpen((o) => !o)}>
-            <Icon name="inbox" />
-            {busyCount > 0 && <span className="badge-busy">{busyCount}</span>}
-          </button>
-          <OverflowMenu title={t('moreTitle')} items={menuItems} />
-          <span className={`dot ${conn}`} title={conn === 'authed' ? t('connected') : conn} />
-          {conn === 'disconnected' && (
-            <button className="mini primary" onClick={onStartEngine}>
-              {t('startEngine')}
-            </button>
-          )}
-        </div>
-      </header>
+  const sessionPill = conn === 'authed' && (
+    <SessionMenu
+      ctl={sessionCtl}
+      providers={providerNames}
+      onOpen={() => {
+        if (hasCatalog(sessionCtl.curProv)) requestCatalog(sessionCtl.curProv);
+      }}
+    >
+      <button className="session-pill" title={t('sessionPillTitle')}>
+        <Icon name="sparkle" size={12} />
+        <span className="pill-part">{(sessionCtl.curModel || 'model').split(',').pop()}</span>
+        <span className="pill-sep">·</span>
+        <span className="pill-part">{sessionCtl.curEffort || 'effort'}</span>
+        <Icon name="chevron-down" size={11} />
+      </button>
+    </SessionMenu>
+  );
 
-      {engineError && (
+  const topbarDesktop = (
+    <header className="topbar">
+      <div className="brand">
+        Claude Cockpit <span className="proj">{shortProject}</span>
+      </div>
+      {sessionPill && <div className="pill-wrap">{sessionPill}</div>}
+      <div className="status">
+        {conn === 'authed' && (
+          <button
+            className="mini ghost"
+            title={view !== 'chat' ? t('cliNewChatTitle') : t('newChatTitle')}
+            onClick={() => (view !== 'chat' ? addTab() : resetSession())}
+          >
+            {view !== 'chat' ? t('cliNewChat') : t('newChat')}
+          </button>
+        )}
+        <button className="mini ghost" title={t('cpOpenTitle')} onClick={() => setPaletteOpen(true)}>
+          <kbd className="kbd-chip">⌘K</kbd>
+        </button>
+        <button className={`has-badge btn-icon ${inboxOpen ? 'mini on' : 'mini ghost'}`} title={t('inboxOpen')} onClick={() => setInboxOpen((o) => !o)}>
+          <Icon name="inbox" />
+          {busyCount > 0 && <span className="badge-busy">{busyCount}</span>}
+        </button>
+        <OverflowMenu title={t('moreTitle')} items={menuItems} />
+        <span className={`dot ${conn}`} title={conn === 'authed' ? t('connected') : conn} />
+        {conn === 'disconnected' && (
+          <button className="mini primary" onClick={onStartEngine}>
+            {t('startEngine')}
+          </button>
+        )}
+      </div>
+    </header>
+  );
+
+  /* Telefono: UNA riga di comandi + una riga sottile di stato. Il pill
+     modello+sforzo torna visibile — era display:none sotto gli 840px, cioe' il
+     controllo che serve di piu' da fuori casa era l'unico irraggiungibile. */
+  const topbarMobile = (
+    <header className="topbar topbar-mobile">
+      <button className="mtop-proj" onClick={() => setSheet('projects')} title={activeProject}>
+        <Icon name="folder" size={14} />
+        <span className="mtop-name">{shortProject}</span>
+        <Icon name="chevron-down" size={11} />
+      </button>
+      <div className="status">
+        <button className={`has-badge btn-icon ${inboxOpen ? 'mini on' : 'mini ghost'}`} title={t('inboxOpen')} onClick={() => setInboxOpen((o) => !o)}>
+          <Icon name="inbox" />
+          {busyCount > 0 && <span className="badge-busy">{busyCount}</span>}
+        </button>
+        <OverflowMenu title={t('moreTitle')} items={menuItems} />
+        <span className={`dot ${conn}`} title={conn === 'authed' ? t('connected') : conn} />
+        {conn === 'disconnected' && (
+          <button className="mini primary" onClick={onStartEngine}>
+            {t('startEngine')}
+          </button>
+        )}
+      </div>
+      {sessionPill && <div className="mtop-status">{sessionPill}</div>}
+    </header>
+  );
+
+  const banner = engineError && (
         <div className="banner error">
           {engineError}
           <button className="mini primary" onClick={() => resetSession()}>
@@ -1277,7 +1313,10 @@ export function App() {
             <Icon name="close" />
           </button>
         </div>
-      )}
+      );
+
+  const overlays = (
+    <>
       <CommandPalette open={paletteOpen} commands={commands} onClose={() => setPaletteOpen(false)} />
       {doctorOpen && (
         <Suspense fallback={null}>
@@ -1334,8 +1373,30 @@ export function App() {
           onClose={() => setCpOpen(false)}
         />
       )}
+      {viewer && <MdViewer viewer={viewer} onClose={() => setViewer(null)} />}
+      {settingsOpen && (
+        <Suspense fallback={null}>
+          <Settings
+            snapshot={settingsSnap}
+            engineVersion={engineVersion}
+            home={home.current}
+            configMsg={cfgMsg}
+            projects={registry}
+            onConfigExport={() => client.current?.send({ op: 'config_export' })}
+            onConfigImport={(files) => {
+              setCfgMsg(null);
+              client.current?.send({ op: 'config_import', files });
+            }}
+            onSave={(patch) => client.current?.send({ op: 'settings_set', patch })}
+            onClose={() => setSettingsOpen(false)}
+          />
+        </Suspense>
+      )}
+      {req && <PermissionPrompt req={req} onDecide={(d, input) => decide(req.requestId, d, input)} />}
+    </>
+  );
 
-      <div className="body">
+  const rail = (
         <ProjectSwitcher
           projects={registry}
           active={activeProject}
@@ -1368,8 +1429,9 @@ export function App() {
             />
           )}
         </ProjectSwitcher>
-        <div className="rail-resizer" title={t('resizerTitle')} onMouseDown={startRailResize} />
-        <div className="main">
+  );
+
+  const tabsRow = (
           <div className="tabs-row">
             <Tabs
               tabs={displayTabs}
@@ -1393,14 +1455,23 @@ export function App() {
                 setActiveTabByProject((prev) => ({ ...prev, [activeProject]: 'main' }));
               }}
             />
-            <div className="view-toggle" title={t('viewToggleTitle')}>
-              {(['cli', 'win', 'chat'] as const).map((v) => (
-                <button key={v} className={view === v ? 'on' : ''} onClick={() => setView(v)} title={v === 'win' ? t('winViewTitle') : undefined}>
-                  {v === 'cli' ? 'CLI' : v === 'win' ? 'Win' : t('chat')}
-                </button>
-              ))}
-            </div>
+            {/* Sul telefono NON si mostra: Terminale e Chat stanno nella barra in
+                basso e Win e' nel comando che cicla le viste. Due controlli per
+                la stessa scelta sono esattamente l'incoerenza da togliere. */}
+            {!isPhone && (
+              <div className="view-toggle" title={t('viewToggleTitle')}>
+                {(['cli', 'win', 'chat'] as const).map((v) => (
+                  <button key={v} className={view === v ? 'on' : ''} onClick={() => setView(v)} title={v === 'win' ? t('winViewTitle') : undefined}>
+                    {v === 'cli' ? 'CLI' : v === 'win' ? 'Win' : t('chat')}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
+  );
+
+  const mainBody = (
+    <>
           {picker && (
             <SessionPicker
               sessions={active.sessions}
@@ -1536,9 +1607,11 @@ export function App() {
               />
             </>
           )}
-        </div>
-        {sideOpen && <div className="side-backdrop mobile-only" onClick={() => setSideOpen(false)} />}
-        <aside className={sideOpen ? 'side open' : 'side'}>
+    </>
+  );
+
+  const side = (
+    <>
           <TodoPanel todos={active.todos} />
           <McpStatus
             servers={active.mcpServers}
@@ -1559,29 +1632,63 @@ export function App() {
               client.current?.send({ op: 'mcp_import', project: activeProject, servers });
             }}
           />
-        </aside>
-      </div>
+    </>
+  );
 
-      {viewer && <MdViewer viewer={viewer} onClose={() => setViewer(null)} />}
-      {settingsOpen && (
-        <Suspense fallback={null}>
-          <Settings
-            snapshot={settingsSnap}
-            engineVersion={engineVersion}
-            home={home.current}
-            configMsg={cfgMsg}
-            projects={registry}
-            onConfigExport={() => client.current?.send({ op: 'config_export' })}
-            onConfigImport={(files) => {
-              setCfgMsg(null);
-              client.current?.send({ op: 'config_import', files });
-            }}
-            onSave={(patch) => client.current?.send({ op: 'settings_set', patch })}
-            onClose={() => setSettingsOpen(false)}
-          />
-        </Suspense>
-      )}
-      {req && <PermissionPrompt req={req} onDecide={(d, input) => decide(req.requestId, d, input)} />}
-    </div>
+  if (!isPhone) {
+    return (
+      <DesktopLayout
+        topbar={topbarDesktop}
+        banner={banner}
+        overlays={overlays}
+        rail={rail}
+        main={
+          <>
+            {tabsRow}
+            {mainBody}
+          </>
+        }
+        side={side}
+        sideOpen={sideOpen}
+        onCloseSide={() => setSideOpen(false)}
+        onRailResize={startRailResize}
+        resizerTitle={t('resizerTitle')}
+      />
+    );
+  }
+
+  /* Sul telefono progetti, schede, file e attivita' non stanno a schermo in
+     permanenza: diventano fogli. Sono le tre barre impilate che prima si
+     mangiavano ~150px su 780 prima ancora del contenuto. */
+  const sheets = {
+    projects: {
+      title: t('sheetProjects'),
+      content: (
+        <>
+          {tabsRow}
+          {rail}
+        </>
+      ),
+    },
+    files: { title: t('sheetFiles'), content: rail },
+    side: { title: t('sheetActivity'), content: side },
+  } as const;
+
+  return (
+    <MobileLayout
+      topbar={topbarMobile}
+      banner={banner}
+      overlays={overlays}
+      main={mainBody}
+      accessory={view !== 'chat' && conn === 'authed' ? <AccessoryKeys inputRef={cliInput} /> : null}
+      tabs={[
+        { key: 'cli', icon: 'terminal', label: t('navTerminal'), active: view !== 'chat', onSelect: () => setView('cli') },
+        { key: 'chat', icon: 'message', label: t('navChat'), active: view === 'chat', onSelect: () => setView('chat') },
+        { key: 'files', icon: 'folder', label: t('navFiles'), active: sheet === 'files', onSelect: () => setSheet(sheet === 'files' ? null : 'files') },
+        { key: 'side', icon: 'check', label: t('navActivity'), active: sheet === 'side', onSelect: () => setSheet(sheet === 'side' ? null : 'side') },
+        { key: 'cmd', icon: 'sparkle', label: t('navCommands'), active: paletteOpen, onSelect: () => setPaletteOpen(true), badge: busyCount },
+      ]}
+      sheet={sheet ? { ...sheets[sheet], onClose: () => setSheet(null) } : null}
+    />
   );
 }

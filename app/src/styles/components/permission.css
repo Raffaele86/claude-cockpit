@@ -1,0 +1,261 @@
+/* Prompt dei permessi — la superficie piu' delicata dell'app.
+ *
+ * Si apre di rado, su un telefono, mentre si sta facendo altro, e ogni bottone
+ * concede o nega qualcosa a una macchina. Il difetto che questo file corregge:
+ * prima solo "consenti" e "nega" avevano una regola propria, quindi "consenti
+ * SEMPRE" — che concede un permesso permanente — era visivamente identico a
+ * "modifica input". Qui i quattro verdetti hanno quattro pesi diversi:
+ *   consenti una volta  -> pieno corallo, unica azione primaria della finestra
+ *   consenti sempre     -> ambra, perche' --warn e' "attenzione", non "errore"
+ *   nega                -> --err, sempre disponibile e riconoscibile
+ *   modifica / annulla  -> defilate: testo quieto, peso tipografico minore
+ */
+
+@layer components {
+  .perm-overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--sp-6);
+    background: var(--scrim);
+    z-index: var(--z-modal);
+  }
+
+  /* Finestra davvero staccata dal fondo: superficie overlay + anello, le due
+     eccezioni ammesse alla regola "niente ombre".
+     E' una colonna flex e NON scorre: a scorrere e' solo il blocco del payload
+     (.perm-input / .perm-json). Cosi' la riga dei verdetti resta sempre in
+     vista, anche quando l'input dello strumento e' lunghissimo — un bottone
+     "nega" fuori schermo e' il modo piu' facile per far concedere per sbaglio. */
+  .perm-modal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-5);
+    width: min(640px, 100%);
+    max-height: 80vh;
+    overflow: hidden;
+    padding: var(--sp-6);
+    background: var(--surface-overlay);
+    border-radius: var(--r-3);
+    box-shadow: var(--ring);
+    animation: perm-in var(--dur-2) var(--ease-out);
+  }
+
+  .perm-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    font-family: var(--font-sans);
+    font-size: var(--fs-xl);
+    line-height: var(--lh-tight);
+    color: var(--text-1);
+  }
+
+  /* Il lucchetto e' l'unico segnale prima della lettura: ambra come il verdetto
+     piu' impegnativo, non un grigio decorativo. */
+  .perm-title .icon {
+    flex: none;
+    color: var(--warn);
+  }
+
+  /* Il nome dello strumento e' un IDENTIFICATORE, non prosa: mono. */
+  .perm-title b {
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    font-weight: 600;
+  }
+
+  /* Il payload da leggere prima di decidere: pozzo mono, nessun bordo — la
+     superficie diversa basta gia' a separarlo dalla finestra. --text-1 e non un
+     livello quieto: e' esattamente il testo che va letto con attenzione. */
+  .perm-input {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    margin: 0;
+    padding: var(--sp-5);
+    background: var(--surface-sunken);
+    border-radius: var(--r-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    line-height: var(--lh-mono);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--text-1);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+  }
+
+  /* Stesso pozzo, ma editabile. --fs-lg e non --fs-data: e' un campo di testo,
+     e sotto i 16px Android zooma il viewport al focus. */
+  .perm-json {
+    flex: 1 1 auto;
+    min-height: 0;
+    width: 100%;
+    resize: vertical;
+    padding: var(--sp-5);
+    background: var(--surface-sunken);
+    border: none;
+    border-radius: var(--r-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-lg);
+    line-height: var(--lh-mono);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--text-1);
+  }
+
+  .perm-json:focus-visible {
+    outline: var(--sp-1) solid var(--accent);
+    outline-offset: calc(var(--sp-1) * -1);
+  }
+
+  /* Messaggio del parser JSON: e' output di macchina (cita posizione e token),
+     quindi mono. Sta appena sotto il campo, con lo stacco della colonna. */
+  .perm-error {
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    line-height: var(--lh-mono);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--err);
+    overflow-wrap: anywhere;
+  }
+
+  .perm-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-4);
+  }
+
+  /* Tutti i verdetti condividono forma e bersaglio; a distinguerli e' solo il
+     colore e il peso. I selettori dei singoli bottoni sono scoperti da
+     .perm-actions apposta: senza quel discendente la regola di base
+     (piu' specifica, perche' include l'elemento) vincerebbe su .p-allow. */
+  .perm-actions button {
+    padding: var(--sp-4) var(--sp-6);
+    border: 1px solid transparent;
+    border-radius: var(--r-2);
+    background: transparent;
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    line-height: var(--lh-ui);
+    font-weight: 600;
+    color: var(--text-2);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out),
+      border-color var(--dur-1) var(--ease-out);
+  }
+
+  .perm-actions button:hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  .perm-actions button:active {
+    background: var(--press);
+  }
+
+  /* L'anello di fuoco di questi bottoni e' nella lista comune di menu.css, con
+     gli altri controlli che devono battere il :where() a specificita' zero di
+     primitives.css. Era dichiarato anche qui, con una larghezza diversa. */
+
+  /* Azione primaria — l'unico corallo pieno della finestra. */
+  .perm-actions .p-allow {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+  }
+
+  /* :hover e :active insieme: la regola di base .perm-actions button:active e'
+     piu' specifica di .perm-actions .p-allow, e da sola spegnerebbe il corallo
+     proprio mentre il dito e' sul bottone — cioe' sull'unico feedback che il
+     telefono ha. */
+  .perm-actions .p-allow:hover,
+  .perm-actions .p-allow:active {
+    background: var(--accent-hi);
+    border-color: var(--accent-hi);
+    color: var(--on-accent);
+  }
+
+  /* Consenti SEMPRE: concede un permesso permanente. Non e' un errore, quindi
+     non e' rosso; e' una scelta che va pesata, quindi e' ambra e porta un filo
+     proprio — a colpo d'occhio non si confonde ne' col pieno corallo accanto
+     ne' con le azioni defilate. */
+  .perm-actions .p-always {
+    background: var(--warn-dim);
+    border-color: var(--warn-line);
+    color: var(--warn);
+  }
+
+  .perm-actions .p-always:hover,
+  .perm-actions .p-always:active {
+    background: var(--warn-dim);
+    border-color: var(--warn);
+    color: var(--warn);
+  }
+
+  .perm-actions .p-deny {
+    color: var(--err);
+  }
+
+  .perm-actions .p-deny:hover {
+    background: var(--err-dim);
+    color: var(--err);
+  }
+
+  /* Modifica e annulla non decidono nulla: stesso bersaglio, meno peso. */
+  .perm-actions .p-edit,
+  .perm-actions .p-cancel {
+    font-weight: 500;
+    color: var(--text-2);
+  }
+
+  @keyframes perm-in {
+    from {
+      opacity: 0;
+      transform: translateY(var(--sp-3));
+    }
+  }
+
+  /* Sul telefono la finestra diventa un foglio agganciato al fondo: i verdetti
+     finiscono dove sta il pollice invece che a meta' schermo. E impilati a
+     larghezza piena, perche' quattro bottoni affiancati su 360px diventano
+     bersagli stretti e adiacenti — esattamente la geometria che fa sbagliare. */
+  @media (max-width: 767px) {
+    .perm-overlay {
+      align-items: flex-end;
+      padding: 0;
+    }
+
+    .perm-modal {
+      width: 100%;
+      max-height: 88vh;
+      border-radius: var(--r-3) var(--r-3) 0 0;
+      padding-bottom: calc(var(--sp-6) + var(--safe-b));
+    }
+
+    .perm-actions {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
+
+  /* Legato al puntatore e non alla larghezza: un portatile Windows touch a
+     1400px ha le stesse dita di un telefono. */
+  @media (pointer: coarse) {
+    .perm-actions button {
+      min-height: var(--tap-min);
+    }
+  }
+}

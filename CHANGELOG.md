@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.35.0
+Complete visual redesign — direction "Strumentazione" (instrument panel). Third restyle after v0.27 and v0.28; this one starts from why the first two did not settle the question, which turned out to be in the code rather than in taste.
+- Fonts now ship with the app. `theme.css` declared `'Styrene B'` and `'Tiempos Text'` with no `@font-face` anywhere, so on Android they silently fell back to Roboto/Georgia: the designed typography never reached the phone, which is the primary device. Bundled JetBrains Mono (full webfont — the Latin subsets lack the U+2500-257F box-drawing the TUI uses constantly), Inter and Source Serif 4, self-hosted, ~274 KB on first load
+- `theme.css` (2763 lines, ~40 chronological version-stamped sections) replaced by 17 files under `src/styles/` behind `@layer`. 45 selectors were declared more than once and the last one won in silence — `.chat .md pre` four times with different backgrounds, `.composer` a hybrid of two designs. With declared layers, writing order stops mattering
+- Two-tier tokens: a raw warm-neutral ramp plus semantic aliases, with the invariant that no component may reference the raw ramp. Every text level now passes WCAG AA — `--text-3` went from 3.13:1 to 5.1:1
+- Colour is semantic: five states each with one meaning, and the coral accent reserved for the primary action and the active selection. New `--busy` violet for in-flight work, which is what makes the accent rule enforceable — "running" used to be coral, and if busy is coral then coral stops meaning "press this"
+- Terminal joins the design system: all 16 ANSI colours derived from the tokens (they were xterm defaults and clashed), `drawBoldTextInBrightColors: false` so bold is weight rather than a hue change, and ANSI black mapped to a surface rather than #000 so `\e[30m` stays visible
+- Android soft keyboard: `Terminal.tsx` now also listens to `visualViewport.resize`. Opening the keyboard resizes the visual viewport without reliably firing `window.resize`, so `fit.fit()` never ran, the pty kept stale row counts and the TUI redrew over itself
+- Real phone layout instead of a patched desktop one: one top bar and one bottom bar in the thumb zone, with projects, tabs, files and activity as bottom sheets. Measured at 360x780, chrome went from ~150px to 98px and content now holds 84% of the screen. The file navigator and the model/effort pill are reachable again — both were `display: none` below the breakpoint
+- Accessory key bar over the keyboard: esc, tab, shift-tab, arrows, ^C ^D ^Z ^R ^L and the symbols Android hides. Half of what a TUI needs was simply unreachable from a phone
+- The terminal scrolls with a finger (`touch-action` on the xterm viewport), and `viewport-fit=cover` plus safe-area insets keep content clear of the gesture bar
+- Permission prompt has a hierarchy: "allow always" grants a permanent permission and used to look identical to "edit input". Allow-once is now the primary action, allow-always is distinct and more committing, deny is red
+- Four different background blacks (CSS, xterm, Electron window, PWA manifest) reduced to two with a rule: one for app chrome, one for terminal and machine output. The Android splash no longer flashes blue-grey before a warm app
+- Two orthogonal responsive axes: width picks the layout, `(pointer: coarse)` sizes the targets regardless of width — a Windows touch laptop at 1400px has the same fingers as a phone and used to get 17px targets
+- New guardrails, because the renderer had no test, lint or typecheck at all: `npm run css:audit` (unstyled surfaces, dead CSS, duplicate selectors, token discipline) and `npm run typecheck`, both gating the build; `ui-check.html` mounts the rarely-seen surfaces with fake data and no engine
+
 ## 0.34.0
 Audit-driven release: fixes the failure modes that show up when the connection drops mid-turn, which is the normal case on a phone. Ships together with 0.33.0, which was committed but never published.
 - Reconnect resync: after the socket drops (phone backgrounded, network change) a re-auth clears the stale per-project turn state and re-opens the active project, instead of leaving the chat stuck on "busy" forever — spinner, Stop button, and every later prompt silently queued instead of sent
