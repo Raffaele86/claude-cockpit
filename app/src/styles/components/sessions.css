@@ -1,0 +1,335 @@
+/* Cronologia sessioni — il pannello che si apre sotto la barra delle schede.
+ *
+ * E' un elenco di STRUMENTI, non di articoli: ogni riga e' un pallino di
+ * categoria, un titolo, un estratto e un tempo. Titolo ed estratto sono
+ * etichette (grottesco); il nome del progetto e l'orario sono DATI e vanno in
+ * mono, perche' sono le due colonne che si scorrono verticalmente cercando una
+ * corrispondenza — con la larghezza variabile del grottesco non si incolonnano.
+ *
+ * Il pannello sta in flusso e spinge il contenuto: non e' una finestra
+ * flottante, quindi niente anello e niente velo. E' separato dal terminale
+ * sottostante da un filo solo, e le righe fra loro da --line-faint.
+ *
+ * Il corallo indica UNA sola cosa in questa schermata: la sessione corrente.
+ * I chip di filtro accesi usano una superficie piu' alta, non l'accento — se
+ * fossero corallo anche loro, il corallo smetterebbe di indicare "sei qui".
+ * L'anello di fuoco resta corallo perche' non e' un colore di questa schermata
+ * ma la convenzione globale di primitives.css, identica in ogni componente.
+ */
+
+@layer components {
+  .session-picker {
+    display: flex;
+    flex-direction: column;
+    /* Il pannello non deve mai mangiarsi il terminale: la meta' e' il tetto. */
+    max-height: 45%;
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* ---------- Intestazione ---------- */
+
+  .session-picker-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-4);
+    padding: var(--sp-4) var(--sp-6);
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    /* Peso 600 come ogni altro maiuscoletto di sezione dell'app. */
+    font-weight: 600;
+    line-height: var(--lh-tight);
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
+    color: var(--text-3);
+  }
+
+  /* ---------- Filtri: riga di ricerca + chip di categoria ---------- */
+
+  .session-filters {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    padding: 0 var(--sp-6) var(--sp-4);
+  }
+
+  .session-search-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+  }
+
+  /* Il campo e' un pozzo scavato nel pannello: la superficie sunken lo distingue
+     gia' abbastanza, quindi niente bordo. --fs-lg non e' una scelta estetica:
+     sotto i 16px Android e iOS zoomano il viewport al focus. */
+  .session-filters input {
+    background: var(--surface-sunken);
+    border: none;
+    border-radius: var(--r-1);
+    padding: var(--sp-3) var(--sp-4);
+    font-family: var(--font-sans);
+    font-size: var(--fs-lg);
+    line-height: var(--lh-ui);
+    color: var(--text-1);
+  }
+
+  .session-filters input::placeholder {
+    color: var(--text-faint);
+  }
+
+  .session-filters input:focus {
+    outline: var(--sp-1) solid var(--accent);
+    outline-offset: calc(var(--sp-1) * -1);
+  }
+
+  /* Il campo cede tutto lo spazio che avanza ai due bottoni accanto.
+     min-width: 0 e' cio' che impedisce alla riga di sfondare in larghezza:
+     un input ha una larghezza intrinseca che di suo non si lascia comprimere. */
+  .session-search-row input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .session-cats {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-3);
+  }
+
+  /* I chip vivono in due righe diverse (ricerca e categorie): lo scope e' il
+     contenitore dei filtri e non quello delle sole categorie, altrimenti i due
+     bottoni della riga di ricerca restano bottoni di sistema non stilati — che
+     e' quello che succedeva finora. Raggio --r-1 e non a pastiglia: la forma
+     tonda e' riservata ai pallini di stato. */
+  .session-filters .cat {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-4);
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-tight);
+    color: var(--text-2);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out),
+      border-color var(--dur-1) var(--ease-out);
+  }
+
+  /* :not(:disabled) e' necessario: Chromium fa comunque scattare :hover su un
+     bottone disabilitato, e senza l'esclusione il chip "nei contenuti" si
+     illuminava sotto il puntatore proprio mentre era inerte. */
+  .session-filters .cat:not(:disabled):hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  /* Acceso = premuto, non selezionato: superficie piu' alta e testo pieno.
+     L'accento resta al solo elemento corrente della lista. */
+  .session-filters .cat.on {
+    background: var(--surface-overlay);
+    color: var(--text-1);
+  }
+
+  .session-filters .cat:disabled {
+    border-color: var(--line);
+    color: var(--text-faint);
+    cursor: not-allowed;
+  }
+
+  .session-hidden {
+    margin-left: auto;
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    line-height: var(--lh-tight);
+    color: var(--text-3);
+  }
+
+  /* ---------- Stato vuoto / ricerca in corso ---------- */
+
+  .session-empty {
+    padding: var(--sp-5) var(--sp-6);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    line-height: var(--lh-ui);
+    color: var(--text-3);
+  }
+
+  /* ---------- Elenco ---------- */
+
+  .session-list {
+    flex: 1;
+    overflow-y: auto;
+    /* Il rimbalzo dell'elenco non deve trascinarsi dietro la pagina: nella PWA
+       a schermo intero quel rimbalzo si legge come un bug di layout. */
+    overscroll-behavior: contain;
+    padding-bottom: var(--sp-4);
+  }
+
+  /* Le righe sono a tutta larghezza e allineate all'intestazione: il filo che
+     le separa deve arrivare ai bordi del pannello, se no diventa un riquadro. */
+  .session-item {
+    display: flex;
+    width: 100%;
+    gap: var(--sp-5);
+    /* baseline e non center: titolo e orario cadono sulla stessa riga ottica
+       anche quando sotto il titolo compare l'estratto della ricerca. */
+    align-items: baseline;
+    justify-content: space-between;
+    padding: var(--sp-3) var(--sp-6);
+    background: none;
+    border: none;
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    line-height: var(--lh-ui);
+    color: var(--text-1);
+    text-align: left;
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out);
+  }
+
+  .session-item + .session-item {
+    border-top: 1px solid var(--line-faint);
+  }
+
+  .session-item:hover {
+    background: var(--hover);
+  }
+
+  .session-item.current {
+    background: var(--accent-wash);
+  }
+
+  .session-item.current .session-title {
+    color: var(--accent);
+  }
+
+  /* ---------- Corpo della riga ---------- */
+
+  .session-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    /* Senza min-width: 0 il figlio con ellissi non si comprime e spinge fuori
+       l'orario: e' la ragione per cui il troncamento va fatto qui, non dopo. */
+    min-width: 0;
+    flex: 1;
+  }
+
+  .session-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .session-snippet {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--fs-xs);
+    color: var(--text-3);
+  }
+
+  /* Nome del progetto: identificatore, quindi mono. Sta su una superficie
+     diversa dal pannello e per questo non ha bisogno di un bordo. */
+  .session-proj {
+    display: inline-block;
+    margin-right: var(--sp-3);
+    padding: 0 var(--sp-3);
+    background: var(--surface-overlay);
+    border-radius: var(--r-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--text-2);
+  }
+
+  /* Orario relativo o data: dato. Le cifre tabulari sono cio' che impedisce
+     alla colonna di ballare mentre i "3 min fa" diventano "4 min fa". */
+  .session-when {
+    flex: none;
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--text-3);
+  }
+
+  /* ---------- Pallino di categoria ----------
+     Il colore qui e' identita', non stato: per questo le categorie prendono le
+     tinte di servizio e il neutro quieto, e mai --ok/--warn/--err. L'unica
+     eccezione e' --info sul ramo CLI, che i token dichiarano esplicitamente
+     buono anche per la categoria di sessione.
+     Il fondo sul selettore base non e' decorazione: la categoria arriva dal
+     server come stringa e una categoria non prevista deve rendere un pallino
+     grigio, non un pallino invisibile. */
+  .session-cat-dot {
+    flex: none;
+    align-self: center;
+    width: var(--sp-4);
+    height: var(--sp-4);
+    border-radius: var(--r-full);
+    background: var(--text-3);
+  }
+
+  .session-cat-dot.cockpit {
+    background: var(--hue-pink);
+  }
+
+  .session-cat-dot.cli {
+    background: var(--info);
+  }
+
+  .session-cat-dot.scheduler {
+    background: var(--hue-teal);
+  }
+
+  .session-cat-dot.tech {
+    background: var(--text-3);
+  }
+
+  /* ---------- Telefono: solo il layout ---------- */
+
+  @media (max-width: 767px) {
+    /* Sul telefono il pannello E' la schermata mentre lo si usa: sotto il 60%
+       l'elenco mostra due righe e mezzo e si cerca a tentoni. */
+    .session-picker {
+      max-height: 60%;
+    }
+
+    .session-picker-bar,
+    .session-filters {
+      padding-inline: var(--sp-5);
+    }
+
+    .session-item {
+      padding-inline: var(--sp-5);
+    }
+  }
+
+  /* ---------- Dita: segue il PUNTATORE, non la larghezza ----------
+     Un portatile Windows touch a 1400px ha le stesse dita di un telefono. */
+  @media (pointer: coarse) {
+    .session-filters input {
+      min-height: var(--tap-min);
+    }
+
+    .session-filters .cat {
+      min-height: var(--tap-min);
+      padding-inline: var(--sp-5);
+    }
+
+    .session-item {
+      min-height: var(--tap-min);
+    }
+  }
+}

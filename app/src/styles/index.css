@@ -1,0 +1,55 @@
+/* Foglio di stile del Cockpit — direzione "Strumentazione" (2026-07-20).
+ *
+ * Sostituisce theme.css, 2763 righe organizzate in ~40 sezioni datate per numero
+ * di versione (dalla v0.3 alla v0.28) che si sovrascrivevano a vicenda:
+ * 45 selettori erano dichiarati piu' volte e vinceva l'ultimo, in silenzio.
+ * `.chat .md pre` era definito QUATTRO volte, con fondi diversi.
+ *
+ * La cura non e' la disciplina, e' la meccanica: con @layer i conflitti si
+ * risolvono per ORDINE DI STRATO DICHIARATO, non per ordine di scrittura ne' per
+ * specificita'. Una regola smarrita in `components` non puo' piu' battere una
+ * regola di `layout`, e due regole per la stessa classe in file diversi
+ * diventano un errore rilevabile invece di una gara silenziosa.
+ *
+ * L'ordine qui sotto e' l'unica fonte di verita'. Niente glob: la lista e'
+ * esplicita apposta, cosi' aggiungere un file e' una decisione visibile.
+ */
+
+@layer vendor, reset, tokens, base, layout, components, utilities;
+
+/* xterm.css sta QUI e non in Terminal.tsx: importato da un modulo TS il suo
+   ordine rispetto al nostro foglio non e' garantito da Vite fra dev e build —
+   causa classica di "il terminale si scassa solo dopo la build". In vendor,
+   i nostri override vincono sempre e in modo deterministico. */
+@import '@xterm/xterm/css/xterm.css' layer(vendor);
+
+/* Le @font-face restano fuori dagli strati: non partecipano alla cascata. */
+@import './fonts.css';
+
+@import './tokens.css' layer(tokens);
+
+/* Guscio dell'app e strati di base. */
+@import './components/base.css';
+
+/* Mattoni riusati ovunque: bottoni, pallini, chip, banner, anello di fuoco. */
+@import './components/primitives.css';
+
+/* Cornice: barre e colonne. */
+@import './components/topbar.css';
+@import './components/rail.css';
+@import './components/filenav.css';
+@import './components/tabs.css';
+
+/* Superfici di contenuto. */
+@import './components/terminal.css';
+@import './components/chat.css';
+@import './components/toolcard.css';
+@import './components/composer.css';
+
+/* Sovrapposizioni e pannelli. */
+@import './components/sessions.css';
+@import './components/menu.css';
+@import './components/palette.css';
+@import './components/panels.css';
+@import './components/permission.css';
+@import './components/mcp.css';

@@ -1,0 +1,888 @@
+/* panels — il guscio delle finestre flottanti e gli otto pannelli che ci vivono
+ * dentro (doctor, impostazioni, consumi, sistema, todo, inbox, checkpoint,
+ * lettore markdown).
+ *
+ * Due idee reggono tutto il file:
+ *
+ * 1. Il guscio e' UNO SOLO (.float-win/.float-bar/.float-title, FloatPanel.tsx).
+ *    E' anche l'unica superficie di questo file davvero staccata dal fondo,
+ *    quindi l'unica autorizzata a --ring. Dentro il guscio non si torna a
+ *    disegnare scatole: i pannelli sono tabelle di strumenti, e si separano con
+ *    --line-faint.
+ *
+ * 2. Le finestre stanno su --surface-overlay, dove --text-3 fa 4.2:1 e non e'
+ *    ammesso: qui il livello quieto e' SEMPRE --text-2. E' il motivo per cui
+ *    scompaiono anche le opacity decorative del vecchio file (.set-hint stava a
+ *    text-dim * 0.8, cioe' un grigio sotto AA ottenuto per sbaglio).
+ *
+ * I numeri — RAM, costi, token, percorsi, versioni, scadenze — sono mono con
+ * cifre tabulari: una tabella di consumi che si aggiorna ogni pochi secondi con
+ * cifre proporzionali balla, ed e' esattamente il dato che si guarda di sfuggita.
+ */
+
+@layer components {
+  /* ---- Guscio delle finestre flottanti ---- */
+
+  .float-win {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    z-index: var(--z-overlay);
+    display: flex;
+    flex-direction: column;
+    max-width: calc(100vw - var(--sp-6));
+    max-height: 90dvh;
+    overflow: hidden;
+    background: var(--surface-overlay);
+    border-radius: var(--r-3);
+
+    /* L'eccezione ammessa alla regola "niente ombre": una finestra che galleggia
+       sopra la chat non ha una superficie sotto di se' da cui staccarsi, e senza
+       anello il suo bordo superiore sparisce dentro il testo. E' un anello, non
+       un'ombra: nessuna diffusione, nessuna direzione della luce. */
+    box-shadow: var(--ring);
+
+    animation: float-in var(--dur-2) var(--ease-out);
+  }
+
+  /* Solo opacita': la finestra centrata vive dentro un translate(-50%,-50%) e
+     quella trascinata no. Un keyframe che tocca transform funzionerebbe per una
+     delle due e strapperebbe l'altra fuori schermo. */
+  @keyframes float-in {
+    from {
+      opacity: 0;
+    }
+  }
+
+  /* useDragWin scrive left/top inline: senza questo, ogni movimento del mouse
+     rimonta il nodo con lo stile cambiato e rigioca l'animazione d'entrata. */
+  .float-win[style*='left'] {
+    animation-name: none;
+  }
+
+  .float-bar {
+    flex: none;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    min-height: var(--h-bar);
+    padding: 0 var(--sp-4) 0 var(--sp-5);
+    border-bottom: 1px solid var(--line);
+    color: var(--text-2);
+    cursor: move;
+    user-select: none;
+  }
+
+  .float-title {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    font-weight: 600;
+    line-height: var(--lh-tight);
+    color: var(--text-1);
+  }
+
+  /* Larghezze e scarti d'apertura valgono SOLO da tablet in su. Sotto, la
+     finestra e' a tutto schermo: se queste regole vivessero fuori dalla media
+     query vincerebbero comunque per specificita' (.float-win.doctor batte
+     .float-win) ed e' per questo che il vecchio file forzava quattro override. */
+  @media (min-width: 768px) {
+    .float-win.doctor {
+      width: min(560px, 92vw);
+    }
+
+    .md-viewer {
+      width: min(900px, 95vw);
+    }
+
+    .settings-modal {
+      width: min(640px, 95vw);
+    }
+
+    /* Scarti di pochi punti percentuali dal centro: due finestre aperte insieme
+       devono mostrare di essere due, non una sola con il bordo doppio. */
+    .float-win.usage-win {
+      left: 53%;
+      top: 46%;
+    }
+
+    .float-win.inbox-win {
+      left: 47%;
+      top: 54%;
+    }
+
+    .float-win.cp-win {
+      left: 50%;
+      top: 58%;
+    }
+
+    .float-win.doctor-win {
+      left: 50%;
+      top: 42%;
+    }
+
+    .float-win.settings-win {
+      left: 52%;
+      top: 50%;
+    }
+  }
+
+  /* ---- Lettore markdown ---- */
+
+  /* Stesso rientro di .doctor-body: sono due corpi dentro lo stesso guscio di
+     finestra, e due gabbie diverse si vedono aprendo l'una dopo l'altra. */
+  .md-viewer-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding: var(--sp-5) var(--sp-6) var(--sp-6);
+  }
+
+  .md-viewer-error {
+    font-size: var(--fs-md);
+    color: var(--err);
+  }
+
+  .md-viewer-loading {
+    font-size: var(--fs-md);
+    color: var(--text-2);
+  }
+
+  /* ---- Impostazioni ---- */
+
+  .settings-body section {
+    margin-bottom: var(--sp-7);
+    padding-bottom: var(--sp-6);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .settings-body section:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+
+  /* Era corallo: in una schermata con "Salva" corallo, due accenti significano
+     che uno dei due non e' l'azione primaria. Un titolo di sezione e'
+     un'etichetta, e le etichette qui sono maiuscoletto quieto. */
+  .settings-body h3 {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    margin: 0 0 var(--sp-5);
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: var(--tr-label);
+    color: var(--text-2);
+  }
+
+  .set-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-5);
+    font-size: var(--fs-sm);
+    color: var(--text-2);
+  }
+
+  /* Unica textarea delle impostazioni: la lista di host extra. E' un elenco di
+     nomi macchina, quindi mono. --fs-lg perche' sotto i 16px il telefono zooma
+     il viewport al focus e la finestra a tutto schermo esce dai bordi. */
+  .set-field textarea {
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-sunken);
+    border: none;
+    border-radius: var(--r-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-lg);
+    line-height: var(--lh-mono);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--text-1);
+    resize: vertical;
+  }
+
+  .set-field textarea:focus {
+    outline: var(--sp-1) solid var(--accent);
+    outline-offset: calc(var(--sp-1) * -1);
+  }
+
+  .set-check {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    margin-bottom: var(--sp-4);
+    font-size: var(--fs-sm);
+    color: var(--text-2);
+    cursor: pointer;
+  }
+
+  /* La spunta accesa E' una selezione attiva: e' il secondo uso legittimo del
+     corallo insieme all'azione primaria. */
+  .set-check input {
+    flex: none;
+    margin: 0;
+    accent-color: var(--accent);
+  }
+
+  .set-hint {
+    margin: var(--sp-2) 0 0;
+    font-size: var(--fs-xs);
+    color: var(--text-2);
+  }
+
+  /* Rientro dei distintivi autonomi: --sp-1/--sp-3, come .cpal-crumb, .img-chip
+     e .sys-kind. I distintivi che stanno DENTRO una riga di testo (.todos-prio,
+     .session-proj, kbd) restano a zero in verticale per non spostare la riga. */
+  .set-badge {
+    padding: var(--sp-1) var(--sp-3);
+    border: 1px solid var(--line);
+    border-radius: var(--r-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    text-transform: none;
+    letter-spacing: normal;
+    color: var(--text-2);
+  }
+
+  .set-badge.on {
+    background: var(--ok-dim);
+    border-color: var(--ok-line);
+    color: var(--ok);
+  }
+
+  /* "Configurazione incompleta": e' un avvertimento, non un invito a premere. */
+  .settings-warn {
+    font-size: var(--fs-sm);
+    color: var(--warn);
+  }
+
+  .set-qa-row {
+    display: flex;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-3);
+  }
+
+  .set-qa-row input {
+    min-width: 0;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-sunken);
+    border: none;
+    border-radius: var(--r-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-lg);
+    color: var(--text-1);
+  }
+
+  /* Etichetta della scorciatoia: quota fissa, altrimenti un comando lungo la
+     comprime fino a nasconderla. */
+  .set-qa-row input:first-child {
+    flex: 0 0 30%;
+  }
+
+  /* Il secondo campo e' il comando da mandare a Claude: e' un dato, non
+     un'etichetta. */
+  .set-qa-row input:nth-child(2) {
+    flex: 1 1 auto;
+    font-family: var(--font-mono);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+  }
+
+  .set-qa-add {
+    margin-top: var(--sp-1);
+    padding: var(--sp-2) var(--sp-5);
+    background: none;
+    border: 1px solid var(--line);
+    border-radius: var(--r-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    color: var(--text-2);
+    cursor: pointer;
+  }
+
+  .set-qa-add:hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  /* ---- Doctor, sistema, checkpoint: il corpo condiviso ----
+     Tutti e cinque i pannelli non-markdown montano .doctor-body. */
+
+  .doctor-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-4);
+    overflow-y: auto;
+    padding: var(--sp-5) var(--sp-6) var(--sp-6);
+  }
+
+  .doc-conn {
+    margin-left: auto;
+    margin-right: var(--sp-4);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--err);
+  }
+
+  .doc-conn.ok {
+    color: var(--ok);
+  }
+
+  .doc-check {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-4);
+  }
+
+  .doc-dot {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-2);
+  }
+
+  .doc-dot.ok {
+    color: var(--ok);
+  }
+
+  .doc-dot.bad {
+    color: var(--err);
+  }
+
+  /* In un contenitore flex l'icona non ha piu' bisogno del ritocco di baseline
+     che aveva da inline: basta toglierle la riga su cui sedeva. */
+  .doc-dot .icon {
+    display: block;
+  }
+
+  .doc-check-txt {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    font-size: var(--fs-md);
+  }
+
+  /* Percorso, versione o porta rilevata dal check: dato, e spezzabile ovunque
+     perche' un percorso WSL non ha punti in cui andare a capo. */
+  .doc-label code {
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--text-2);
+    overflow-wrap: anywhere;
+  }
+
+  .doc-hint {
+    font-size: var(--fs-sm);
+    color: var(--warn);
+  }
+
+  .doc-note {
+    margin: 0;
+    font-size: var(--fs-md);
+    color: var(--text-2);
+  }
+
+  .doc-reqs {
+    margin: 0;
+    padding-left: var(--sp-7);
+    font-size: var(--fs-md);
+    color: var(--text-2);
+  }
+
+  .doc-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-4);
+    margin-top: var(--sp-2);
+  }
+
+  /* "Riprova" del singolo check: spinto a destra, mai stretto dal testo. */
+  .doc-check > .mini {
+    margin-left: auto;
+    flex-shrink: 0;
+  }
+
+  /* Riga dell'aggiornamento: e' l'unico punto in cui l'app dice che esiste una
+     versione nuova, e finora non aveva NESSUNA regola — stato e bottone
+     cadevano incolonnati ereditando la colonna del check. Va a capo per conto
+     suo perche' contiene testo variabile ("scaricato il 47%") piu' un bottone. */
+  .doc-upd {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-3);
+    margin-top: var(--sp-2);
+  }
+
+  /* ---- Checkpoint ---- */
+
+  .cp-label {
+    flex: 1;
+    min-width: 0;
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-sunken);
+    border: none;
+    border-radius: var(--r-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-lg);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--text-1);
+  }
+
+  /* ---- Consumi ---- */
+
+  .usage-scroll {
+    min-height: 0;
+    max-height: 40vh;
+    overflow-y: auto;
+  }
+
+  .usage-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    line-height: var(--lh-mono);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+  }
+
+  /* Tutto a destra: sono token e dollari, e le cifre si confrontano incolonnate
+     dall'unita'. La prima colonna, che e' la data, torna a sinistra piu' sotto. */
+  .usage-table th,
+  .usage-table td {
+    padding: var(--sp-2) var(--sp-4);
+    text-align: right;
+    border-bottom: 1px solid var(--line-faint);
+  }
+
+  /* L'intestazione e' un'etichetta, non un dato: esce dal mono della tabella e
+     resta appiccicata in cima mentre si scorrono i giorni. */
+  .usage-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--surface-overlay);
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: var(--tr-label);
+    color: var(--text-2);
+  }
+
+  .usage-table th:first-child,
+  .usage-table td:first-child {
+    text-align: left;
+  }
+
+  /* ---- Inbox ---- */
+
+  .inbox-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    width: 100%;
+    padding: var(--sp-3) var(--sp-2);
+    background: none;
+    border: 0;
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    text-align: left;
+    color: var(--text-1);
+    cursor: pointer;
+  }
+
+  /* Filo TRA le righe e non sotto ognuna: e' la regola di ogni elenco dell'app
+     (.fnav-item, .mcp-item, .session-item, .prov-row). Sotto l'ultima riga il
+     filo si sommerebbe al bordo del corpo della finestra. */
+  .inbox-row + .inbox-row {
+    border-top: 1px solid var(--line-faint);
+  }
+
+  .inbox-row:hover {
+    background: var(--hover);
+  }
+
+  .inbox-name {
+    flex-shrink: 0;
+    font-weight: 600;
+  }
+
+  .inbox-title {
+    flex-shrink: 0;
+    max-width: 30%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-2);
+  }
+
+  .inbox-snippet {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-2);
+  }
+
+  .inbox-cost {
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--text-2);
+  }
+
+  /* ---- Sistema ---- */
+
+  .sys-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--fs-sm);
+  }
+
+  .sys-table th,
+  .sys-table td {
+    padding: var(--sp-2) var(--sp-4);
+    text-align: left;
+    border-bottom: 1px solid var(--line-faint);
+  }
+
+  .sys-table thead th {
+    position: sticky;
+    top: 0;
+    background: var(--surface-overlay);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: var(--tr-label);
+    color: var(--text-2);
+  }
+
+  .sys-table td.sys-num,
+  .sys-table th.sys-num {
+    text-align: right;
+  }
+
+  /* RSS in megabyte: e' la colonna che si aggiorna da sola mentre la si guarda,
+     quindi cifre tabulari obbligatorie. */
+  .sys-num {
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+  }
+
+  /* Riga di comando del processo. Il taglio e' in ch e non in pixel perche' su
+     testo mono e' un conteggio di caratteri: sono i primi ~32 caratteri, che
+     bastano a riconoscere il processo. */
+  .sys-cmd {
+    max-width: 32ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--text-2);
+  }
+
+  .sys-kind {
+    display: inline-block;
+    padding: var(--sp-1) var(--sp-3);
+    border: 1px solid var(--line);
+    border-radius: var(--r-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    color: var(--text-2);
+  }
+
+  .sys-membar {
+    height: var(--sp-3);
+    margin: var(--sp-1) 0 var(--sp-2);
+    background: var(--line);
+    border-radius: var(--r-1);
+    overflow: hidden;
+  }
+
+  /* Il riempimento era corallo, cioe' "premi qui" su una barra che non si preme.
+     E' una lettura neutra e non ha stati (il markup non distingue memoria sana
+     da memoria satura), quindi prende il canale d'avviso neutro. */
+  .sys-membar-fill {
+    height: 100%;
+    background: var(--info);
+  }
+
+  .sys-services {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-4);
+  }
+
+  .sys-svc {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-4);
+    border: 1px solid var(--line);
+    border-radius: var(--r-1);
+    font-size: var(--fs-sm);
+  }
+
+  /* --sp-4: e' la misura di ogni pallino di stato dell'app (.dot, .tstatus,
+     .mcp-dot, .session-cat-dot, .tab-busy, .rail-busy). Un solo diametro. */
+  .sys-svc-dot {
+    flex-shrink: 0;
+    width: var(--sp-4);
+    height: var(--sp-4);
+    border-radius: var(--r-full);
+  }
+
+  .sys-svc-dot.ok {
+    background: var(--ok);
+  }
+
+  .sys-svc-dot.bad {
+    background: var(--err);
+  }
+
+  .sys-svc-name {
+    font-weight: 600;
+    color: var(--text-1);
+  }
+
+  /* Porta o PID del servizio. */
+  .sys-svc-info {
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--text-2);
+  }
+
+  /* ---- Todo esterni (pannello) ---- */
+
+  /* Stessa densita' di .inbox-row — sono due elenchi dentro lo stesso guscio di
+     finestra — e stesso filo tra le righe invece che sotto ognuna. */
+  .todos-row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-2);
+  }
+
+  .todos-row + .todos-row {
+    border-top: 1px solid var(--line-faint);
+  }
+
+  .todos-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .todos-title {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    font-size: var(--fs-md);
+    color: var(--text-1);
+  }
+
+  .todos-badges {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-3);
+    margin-top: var(--sp-1);
+  }
+
+  /* Compare solo per priorita' "high" e "urgent" (TodosPanel.tsx): e' letteralmente
+     un'attenzione, quindi ambra. In corallo competeva con l'azione primaria della
+     stessa riga, che e' "fatto". */
+  .todos-prio {
+    padding: 0 var(--sp-2);
+    border: 1px solid var(--warn-line);
+    border-radius: var(--r-1);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: var(--tr-label);
+    color: var(--warn);
+  }
+
+  .todos-due {
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--text-2);
+  }
+
+  /* ---- Todo della sessione (colonna laterale) ----
+     Non e' dentro una finestra: vive in .side, su --surface-raised. */
+
+  /* Non aveva regola: il blocco toccava il bordo della colonna e si incollava a
+     quello che gli stava sotto. Filo in basso, non riquadro. */
+  .todo-panel {
+    padding: var(--sp-5);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .todo-title {
+    margin-bottom: var(--sp-4);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: var(--tr-label);
+    color: var(--text-2);
+  }
+
+  .todo-item {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-4);
+    padding: var(--sp-2) 0;
+    font-size: var(--fs-sm);
+  }
+
+  /* --text-2 e non --text-3: sul telefono .side diventa un cassetto su
+     --surface-overlay (base.css), dove --text-3 fa 4.2:1. L'icona porta lo
+     stato della voce, quindi non puo' scendere al livello decorativo. */
+  .todo-icon {
+    flex: none;
+    display: flex;
+    justify-content: center;
+    width: var(--sp-5);
+    color: var(--text-2);
+  }
+
+  .todo-text {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    color: var(--text-1);
+  }
+
+  /* Fatto, non disattivato: la barratura porta gia' tutto il significato, e il
+     testo resta da leggere — quindi --text-3 e non --text-faint. Vale anche il
+     motivo di contrasto: sul telefono .side e' un cassetto --surface-overlay,
+     dove il livello decorativo scompare. */
+  .todo-item.completed .todo-text {
+    color: var(--text-3);
+    text-decoration: line-through;
+  }
+
+  /* "In corso" e' --busy, non corallo: se occupato fosse corallo, il corallo
+     smetterebbe di voler dire "premi qui". */
+  .todo-item.in_progress .todo-text {
+    color: var(--busy);
+  }
+
+  /* ---- Telefono: la finestra diventa la schermata ---- */
+
+  @media (max-width: 767px) {
+    /* Nessun override forzato: le larghezze e gli scarti delle varianti vivono
+       nella media query da 768 in su, quindi qui non c'e' nulla da battere. */
+    .float-win {
+      left: 0;
+      top: 0;
+      transform: none;
+      width: 100vw;
+      height: 100dvh;
+      max-width: none;
+      max-height: none;
+      border-radius: 0;
+
+      /* A tutto schermo non c'e' fondo da cui staccarsi: l'anello diventerebbe
+         una riga di pixel chiari lungo il bordo del telefono. */
+      box-shadow: none;
+    }
+
+    /* La barra passa sotto la tacca, e a tutto schermo non c'e' niente da
+       trascinare: il cursore "move" prometterebbe un gesto che non esiste.
+       L'altezza NON sta qui: e' un bersaglio, e i bersagli li decide il
+       puntatore. */
+    .float-bar {
+      padding-top: var(--safe-t);
+      cursor: default;
+    }
+
+    /* Il tetto del 40% serviva a non far crescere una finestra centrata. A tutto
+       schermo e' solo un buco: scorre il corpo, che e' gia' flessibile. */
+    .usage-scroll {
+      max-height: none;
+    }
+
+    .sys-cmd {
+      max-width: 20ch;
+    }
+  }
+
+  /* ---- Dita: vale a qualunque larghezza, anche sul portatile touch ---- */
+
+  @media (pointer: coarse) {
+    /* La barra porta la chiusura della finestra: e' un bersaglio, quindi cresce
+       con le dita a qualunque larghezza. --safe-t si somma qui perche' su un
+       dispositivo senza tacca vale 0. */
+    .float-bar {
+      min-height: calc(var(--h-bar-touch) + var(--safe-t));
+    }
+
+    .inbox-row {
+      min-height: var(--tap-min);
+    }
+
+    .set-check {
+      min-height: var(--tap-min);
+    }
+
+    .set-qa-row input {
+      min-height: var(--tap-min);
+    }
+
+    .set-qa-add {
+      min-height: var(--tap-min);
+    }
+
+    .cp-label {
+      min-height: var(--tap-min);
+    }
+
+    .set-field textarea {
+      min-height: var(--tap-min);
+    }
+  }
+}

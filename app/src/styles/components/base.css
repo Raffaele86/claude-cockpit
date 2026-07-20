@@ -1,0 +1,165 @@
+/* base — reset, guscio dell'app, scrollbar a tema.
+ *
+ * Sta nel layer `layout` e non in `components`: qui si decide dove finisce lo
+ * schermo, non che aspetto ha un bottone. Tenerlo in un layer piu' basso fa si'
+ * che qualunque componente possa sovrascriverlo senza specificita' inventata.
+ */
+
+@layer layout {
+  /* ---- Reset ---- */
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  body {
+    margin: 0;
+    background: var(--surface-base);
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    line-height: var(--lh-ui);
+  }
+
+  /* ---- Scrollbar ----
+     Erano sparse nel vecchio file, ognuna con il suo grigio. Una sola volta,
+     qui, sul filo forte: la barra e' un elemento di struttura, non un dato. */
+
+  ::-webkit-scrollbar {
+    width: var(--sp-4);
+    height: var(--sp-4);
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: var(--r-1);
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--text-faint);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  /* ---- Guscio ---- */
+
+  /* 100dvh e non 100vh: su Android la barra degli indirizzi che si ritrae
+     cambia vh a meta' sessione e taglia il composer in fondo. */
+  .app {
+    display: flex;
+    flex-direction: column;
+    height: 100dvh;
+  }
+
+  /* min-height: 0 e' cio' che permette ai figli di scorrere invece di far
+     crescere il guscio oltre lo schermo. */
+  .body {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+
+  /* min-width per il contesto a righe (desktop), min-height per quello a
+     colonna (telefono): senza entrambi il terminale allarga il guscio. */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+
+  /* Pannello destro. Nessun bordo: sta gia' su una superficie diversa dal
+     fondo, e il filo sarebbe un riquadro travestito.
+     280px e' un letterale consapevole — l'unico token di larghezza e'
+     --rail-w, che descrive il rail sinistro. */
+  .side {
+    display: none;
+    width: 280px;
+    padding: var(--sp-5);
+    background: var(--surface-raised);
+    overflow-y: auto;
+    /* impedisce che lo scroll a fondo pannello trascini la chat sottostante */
+    overscroll-behavior: contain;
+  }
+
+  .side.open {
+    display: block;
+  }
+
+  /* Dopo .side.open di proposito: un pannello senza contenuto resta chiuso
+     anche quando il bottone lo dice aperto. */
+  .side:empty {
+    display: none;
+  }
+
+  /* Il velo del cassetto. Nessun display qui: lo governa .mobile-only, che e'
+     l'unica classe che sa se siamo su telefono.
+     Stesso piano del cassetto: l'ordine nel DOM (velo prima, .side dopo) mette
+     il cassetto sopra senza inventare un piano intermedio. */
+  .side-backdrop {
+    position: fixed;
+    inset: 0;
+    background: var(--scrim);
+    z-index: var(--z-drawer);
+  }
+
+  .mobile-only {
+    display: none;
+  }
+
+  /* Stato vuoto: --text-3 e non --text-faint, perche' "scrivi per iniziare"
+     e' un'istruzione, non una decorazione. */
+  .empty {
+    padding: var(--sp-10) var(--sp-6);
+    text-align: center;
+    color: var(--text-3);
+  }
+
+  /* Un costo e' un DATO: mono, cifre tabulari, zero barrato. Senza 'tnum' il
+     numero balla a ogni aggiornamento di sessione. */
+  .cost {
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--text-2);
+  }
+
+  /* ---- Telefono: il guscio si impila e il pannello destro diventa cassetto ---- */
+
+  @media (max-width: 767px) {
+    .body {
+      flex-direction: column;
+    }
+
+    /* Geometria sola: il display resta quello delle regole sopra, cosi'
+       .side:empty continua a valere anche qui. Il cassetto e' una finestra
+       davvero staccata dal fondo, quindi --surface-overlay e l'anello. */
+    .side {
+      position: fixed;
+      top: 0;
+      right: 0;
+      bottom: 0;
+      width: min(320px, 85vw);
+      padding: calc(var(--sp-5) + var(--safe-t)) calc(var(--sp-5) + var(--safe-r))
+        calc(var(--sp-5) + var(--safe-b)) var(--sp-5);
+      background: var(--surface-overlay);
+      box-shadow: var(--ring);
+      z-index: var(--z-drawer);
+    }
+
+    .mobile-only {
+      display: inline-flex;
+    }
+  }
+}

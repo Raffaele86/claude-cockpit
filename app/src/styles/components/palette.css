@@ -1,0 +1,280 @@
+/* Palette dei comandi (Ctrl/Cmd+K) — il cuore della navigazione.
+ *
+ * E' una finestra davvero staccata dal fondo: e' l'unico caso, con i popover, in
+ * cui il contratto ammette il velo --scrim e l'anello --ring. Non un'ombra.
+ *
+ * La riga selezionata usa --accent-wash. E' uno dei due usi legittimi del
+ * corallo (l'altro e' il cursore del terminale): dentro questo pannello nessun
+ * altro elemento puo' essere corallo, per questo la spunta .cpal-on e' --ok.
+ */
+
+@layer components {
+  /* Il velo copre anche la topbar, che e' la maniglia di trascinamento della
+     finestra Electron: senza no-drag, trascinare sul velo sposterebbe la
+     finestra invece di chiudere la palette. */
+  .cpal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    /* 15vh: la palette si apre nel primo terzo dello schermo, dove cade lo
+       sguardo. E' una collocazione nel viewport, non uno spazio della scala. */
+    padding: 15vh calc(var(--sp-6) + var(--safe-r)) calc(var(--sp-6) + var(--safe-b))
+      calc(var(--sp-6) + var(--safe-l));
+    background: var(--scrim);
+    animation: cpal-fade var(--dur-1) var(--ease-out);
+    -webkit-app-region: no-drag;
+  }
+
+  /* Nessuna altezza fissa: il pannello si ferma al bordo del velo e la lista
+     al suo interno prende quel che resta. Sostituisce il 55vh/70dvh di prima,
+     che sul telefono con la tastiera aperta usciva dallo schermo.
+     620px e' un letterale consapevole: non esiste un token di larghezza per le
+     finestre flottanti (--col-prose descrive la colonna di prosa). */
+  .cpal-panel {
+    display: flex;
+    flex-direction: column;
+    width: min(620px, 100%);
+    max-height: 100%;
+    overflow: hidden;
+    background: var(--surface-overlay);
+    border-radius: var(--r-3);
+    box-shadow: var(--ring);
+    animation: cpal-pop var(--dur-2) var(--ease-out);
+    /* La palette nasce sopra la topbar, che e' la maniglia di trascinamento
+       della finestra Electron: senza no-drag il pannello non si clicca. Stava
+       anche in menu.css, sullo stesso selettore. */
+    -webkit-app-region: no-drag;
+  }
+
+  /* Il campo di ricerca e' un pozzo, non un pannello: e' il valore piu' scuro a
+     dire "qui si scrive", e questo permette all'input di non avere bordi. */
+  .cpal-input-row {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: var(--sp-4);
+    padding: 0 var(--sp-6);
+    background: var(--surface-sunken);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .cpal-crumb {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-1) var(--sp-3);
+    border: 1px solid var(--line);
+    border-radius: var(--r-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-tight);
+    color: var(--text-2);
+  }
+
+  /* --fs-lg e' obbligatorio, non estetico: sotto i 16px Android e iOS zoomano il
+     viewport al focus. L'outline e' tolto di proposito — il campo riceve il
+     fuoco all'apertura e resta l'unico bersaglio di digitazione: un anello
+     permanente attorno all'unico campo del pannello non informa di nulla. */
+  .cpal-input {
+    flex: 1;
+    min-width: 0;
+    padding: var(--sp-5) 0;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: var(--font-sans);
+    font-size: var(--fs-lg);
+    line-height: var(--lh-ui);
+    color: var(--text-1);
+  }
+
+  /* --text-faint: il contratto nomina i segnaposto tra i suoi usi, ed e' il
+     token di ogni altro placeholder dell'app (.composer textarea,
+     .session-filters input, .mcp-add-form). Il campo sta su --surface-sunken,
+     non sull'overlay, quindi lo scalino piu' quieto e' ammesso. */
+  .cpal-input::placeholder {
+    color: var(--text-faint);
+  }
+
+  .cpal-list {
+    flex: 1 1 auto;
+    /* Senza min-height:0 un contenitore flex non scende sotto il proprio
+       contenuto e la lista sfonda il pannello invece di scorrere. */
+    min-height: 0;
+    overflow-y: auto;
+    /* impedisce che lo scroll a fondo lista trascini la pagina sottostante */
+    overscroll-behavior: contain;
+    padding: var(--sp-2);
+  }
+
+  /* Il livello quieto su --surface-overlay e' --text-2: --text-3 li' fa 4.2:1.
+     La gerarchia rispetto alle voci la portano maiuscoletto, corpo e peso. */
+  .cpal-section {
+    padding: var(--sp-5) var(--sp-4) var(--sp-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    line-height: var(--lh-tight);
+    text-transform: uppercase;
+    letter-spacing: var(--tr-label);
+    color: var(--text-2);
+  }
+
+  /* Le voci sono il contenuto del pannello, non un contorno: --text-1.
+     Nessuna regola :hover — il markup assegna .focus su mouseenter, quindi il
+     passaggio del mouse E' gia' la selezione: una seconda verita' finirebbe per
+     mostrare due righe evidenziate insieme. */
+  .cpal-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    width: 100%;
+    padding: var(--sp-3) var(--sp-4);
+    background: transparent;
+    border: none;
+    border-radius: var(--r-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    line-height: var(--lh-ui);
+    text-align: left;
+    color: var(--text-1);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out);
+  }
+
+  /* :active PRIMA di .focus, non dopo: hanno la stessa specificita' e l'ultimo
+     vince. Con l'ordine inverso, premere la riga selezionata la portava da
+     --accent-wash a --press, cioe' la evidenziava di MENO proprio nel momento
+     del dito sopra. Qui il riscontro di pressione resta per le righe non
+     selezionate; su quella selezionata il corallo non arretra. */
+  .cpal-item:active {
+    background: var(--press);
+  }
+
+  .cpal-item.focus {
+    background: var(--accent-wash);
+  }
+
+  .cpal-item:focus-visible {
+    outline: var(--sp-1) solid var(--accent);
+    outline-offset: calc(var(--sp-1) * -1);
+  }
+
+  /* min-width:0 e' cio' che fa funzionare l'ellissi: dentro un flex la larghezza
+     minima automatica e' quella del contenuto, quindi senza questa riga
+     l'etichetta lunga allarga la voce invece di troncarsi. */
+  .cpal-label {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* Spunta di "opzione attiva". NON corallo: in questo pannello il corallo e'
+     gia' impegnato dalla riga selezionata, e due accenti nella stessa schermata
+     vogliono dire che uno dei due non e' l'accento. Acceso e' uno stato: --ok. */
+  .cpal-on {
+    flex: none;
+    color: var(--ok);
+  }
+
+  /* Il chevron "ha figli" e' un'affordance ripetuta su molte righe: si intravede,
+     non si legge. NON --text-faint: sul pannello --surface-overlay farebbe circa
+     2:1, sotto il 3:1 richiesto a un oggetto grafico, e l'unico segno che dice
+     "questa riga apre un sottomenu" sparirebbe. Su overlay il livello quieto e'
+     --text-2 (stessa scelta gia' fatta per .mcp-dot). */
+  .cpal-more {
+    flex: none;
+    color: var(--text-2);
+  }
+
+  .cpal-empty {
+    padding: var(--sp-7);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    text-align: center;
+    color: var(--text-2);
+  }
+
+  .cpal-footer {
+    display: flex;
+    flex: none;
+    gap: var(--sp-6);
+    padding: var(--sp-3) var(--sp-6);
+    border-top: 1px solid var(--line);
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    line-height: var(--lh-tight);
+    color: var(--text-2);
+  }
+
+  /* Le scorciatoie sono dati, non etichette: mono con cifre tabulari e zero
+     barrato, cosi' i tasti non ballano da una riga all'altra. */
+  .cpal-panel kbd {
+    flex: none;
+    padding: 0 var(--sp-2);
+    /* --line-strong come .kbd-chip: e' lo stesso oggetto (un tasto) in due
+       schermate, e un tasto ha bisogno di un filo che si veda. */
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-micro);
+    line-height: var(--lh-mono);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--text-2);
+  }
+
+  /* Le durate valgono 0ms sotto prefers-reduced-motion (lo impone tokens.css):
+     l'animazione resta dichiarata ma si risolve nello stato finale. */
+  @keyframes cpal-fade {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes cpal-pop {
+    from {
+      opacity: 0;
+      transform: translateY(calc(var(--sp-2) * -1));
+    }
+  }
+
+  @media (max-width: 767px) {
+    /* Sul telefono la palette parte da sotto il notch e occupa la larghezza
+       piena meno le gronde: 15vh di aria in cima sono uno schermo sprecato. */
+    .cpal-backdrop {
+      padding: calc(var(--safe-t) + var(--sp-4)) calc(var(--safe-r) + var(--sp-4))
+        calc(var(--safe-b) + var(--sp-4)) calc(var(--safe-l) + var(--sp-4));
+    }
+
+    /* Le tre scorciatoie sono ↑↓ / ⏎ / esc: senza tastiera non sono un
+       promemoria ma tre righe di pixel morti in cima alla lista dei risultati. */
+    .cpal-footer {
+      display: none;
+    }
+
+    /* --fs-micro e' un corpo da desktop: sul telefono i tasti scendono di scala
+       con il resto e restano leggibili. */
+    .cpal-panel kbd {
+      font-size: var(--fs-xs);
+    }
+  }
+
+  /* Bersagli, non layout: vale anche su un portatile touch a 1400px. */
+  @media (pointer: coarse) {
+    .cpal-input {
+      min-height: var(--tap-min);
+    }
+
+    .cpal-item {
+      min-height: var(--tap-min);
+    }
+  }
+}

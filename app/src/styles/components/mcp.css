@@ -1,0 +1,384 @@
+/* MCP — il pannello dei server nel cassetto laterale.
+ *
+ * E' una LISTA DI STATO, non un modulo: la domanda a cui risponde in mezzo
+ * secondo e' "quanti sono giu'". Quindi righe separate da un filo tenue, nomi
+ * dei server in mono (sono identificatori, non etichette) e il colore usato
+ * solo per lo stato reale — verde connesso, rosso caduto, ambra incerto.
+ *
+ * Vive dentro `.side`, che su desktop e' --surface-raised e sul telefono
+ * diventa il cassetto --surface-overlay. Su overlay --text-3 non passa AA:
+ * per questo qui il livello quieto e' SEMPRE --text-2, invece di cambiare
+ * scalino a meta' breakpoint. Nessun bordo attorno al pannello — sta gia' su
+ * una superficie sua, gli serve solo il filo che lo stacca dai todo sopra.
+ *
+ * Il vecchio file rientrava a 10px empty/form/transfer e a 0 le righe: qui
+ * tutto e' a filo del bordo sinistro del pannello, la colonna dei pallini e'
+ * l'unico allineamento che conta.
+ */
+
+@layer components {
+  .mcp-panel {
+    margin-top: var(--sp-6);
+    padding-top: var(--sp-5);
+    border-top: 1px solid var(--line);
+  }
+
+  /* ---- Testata: apri/chiudi + azioni ---- */
+
+  .mcp-head {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-2);
+    margin-bottom: var(--sp-3);
+  }
+
+  /* McpStatus.tsx colora .mcp-summary inline con --green/--amber, token che
+     nel sistema nuovo non esistono piu': quella dichiarazione e' invalida e il
+     colore finisce per essere EREDITATO da qui. Il --text-2 di questa regola e'
+     quindi anche il colore effettivo del riepilogo finche' il markup non passa
+     a --ok/--warn. */
+  .mcp-toggle {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    line-height: var(--lh-ui);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .mcp-title {
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    line-height: var(--lh-tight);
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
+  }
+
+  /* "3 giu'" / "5 ok" e' un contatore: mono con cifre tabulari, altrimenti la
+     larghezza balla a ogni refresh e la testata sfarfalla. */
+  .mcp-summary {
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+  }
+
+  .mcp-refresh {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--sp-2);
+    background: none;
+    border: none;
+    border-radius: var(--r-1);
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    line-height: var(--lh-tight);
+    cursor: pointer;
+    transition: color var(--dur-1) var(--ease-out), background var(--dur-1) var(--ease-out);
+  }
+
+  .mcp-refresh:hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  .mcp-refresh:active {
+    background: var(--press);
+  }
+
+  /* ---- Le righe dei server ---- */
+
+  .mcp-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    padding: var(--sp-2) 0;
+    font-size: var(--fs-sm);
+    line-height: var(--lh-ui);
+  }
+
+  /* Separatore fra righe e non sotto ogni riga: l'ultimo filo cadrebbe
+     addosso al bordo del modulo che segue, raddoppiandolo. */
+  .mcp-item + .mcp-item {
+    border-top: 1px solid var(--line-faint);
+  }
+
+  /* Il colore arriva inline da McpStatus.tsx (--ok connesso, --err caduto,
+     --warn incerto): qui solo la forma e il valore di riposo per gli stati
+     senza colore. NON --text-faint: sul cassetto --surface-overlay farebbe
+     2.1:1, sotto il 3:1 richiesto a un oggetto grafico, e il pallino di uno
+     stato sconosciuto sparirebbe proprio nella lista che serve a contarli. */
+  .mcp-dot {
+    flex: none;
+    width: var(--sp-4);
+    height: var(--sp-4);
+    border-radius: var(--r-full);
+    background: var(--text-2);
+  }
+
+  /* Il nome del server e' un identificatore, non un'etichetta: mono. */
+  .mcp-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--text-1);
+  }
+
+  .mcp-rm {
+    flex: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0 var(--sp-2);
+    background: none;
+    border: none;
+    border-radius: var(--r-1);
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    line-height: var(--lh-tight);
+    cursor: pointer;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  .mcp-rm:hover {
+    color: var(--err);
+  }
+
+  /* Secondo passaggio della rimozione: qui il rosso e' gia' acceso perche' il
+     bottone ORA cancella davvero. */
+  .mcp-rm.danger {
+    font-size: var(--fs-xs);
+    color: var(--err);
+  }
+
+  .mcp-rm:disabled {
+    color: var(--text-faint);
+    cursor: default;
+  }
+
+  /* ---- Stati senza righe ---- */
+
+  /* "Nessun server" e' un'istruzione, non decorazione: --text-2, non faint. */
+  .mcp-empty {
+    padding: var(--sp-2) 0 var(--sp-3);
+    /* --fs-sm, il corpo delle righe del pannello: un'istruzione non puo' essere
+       piu' piccola dei dati che sostituisce. Ogni altro stato vuoto dell'app
+       sta sullo stesso scalino o piu' su. */
+    font-size: var(--fs-sm);
+    color: var(--text-2);
+  }
+
+  /* Errore della CLI: e' output di macchina, quindi mono e a capo preservati.
+     Il tetto d'altezza evita che uno stack trace spinga fuori schermo i
+     bottoni del modulo; due scalini di --sp-10 invece di un 90px arbitrario. */
+  .mcp-error {
+    max-height: calc(var(--sp-10) * 2);
+    overflow-y: auto;
+    white-space: pre-wrap;
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    line-height: var(--lh-mono);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    color: var(--err);
+  }
+
+  .mcp-note {
+    font-size: var(--fs-xs);
+    color: var(--text-2);
+  }
+
+  /* ---- Modulo di aggiunta ---- */
+
+  .mcp-add-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-3);
+    padding: var(--sp-3) 0 var(--sp-4);
+    border-top: 1px solid var(--line);
+  }
+
+  /* Il campo e' un pozzo: superficie sunken al posto del bordo.
+     --fs-lg non e' estetica ma vincolo: sotto i 16px Android zooma il viewport
+     al focus e il cassetto esce dallo schermo. */
+  .mcp-add-form input,
+  .mcp-add-form textarea {
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-sunken);
+    border: none;
+    border-radius: var(--r-1);
+    color: var(--text-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-lg);
+    line-height: var(--lh-mono);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    /* Solo verticale, e solo la textarea la onora: il ridimensionamento libero
+       in orizzontale sfonderebbe la larghezza del cassetto. */
+    resize: vertical;
+  }
+
+  .mcp-add-form input::placeholder,
+  .mcp-add-form textarea::placeholder {
+    color: var(--text-faint);
+  }
+
+  .mcp-add-form input:focus-visible,
+  .mcp-add-form textarea:focus-visible {
+    outline: var(--sp-1) solid var(--accent);
+    outline-offset: calc(var(--sp-1) * -1);
+  }
+
+  .mcp-add-actions {
+    display: flex;
+    gap: var(--sp-3);
+  }
+
+  /* Bottone secondario: un filo, nessun pieno. */
+  .mcp-add-actions button {
+    padding: var(--sp-2) var(--sp-5);
+    background: none;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-2);
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-ui);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+
+  .mcp-add-actions button:hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  /* L'unico corallo PIENO del pannello: "Aggiungi" e' l'azione primaria, ed e'
+     visibile solo mentre il modulo e' aperto. L'altro corallo del file e' il
+     filo di focus del campo qui sopra (--accent-line): e' selezione attiva, e
+     un anello sottile non compete con un bottone pieno. */
+  .mcp-add-actions button:first-child {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+    /* Peso 600: completa la ricetta condivisa dell'azione primaria. */
+    font-weight: 600;
+  }
+
+  .mcp-add-actions button:first-child:hover {
+    background: var(--accent-hi);
+    border-color: var(--accent-hi);
+  }
+
+  /* Spento davvero, non velato: l'opacita' sommata a un token produce un
+     colore che nella palette non esiste. */
+  .mcp-add-actions button:disabled {
+    background: none;
+    border-color: var(--line);
+    color: var(--text-faint);
+    cursor: default;
+  }
+
+  /* ---- Esporta / importa ---- */
+
+  /* Avvolge perche' il messaggio d'esito arriva accanto ai due bottoni e a
+     320px di cassetto non ci starebbe sulla stessa riga. */
+  .mcp-transfer {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) 0;
+    border-top: 1px solid var(--line);
+    font-size: var(--fs-sm);
+  }
+
+  /* Il <label> e' un bottone travestito (nasconde un input file): stessa
+     forma del bottone accanto, altrimenti la coppia si legge sbilanciata. */
+  .mcp-transfer button,
+  .mcp-transfer label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    /* Stessa forma dei bottoni secondari di .mcp-add-actions e di .mini: filo
+       --line-strong (i bersagli) e corpo --fs-sm. Erano gli unici bottoni con
+       etichetta dell'app a --fs-xs, che nel sistema e' il corpo dei
+       maiuscoletti di sezione, non dei comandi. */
+    padding: var(--sp-2) var(--sp-5);
+    background: none;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-2);
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-ui);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+
+  .mcp-transfer button:hover,
+  .mcp-transfer label:hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  .mcp-import-msg {
+    font-size: var(--fs-xs);
+    color: var(--text-2);
+  }
+
+  /* ---- Bersagli touch: dipendono dal puntatore, non dalla larghezza ----
+     Il pannello si usa quasi solo dal telefono, ma un portatile Windows touch
+     a 1400px ha le stesse dita. La riga cresce insieme al bottone che
+     contiene, cosi' la croce non sborda dal separatore. */
+
+  @media (pointer: coarse) {
+    .mcp-toggle,
+    .mcp-item,
+    .mcp-add-form input,
+    .mcp-add-form textarea,
+    .mcp-add-actions button,
+    .mcp-transfer button,
+    .mcp-transfer label {
+      min-height: var(--tap-min);
+    }
+
+    /* Bersagli quadrati: sono icone senza etichetta, la sola altezza li
+       lascerebbe larghi quanto un glifo. */
+    .mcp-refresh,
+    .mcp-rm {
+      min-width: var(--tap-min);
+      min-height: var(--tap-min);
+    }
+  }
+
+  /* ---- Telefono: il cassetto e' stretto, i bottoni si dividono la riga ---- */
+
+  @media (max-width: 767px) {
+    .mcp-add-actions button {
+      flex: 1;
+    }
+  }
+}

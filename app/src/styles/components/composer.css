@@ -1,0 +1,456 @@
+/* Composer e strisce di stato.
+ *
+ * La colonna: composer, quickactions, statusline e modebar sono fratelli nel DOM
+ * ma devono leggersi come un blocco solo, quindi condividono la stessa gabbia
+ * (padding orizzontale + colonna centrata su --col-prose). Se uno dei quattro
+ * diverge, la barra in fondo si sfalsa e sembra rotta.
+ */
+
+@layer components {
+  /* ---------- gabbia comune ---------- */
+
+  .composer-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    width: 100%;
+    max-width: var(--col-prose);
+    margin-inline: auto;
+    padding-inline: var(--sp-6);
+    /* --safe-b: sul telefono il composer e' l'ultimo elemento sopra la barra
+       gesti di Android, che altrimenti mangia il bottone invia. */
+    padding-bottom: calc(var(--sp-4) + var(--safe-b));
+  }
+
+  /* ---------- il campo ---------- */
+
+  .composer {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    padding: var(--sp-4) var(--sp-5) var(--sp-3);
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    /* --r-2 e non un raggio da bolla: e' il cambio che sposta la sensazione da
+       "app di chat" a "strumento". */
+    border-radius: var(--r-2);
+    transition: border-color var(--dur-1) var(--ease-out);
+  }
+
+  .composer:focus-within {
+    border-color: var(--accent-line);
+  }
+
+  .composer textarea {
+    flex: 1;
+    resize: none;
+    background: transparent;
+    border: none;
+    padding: var(--sp-2) var(--sp-3);
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    /* --fs-lg e' obbligatorio: sotto i 16px Android zooma il viewport al focus. */
+    font-size: var(--fs-lg);
+    line-height: var(--lh-prose);
+  }
+
+  .composer textarea:focus {
+    /* L'anello di fuoco sta sul contenitore (.composer:focus-within): un secondo
+       anello dentro il primo raddoppierebbe il bordo. */
+    outline: none;
+  }
+
+  .composer textarea::placeholder {
+    color: var(--text-faint);
+  }
+
+  .composer textarea:disabled {
+    color: var(--text-3);
+    cursor: not-allowed;
+  }
+
+  /* Bersaglio di rilascio per drag&drop di immagini e file di testo.
+     --info e non corallo: rilasciare un file non e' l'azione primaria della
+     schermata, e mentre il velo e' acceso il bottone invia (corallo pieno) e'
+     visibile a due centimetri — sarebbero due coralli sullo stesso schermo. */
+  .composer-wrap.drop-hover .composer {
+    background: var(--info-dim);
+    border-color: var(--info);
+    border-style: dashed;
+  }
+
+  /* ---------- riga dei comandi ---------- */
+
+  .composer-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    width: 100%;
+  }
+
+  .composer button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-2);
+    /* Stesso rientro di .mini e di .term-bar-actions button: e' lo stesso
+       bottone da barra, e tre paddings diversi per lo stesso oggetto sono
+       esattamente cio' che faceva sembrare il tema "scritto in momenti
+       diversi". */
+    padding: var(--sp-2) var(--sp-5);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--r-2);
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-ui);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out),
+      border-color var(--dur-1) var(--ease-out);
+  }
+
+  /* Il microfono e' l'unico tondo ammesso qui (FAB), e sta a sinistra: il
+     margin-right auto e' cio' che spinge stop e invia a destra. */
+  .composer .mic {
+    margin-right: auto;
+    border-radius: var(--r-full);
+    font-size: var(--fs-lg);
+  }
+
+  .composer .mic:hover {
+    background: var(--hover);
+    border-color: var(--line-strong);
+  }
+
+  /* Registrazione in corso: rosso perche' e' la convenzione universale del REC,
+     non decorazione. Il --busy viola resta al lavoro di Claude, non al nostro. */
+  .composer .mic.on {
+    background: var(--err-dim);
+    border-color: var(--err-line);
+    color: var(--err);
+  }
+
+  .composer .stop {
+    border-color: var(--err-line);
+    color: var(--err);
+  }
+
+  .composer .stop:hover {
+    background: var(--err-dim);
+  }
+
+  /* Unico corallo pieno della schermata: e' l'azione primaria. */
+  /* Ricetta dell'azione primaria, identica a .mini.primary, .p-allow,
+     .cli-restart e al primo bottone di .mcp-add-actions: pieno --accent, filo
+     --accent, testo --on-accent, peso 600. Prima ognuna ne dichiarava un pezzo
+     diverso. */
+  .composer .send {
+    min-width: var(--sp-9);
+    padding: var(--sp-2);
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--on-accent);
+    font-size: var(--fs-md);
+    font-weight: 600;
+  }
+
+  .composer .send:hover:not(:disabled) {
+    background: var(--accent-hi);
+    border-color: var(--accent-hi);
+  }
+
+  .composer .send:disabled {
+    background: var(--hover);
+    color: var(--text-faint);
+    cursor: not-allowed;
+  }
+
+  /* ---------- chip di allegati e coda ---------- */
+
+  .composer-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-4);
+  }
+
+  /* Mono: il contenuto e' un tipo MIME ("png"), cioe' un dato, non un'etichetta. */
+  .img-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-1) var(--sp-3);
+    background: var(--surface-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--r-1);
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+  }
+
+  .img-chip button {
+    display: inline-flex;
+    align-items: center;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--text-3);
+    cursor: pointer;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  .img-chip button:hover {
+    color: var(--text-1);
+  }
+
+  /* Conteggio immagini di un turno gia' inviato, in coda alla riga del messaggio. */
+  .img-badge {
+    margin-left: var(--sp-3);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+  }
+
+  /* Messaggi accodati: attesa, non errore. */
+  .queue-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-1) var(--sp-3);
+    background: var(--warn-dim);
+    border: 1px solid var(--warn-line);
+    border-radius: var(--r-1);
+    color: var(--warn);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+  }
+
+  /* ---------- avvisi del microfono e del rilascio file ---------- */
+
+  .mic-msg {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--warn-dim);
+    border: 1px solid var(--warn-line);
+    border-radius: var(--r-1);
+    color: var(--warn);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-ui);
+  }
+
+  .mic-msg button {
+    display: inline-flex;
+    align-items: center;
+    margin-left: auto;
+    padding: 0;
+    background: none;
+    border: none;
+    color: var(--warn);
+    cursor: pointer;
+  }
+
+  /* ---------- azioni rapide ---------- */
+
+  .quickactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-3);
+    width: 100%;
+    max-width: var(--col-prose);
+    margin-inline: auto;
+    padding: var(--sp-4) var(--sp-6) 0;
+  }
+
+  /* --r-2 e non --r-1: il contratto assegna --r-1 a chip, campi e celle e --r-2
+     ai bottoni, e una azione rapida e' un bottone con un'etichetta. Il filo e'
+     --line-strong come su ogni altro controllo delineato (.session-pill, .cat,
+     .term-bar-actions): --line e' il filo dei SEPARATORI, non dei bersagli. */
+  .qa {
+    flex: 0 0 auto;
+    padding: var(--sp-2) var(--sp-5);
+    background: var(--hover);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-2);
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-ui);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out),
+      border-color var(--dur-1) var(--ease-out);
+  }
+
+  .qa:hover:not(:disabled) {
+    background: var(--press);
+    color: var(--text-1);
+  }
+
+  .qa:disabled {
+    color: var(--text-faint);
+    cursor: not-allowed;
+  }
+
+  /* ---------- statusline: la vetrina dei dati ---------- */
+
+  /* Tutta in mono, e con tnum/zero perche' ctx% e costo si aggiornano di
+     continuo: senza cifre tabulari la riga balla a ogni token. */
+  .statusline {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-2) var(--sp-5);
+    width: 100%;
+    max-width: var(--col-prose);
+    margin-inline: auto;
+    padding: var(--sp-3) var(--sp-6) 0;
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    line-height: var(--lh-mono);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+  }
+
+  .statusline span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+  }
+
+  /* Contesto quasi pieno: --warn e non --err. E' un avviso che conviene
+     compattare, non una sessione fallita. Nessun grassetto: nel mono cambierebbe
+     la larghezza della riga proprio mentre il numero sale. */
+  .statusline .sl-hot {
+    color: var(--warn);
+  }
+
+  /* ---------- contatore di contesto autonomo ---------- */
+
+  .ctx {
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+  }
+
+  .ctx.warm {
+    color: var(--warn);
+  }
+
+  .ctx.hot {
+    color: var(--err);
+  }
+
+  /* ---------- modalita' di permesso ---------- */
+
+  .modebar {
+    display: flex;
+    gap: var(--sp-3);
+    width: 100%;
+    max-width: var(--col-prose);
+    margin-inline: auto;
+    padding: var(--sp-4) var(--sp-6) 0;
+  }
+
+  /* Stessa forma di .qa: bottone con etichetta, quindi --r-2 e filo
+     --line-strong. */
+  .mode {
+    padding: var(--sp-2) var(--sp-5);
+    background: transparent;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-2);
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-ui);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out),
+      border-color var(--dur-1) var(--ease-out);
+  }
+
+  .mode:hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  /* Selezione attiva in corallo velato, non pieno: il corallo pieno resta al
+     bottone invia, che e' a due centimetri da qui. */
+  .mode.on {
+    background: var(--accent-wash);
+    border-color: var(--accent-line);
+    color: var(--accent);
+  }
+
+  /* ---------- telefono: le azioni rapide scorrono invece di andare a capo ---------- */
+
+  @media (max-width: 767px) {
+    .quickactions {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      scroll-snap-type: x proximity;
+      scrollbar-width: none;
+    }
+
+    .qa {
+      scroll-snap-align: start;
+    }
+
+    /* La statusline sul telefono e' larga il doppio dello schermo: senza questo
+       manda a capo su tre righe e spinge il composer fuori vista. */
+    .statusline {
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      scrollbar-width: none;
+    }
+
+    .modebar {
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+  }
+
+  /* ---------- dita: vale a ogni larghezza, anche sul portatile touch ---------- */
+
+  @media (pointer: coarse) {
+    .composer .stop,
+    .qa,
+    .mode {
+      min-height: var(--tap-min);
+    }
+
+    /* Tondi: min-width oltre a min-height, altrimenti il cerchio diventa ovale. */
+    .composer .send,
+    .composer .mic {
+      min-width: var(--tap-min);
+      min-height: var(--tap-min);
+    }
+
+    /* Solo min-height: dare anche 44px di larghezza alla X dentro una chip la
+       farebbe piu' larga della chip stessa. L'altezza la eredita la chip. */
+    .img-chip button {
+      min-height: var(--tap-min);
+    }
+
+    .mic-msg button {
+      min-width: var(--tap-min);
+      min-height: var(--tap-min);
+      justify-content: center;
+    }
+  }
+}

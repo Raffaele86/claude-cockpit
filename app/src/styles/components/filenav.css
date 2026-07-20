@@ -1,0 +1,291 @@
+/* Navigatore file del rail: barra drive, breadcrumb, elenco voci.
+ *
+ * I percorsi sono DATI: nomi file, segmenti di path e lettere di drive stanno in
+ * mono. Le etichette di servizio (caricamento, cartella vuota) restano in sans.
+ * L'elenco si separa con --line-faint e non con riquadri: nessuna voce ha un
+ * bordo proprio, nessun raggio, e l'hover riempie la riga da bordo a bordo.
+ */
+
+@layer components {
+  /* Il rail e' gia' --surface-raised: al navigatore serve solo il filo che lo
+     stacca dalla sezione precedente, non un fondo proprio. */
+  .fnav {
+    margin-top: var(--sp-2);
+    border-top: 1px solid var(--line);
+  }
+
+  /* ---- barra drive: un controllo segmentato in un pozzo ---- */
+
+  .fnav-drives {
+    display: inline-flex;
+    flex-wrap: wrap;
+    gap: var(--sp-1);
+    margin: var(--sp-2) var(--sp-4) var(--sp-3);
+    padding: var(--sp-1);
+    background: var(--surface-sunken);
+    border: 0;
+    border-radius: var(--r-2);
+  }
+
+  .fnav-drives .drive {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-4);
+    background: none;
+    border: 0;
+    border-radius: var(--r-1);
+    color: var(--text-3);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    letter-spacing: var(--tr-data);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+
+  .fnav-drives .drive:hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  /* Dopo :hover a parita' di specificita': il drive selezionato non deve
+     retrocedere quando ci si passa sopra. Emerge dal pozzo per valore di
+     superficie, senza ombra e senza rubare il corallo alla selezione vera. */
+  .fnav-drives .drive.on {
+    background: var(--surface-overlay);
+    color: var(--text-1);
+    font-weight: 600;
+  }
+
+  /* ---- breadcrumb: percorso, quindi mono e scorrevole in orizzontale ---- */
+
+  .fnav-crumbs {
+    padding: 0 var(--sp-4) var(--sp-3);
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    letter-spacing: var(--tr-data);
+    white-space: nowrap;
+    overflow-x: auto;
+  }
+
+  .fnav-crumbs .crumb {
+    padding: 0 var(--sp-1);
+    background: none;
+    border: 0;
+    color: inherit;
+    font-family: inherit;
+    font-size: inherit;
+    /* Il `font` scorciatoia dello stile UA del <button> azzera anche
+       font-variant-ligatures e font-feature-settings: vanno riagganciati a
+       mano, o il percorso nel breadcrumb legherebbe dove il resto del mono no. */
+    font-variant-ligatures: none;
+    font-feature-settings: inherit;
+    letter-spacing: inherit;
+    cursor: pointer;
+    transition: color var(--dur-1) var(--ease-out);
+  }
+
+  .fnav-crumbs .crumb:hover {
+    color: var(--text-1);
+  }
+
+  .crumb-sep {
+    color: var(--text-faint);
+  }
+
+  /* ---- elenco ---- */
+
+  /* Il padding orizzontale sta sulle voci, non sulla lista: cosi' i fili di
+     separazione e l'hover coprono l'intera larghezza del rail. */
+  .fnav-list {
+    max-height: 45vh;
+    padding-bottom: var(--sp-4);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  .fnav-loading {
+    padding: var(--sp-2) var(--sp-4);
+    color: var(--text-3);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+  }
+
+  .fnav-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-2) var(--sp-4);
+    color: var(--text-2);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+
+  /* Filo tra le righe e non sotto ognuna: sotto l'ultima voce non serve niente,
+     e sopra la prima c'e' gia' lo stacco del breadcrumb. */
+  .fnav-item + .fnav-item {
+    border-top: 1px solid var(--line-faint);
+  }
+
+  .fnav-item:hover {
+    background: var(--hover);
+  }
+
+  .fnav-item.on {
+    background: var(--accent-wash);
+    color: var(--text-1);
+  }
+
+  /* File non apribile: non e' disabilitato ma inerte, e il nome resta
+     un'informazione da leggere — quindi uno scalino di testo, non un'opacita'. */
+  .fnav-item.file:not(.md) {
+    color: var(--text-3);
+    cursor: default;
+  }
+
+  /* Cartella: e' l'unica riga che NAVIGA invece di aprire qualcosa, e in un
+     elenco lungo la differenza va colta prima di leggere il nome. Il nome sale
+     al livello primario, il cursore dichiara l'azione. */
+  .fnav-item.dir {
+    color: var(--text-2);
+    cursor: pointer;
+  }
+
+  .fnav-item.dir .fnav-name {
+    color: var(--text-1);
+  }
+
+  .fnav-item.md .fnav-name {
+    color: var(--text-1);
+  }
+
+  .fnav-item.project .fnav-name {
+    color: var(--text-1);
+    font-weight: 600;
+  }
+
+  /* Il rocket segnala gia' il tipo: l'icona resta il marcatore quieto e il nome
+     e' l'unica cosa che porta peso. */
+  .fnav-icon {
+    flex-shrink: 0;
+    width: var(--sp-6);
+    color: var(--text-3);
+    text-align: center;
+    font-size: var(--fs-xs);
+  }
+
+  .fnav-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    letter-spacing: var(--tr-data);
+  }
+
+  .fnav-chevron {
+    flex-shrink: 0;
+    width: var(--sp-5);
+    color: var(--text-3);
+  }
+
+  .fnav-use {
+    flex-shrink: 0;
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    padding: var(--sp-1) var(--sp-3);
+    background: none;
+    border: 0;
+    border-radius: var(--r-1);
+    color: var(--text-3);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+
+  .fnav-use:hover {
+    background: var(--accent-wash);
+    color: var(--accent);
+  }
+
+  .fnav-crumbs .crumb:focus-visible,
+  .fnav-drives .drive:focus-visible,
+  .fnav-use:focus-visible {
+    outline: var(--sp-1) solid var(--accent);
+    outline-offset: var(--sp-1);
+  }
+
+  /* .session-item.current sta in sessions.css e .composer-wrap.drop-hover in
+     composer.css, accanto alle rispettive basi. Erano dichiarati anche qui: il
+     secondo in particolare NON sostituiva la versione del composer (velo --info
+     + bordo tratteggiato) ma vi si sommava, e sullo stesso riquadro comparivano
+     insieme un tratteggio --info e un anello corallo — due accenti dove il
+     contratto ne ammette uno. */
+
+  /* ---- intestazione degli strumenti ---- */
+
+  /* Read, Bash, Grep: sono identificatori di tool, non etichette d'interfaccia. */
+  .tname {
+    flex-shrink: 0;
+    color: var(--text-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    font-weight: 600;
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    letter-spacing: var(--tr-data);
+  }
+
+  .tchevron {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    color: var(--text-3);
+  }
+
+  /* Sul telefono il rail e' un cassetto a tutta altezza: la lista puo' prendersi
+     lo spazio che sul desktop toglierebbe alle sezioni sotto. */
+  @media (max-width: 767px) {
+    .fnav-list {
+      max-height: 60vh;
+    }
+  }
+
+  /* Legato al puntatore e non alla larghezza: un portatile touch da 1400px ha
+     le stesse dita di un telefono. */
+  @media (pointer: coarse) {
+    .fnav-item {
+      min-height: var(--tap-min);
+    }
+
+    /* Anche in larghezza: il primo drive e' solo l'icona di casa, che senza
+       pavimento resterebbe un bersaglio da ~29px. La barra e' inline-flex con
+       wrap, quindi allargare i segmenti manda a capo invece di sfondare. */
+    .fnav-drives .drive {
+      min-width: var(--tap-min);
+      min-height: var(--tap-min);
+      justify-content: center;
+    }
+
+    .fnav-crumbs .crumb {
+      min-height: var(--tap-min);
+    }
+
+    /* Senza hover l'azione primaria della riga deve gia' essere corallo a
+       riposo, altrimenti su touch non si annuncia mai. */
+    .fnav-use {
+      min-width: var(--tap-min);
+      min-height: var(--tap-min);
+      justify-content: center;
+      color: var(--accent);
+    }
+  }
+}

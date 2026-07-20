@@ -1,0 +1,242 @@
+/* Schede di sessione — la riga che decide QUALE conversazione si sta pilotando.
+ *
+ * Un solo corallo in questa riga: la scheda attiva. Il segmento attivo del
+ * view-toggle (CLI/Win/Chat) e' una scelta subordinata dentro la scheda, quindi
+ * si marca con la superficie e non con l'accento: se in una schermata il corallo
+ * compare due volte, una delle due e' sbagliata.
+ */
+
+@layer components {
+  /* La riga non si comprime: in .main (flex column) il terminale che cresce la
+     schiaccerebbe, e una barra di navigazione mezza alta non e' piu' bersaglio. */
+  .tabs-row {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: var(--sp-4);
+    padding-right: var(--sp-4);
+    background: var(--surface-raised);
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* min-width: 0 e' cio' che rende reale l'overflow-x: senza, il figlio flex si
+     allarga oltre la riga e la striscia non scorre mai.
+     overscroll-behavior-x evita che lo scorrimento delle schede, arrivato a
+     fondo corsa, diventi la gesture "indietro" del browser sul telefono. */
+  .tabs {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-4) 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+
+  .tab {
+    position: relative;
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    gap: var(--sp-3);
+    padding: var(--sp-3) var(--sp-5);
+    border: none;
+    border-bottom: var(--sp-1) solid transparent;
+    border-radius: var(--r-2) var(--r-2) 0 0;
+    color: var(--text-3);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-ui);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+
+  .tab:hover {
+    background: var(--hover);
+    color: var(--text-2);
+  }
+
+  /* La scheda attiva scende al valore del contenuto che comanda: e' il pannello
+     sottostante che risale nella barra, non un riquadro appiccicato sopra. */
+  .tab.on {
+    background: var(--surface-base);
+    border-bottom-color: var(--accent);
+    color: var(--text-1);
+  }
+
+  .tab-label {
+    max-width: 16ch;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Durata derivata dalla scala del moto: prefers-reduced-motion azzera i --dur-*
+     e con essi questo battito, senza una seconda media query da ricordare. */
+  .tab-busy {
+    flex: none;
+    width: var(--sp-4);
+    height: var(--sp-4);
+    border-radius: var(--r-full);
+    background: var(--busy);
+    animation: tab-busy-pulse calc(var(--dur-3) * 5) ease-in-out infinite;
+  }
+
+  .tab-pinned {
+    display: inline-flex;
+    flex: none;
+    color: var(--text-3);
+  }
+
+  /* Rinomina in loco. --fs-lg non e' una scelta estetica: sotto i 16px Android e
+     iOS zoomano il viewport al focus e la barra schede esce dallo schermo. */
+  .tab-rename {
+    width: 12ch;
+    min-width: 0;
+    padding: var(--sp-1) var(--sp-3);
+    background: var(--surface-sunken);
+    border: none;
+    border-radius: var(--r-1);
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-lg);
+    line-height: var(--lh-ui);
+  }
+
+  /* Stessa classe per "chiudi" e per "fissa": il markup non li distingue, quindi
+     l'hover resta neutro — un rosso distruttivo colpirebbe anche la puntina. */
+  .tab-x {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    padding: var(--sp-1);
+    background: none;
+    border: none;
+    border-radius: var(--r-1);
+    color: var(--text-3);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+
+  .tab-x:hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  /* Puntina inserita: interruttore premuto. Nessun colore speso — l'accento in
+     questa riga appartiene gia' alla scheda attiva. */
+  .tab-x.on {
+    background: var(--press);
+    color: var(--text-1);
+  }
+
+  .tab-add {
+    display: inline-flex;
+    flex: none;
+    align-items: center;
+    justify-content: center;
+    padding: var(--sp-2) var(--sp-4);
+    background: none;
+    border: none;
+    border-radius: var(--r-2);
+    color: var(--text-3);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    line-height: var(--lh-tight);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+
+  .tab-add:hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  .view-toggle {
+    display: inline-flex;
+    flex: none;
+    gap: var(--sp-1);
+    padding: var(--sp-1);
+    background: var(--surface-sunken);
+    border-radius: var(--r-1);
+  }
+
+  .view-toggle button {
+    padding: var(--sp-2) var(--sp-5);
+    background: none;
+    border: none;
+    border-radius: var(--r-1);
+    color: var(--text-3);
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    line-height: var(--lh-tight);
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+
+  .view-toggle button:hover {
+    color: var(--text-1);
+  }
+
+  /* Il segmento scelto sale sopra il pozzo. Nessun cambio di peso: tre etichette
+     affiancate che ingrassano si spostano l'una sull'altra a ogni tocco. */
+  .view-toggle button.on {
+    background: var(--surface-overlay);
+    color: var(--text-1);
+  }
+
+  @keyframes tab-busy-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
+
+  /* Bersagli: dita, non larghezza dello schermo — vale anche su un portatile
+     Windows touch a 1400px. Qui le scatole crescono davvero invece di allargarsi
+     con ::after: puntina e chiudi sono adiacenti dentro la stessa scheda, e due
+     aree espanse che si sovrappongono farebbero vincere l'ultima nel DOM — un
+     tocco sulla puntina chiuderebbe la sessione. */
+  @media (pointer: coarse) {
+    .tab {
+      min-height: var(--tap-min);
+      padding-block: 0;
+    }
+
+    .tab-x,
+    .tab-add {
+      min-width: var(--tap-min);
+      min-height: var(--tap-min);
+    }
+
+    /* La rinomina e' un campo di testo, quindi un bersaglio come gli altri: senza
+       questo resta alto quanto il suo corpo dentro una scheda da 44px. */
+    .tab-rename {
+      min-height: var(--tap-min);
+    }
+
+    .view-toggle button {
+      min-height: var(--tap-min);
+      padding-block: 0;
+    }
+
+    .tabs {
+      scrollbar-width: none;
+    }
+  }
+
+  /* Etichette piu' corte: su un telefono la scheda attiva porta due bersagli da
+     44px, e con il titolo lungo resterebbe visibile una scheda sola. */
+  @media (max-width: 767px) {
+    .tab-label {
+      max-width: 11ch;
+    }
+  }
+}

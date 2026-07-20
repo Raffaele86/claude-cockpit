@@ -1,0 +1,327 @@
+/* Rail — la colonna dei progetti.
+ *
+ * Superficie "raised" separata dal fondo app da un filo solo: e' un pannello
+ * laterale, non una scheda, quindi niente riquadro e niente ombra.
+ * Su desktop e' verticale e ridimensionabile; sotto i 767px diventa una
+ * striscia orizzontale a scorrimento sopra il contenuto.
+ */
+
+@layer components {
+  .rail {
+    flex: none;
+    width: var(--rail-w);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-1);
+    padding: var(--sp-4);
+    background: var(--surface-raised);
+    border-right: 1px solid var(--line);
+    overflow-y: auto;
+    /* Il rimbalzo della rail non deve trascinarsi dietro la pagina: nella PWA
+       a schermo intero quel rimbalzo si legge come un bug di layout. */
+    overscroll-behavior: contain;
+  }
+
+  /* ---- Etichetta di sezione ---- */
+
+  .rail-section {
+    padding: var(--sp-5) var(--sp-3) var(--sp-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    line-height: var(--lh-tight);
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
+    color: var(--text-3);
+  }
+
+  /* ---- Riga di progetto ---- */
+
+  .rail-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    padding: var(--sp-3) var(--sp-4);
+    border-radius: var(--r-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    line-height: var(--lh-ui);
+    color: var(--text-2);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+
+  .rail-item:hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  .rail-item:active {
+    background: var(--press);
+  }
+
+  /* Selezione attiva: e' l'unico corallo ammesso in questa colonna. */
+  .rail-item.on {
+    background: var(--accent-wash);
+    color: var(--text-1);
+  }
+
+  .rail-icon {
+    flex: none;
+    width: var(--sp-7);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* Il colore lo impone ProjectIcon inline (tinta scelta dall'utente): qui
+     solo l'allineamento, cosi' emoji legacy e SVG stanno sulla stessa linea. */
+  .proj-glyph {
+    display: inline-flex;
+    align-items: center;
+    line-height: 1;
+  }
+
+  .rail-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+
+  /* Pallino "in esecuzione": viola, non corallo — il corallo qui significa
+     gia' "progetto selezionato" e i due stati convivono sulla stessa riga. */
+  .rail-busy {
+    flex: none;
+    width: var(--sp-4);
+    height: var(--sp-4);
+    border-radius: var(--r-full);
+    background: var(--busy);
+  }
+
+  /* ---- Azioni di riga (matita, chiusura) ---- */
+
+  .rail-x {
+    flex: none;
+    padding: 0 var(--sp-1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: none;
+    border-radius: var(--r-1);
+    color: var(--text-3);
+    font-family: var(--font-sans);
+    font-size: var(--fs-lg);
+    line-height: 1;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+
+  /* Il focus da tastiera le rivela: altrimenti tabulando si finisce su un
+     bottone invisibile. */
+  .rail-item:hover .rail-x,
+  .rail-x:focus-visible {
+    opacity: 1;
+  }
+
+  /* La riga ha DUE azioni con la stessa forma: matita (modifica) e la nuda
+     .rail-x (rimuovi dall'elenco). Solo la seconda e' distruttiva, e su un
+     bersaglio da 44px toccato di fretta la differenza non puo' stare solo nel
+     glifo: all'hover la matita resta neutra, la rimozione dichiara il rosso. */
+  .rail-pencil:hover {
+    color: var(--text-1);
+  }
+
+  .rail-x:hover {
+    color: var(--err);
+  }
+
+  /* ---- Aggiunta di un progetto ---- */
+
+  .rail-add {
+    margin-top: var(--sp-2);
+    padding: var(--sp-3);
+    background: none;
+    /* Tratteggio: e' uno slot vuoto da riempire, non un bottone pieno. */
+    border: 1px dashed var(--line);
+    border-radius: var(--r-2);
+    color: var(--text-3);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-ui);
+    cursor: pointer;
+    transition: border-color var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+
+  .rail-add:hover {
+    border-color: var(--line-strong);
+    color: var(--text-1);
+  }
+
+  .rail-add-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-2);
+    margin-top: var(--sp-2);
+  }
+
+  /* Il campo e' un pozzo: superficie sunken al posto del bordo.
+     --fs-lg e' obbligatorio, non estetico: sotto i 16px Android zooma il
+     viewport al focus e la rail esce dallo schermo. */
+  .rail-add-form input {
+    padding: var(--sp-3) var(--sp-4);
+    background: var(--surface-sunken);
+    border: none;
+    border-radius: var(--r-1);
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-lg);
+    line-height: var(--lh-ui);
+  }
+
+  /* Il primo campo e' il percorso, cioe' un dato: mono, cifre tabulari,
+     nessuna legatura (una "->" in un path non deve diventare una freccia). */
+  .rail-add-form input:first-of-type {
+    font-family: var(--font-mono);
+    letter-spacing: var(--tr-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+  }
+
+  /* In modifica il percorso e' bloccato: si legge ma non e' piu' un campo. */
+  .rail-add-form input:read-only {
+    color: var(--text-2);
+  }
+
+  /* Anello di fuoco unico dell'app: --accent a var(--sp-1), rientrato perche' il
+     campo e' un pozzo dentro una colonna che scorre e un anello esterno verrebbe
+     tagliato dal bordo. Identico in ogni campo, in ogni file. */
+  .rail-add-form input:focus-visible {
+    outline: var(--sp-1) solid var(--accent);
+    outline-offset: calc(var(--sp-1) * -1);
+  }
+
+  .rail-add-actions {
+    display: flex;
+    gap: var(--sp-2);
+  }
+
+  .rail-add-actions button {
+    flex: 1;
+  }
+
+  /* ---- Maniglia di ridimensionamento ---- */
+
+  /* Visivamente e' il filo di separazione della rail; l'area di presa vera e'
+     lo pseudo-elemento, largo ~9px, perche' 1px non si prende col mouse. */
+  .rail-resizer {
+    position: relative;
+    flex: none;
+    width: 1px;
+    background: var(--line);
+    cursor: col-resize;
+    transition: background var(--dur-1) var(--ease-out);
+  }
+
+  .rail-resizer::after {
+    content: '';
+    position: absolute;
+    inset-block: 0;
+    inset-inline: calc(var(--sp-2) * -1);
+  }
+
+  .rail-resizer:hover {
+    background: var(--line-strong);
+  }
+
+  /* Neutro, non corallo: trascinare una maniglia non e' l'azione primaria ne'
+     una selezione, e il corallo in questa colonna dice gia' "progetto attivo".
+     L'escalation resta leggibile per valore: filo -> filo forte -> testo. */
+  .rail-resizer:active {
+    background: var(--text-3);
+  }
+
+  /* ---- Nome del progetto fuori dalla rail ----
+     .brand .proj vive in topbar.css e .fnav-item.project .fnav-name in
+     filenav.css, accanto alle rispettive basi. Erano dichiarati anche qui, e
+     poiche' rail.css e' importato DOPO topbar.css il --text-2 di questo file
+     spegneva in silenzio il --text-1 che la barra sceglie per il progetto
+     attivo: due file che si contendono lo stesso selettore sono la malattia
+     che questa riscrittura toglie, non un rafforzativo. */
+
+  /* ---- Bersagli touch: dipendono dal puntatore, non dalla larghezza ----
+     Un portatile Windows touch a 1400px ha le stesse dita di un telefono. */
+
+  @media (pointer: coarse) {
+    .rail-item {
+      min-height: var(--tap-min);
+    }
+
+    /* Senza hover queste resterebbero invisibili per sempre. */
+    .rail-x {
+      opacity: 1;
+      min-width: var(--tap-min);
+      min-height: var(--tap-min);
+    }
+
+    .rail-add {
+      min-height: var(--tap-min);
+    }
+
+    /* Anche il campo e' un bersaglio: padding + interlinea lo lasciavano
+       intorno ai 35px, sotto il pavimento. */
+    .rail-add-form input {
+      min-height: var(--tap-min);
+    }
+  }
+
+  /* ---- Telefono: la colonna diventa una striscia orizzontale ---- */
+
+  @media (max-width: 767px) {
+    /* min-width e non width: App.tsx scrive la larghezza salvata inline sul
+       nav, e una regola di larghezza non batte uno stile inline. min-width
+       invece si applica dopo, quindi vince senza forzature. */
+    .rail {
+      min-width: 100%;
+      flex-direction: row;
+      align-items: center;
+      gap: var(--sp-2);
+      padding: var(--sp-3) var(--sp-4);
+      border-right: none;
+      border-bottom: 1px solid var(--line);
+      overflow-x: auto;
+      overflow-y: hidden;
+    }
+
+    /* Un'etichetta maiuscoletta verticale in una striscia orizzontale ruba
+       spazio ai progetti senza dire nulla di nuovo. */
+    .rail .rail-section {
+      display: none;
+    }
+
+    .rail-item {
+      flex: none;
+    }
+
+    .rail-add {
+      flex: none;
+      margin-top: 0;
+    }
+
+    /* Il modulo non si comprime insieme alle schede: resta leggibile e
+       scorre con loro. */
+    .rail-add-form {
+      flex: none;
+      width: var(--rail-w);
+      margin-top: 0;
+    }
+
+    .rail-resizer {
+      display: none;
+    }
+  }
+}

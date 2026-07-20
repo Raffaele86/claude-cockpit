@@ -1,0 +1,719 @@
+/* Menu, tendine, popover — direzione "Strumentazione".
+ *
+ * Tutto cio' che si apre sopra l'app sta su --surface-overlay e si stacca dal
+ * fondo con il solo anello --ring: e' l'unica eccezione ammessa al "niente
+ * ombre", perche' una finestra flottante senza stacco diventa illeggibile.
+ * Dentro un overlay il livello quieto e' --text-2 e mai --text-3: su
+ * --surface-overlay il terzo livello scende a 4.2:1, sotto AA.
+ *
+ * Ogni superficie che si apre e' -webkit-app-region: no-drag. La topbar e' la
+ * maniglia di trascinamento della finestra Electron: un popover che vi nasce
+ * sopra e resta "drag" trascina la finestra invece di lasciarsi cliccare.
+ */
+
+@layer components {
+  /* ---- Innesco delle tendine ------------------------------------------------
+     Nessun bordo: il pozzo --surface-sunken sta gia' su --surface-raised (le
+     barre) o su --surface-overlay (dentro il menu Sessione), quindi il salto di
+     valore fa da contorno da solo. */
+  .sel {
+    position: relative;
+    display: inline-block;
+  }
+
+  .sel-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-3);
+    max-width: 30ch;
+    padding: var(--sp-2) var(--sp-4);
+    border: none;
+    border-radius: var(--r-2);
+    background: var(--surface-sunken);
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-ui);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out);
+    -webkit-app-region: no-drag;
+  }
+
+  .sel-btn:hover {
+    background: var(--hover);
+  }
+
+  .sel-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* ---- Tendina della Select ---- */
+  .sel-pop {
+    position: absolute;
+    top: calc(100% + var(--sp-2));
+    left: 0;
+    z-index: var(--z-overlay);
+    display: flex;
+    flex-direction: column;
+    min-width: 100%;
+    max-width: 40ch;
+    overflow: hidden;
+    border-radius: var(--r-3);
+    background: var(--surface-overlay);
+    box-shadow: var(--ring);
+    animation: menu-pop-in var(--dur-2) var(--ease-out);
+    -webkit-app-region: no-drag;
+  }
+
+  /* Select.tsx misura lo spazio sotto l'innesco e ribalta la tendina verso
+     l'alto quando non ce n'e': senza questa regola il menu resta sotto e
+     finisce fuori dallo schermo. */
+  .sel-pop.up {
+    top: auto;
+    bottom: calc(100% + var(--sp-2));
+  }
+
+  .sel-search {
+    padding: var(--sp-4) var(--sp-5);
+    border: none;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-sunken);
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-lg);
+    outline: none;
+  }
+
+  .sel-list {
+    max-height: 40vh;
+    overflow-y: auto;
+    padding: var(--sp-2);
+  }
+
+  .sel-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    width: 100%;
+    padding: var(--sp-3) var(--sp-4);
+    border: none;
+    border-radius: var(--r-1);
+    background: none;
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    /* --fs-md come .cpal-item, .omenu-item e .ctx-item: una riga di menu e' una
+       riga di menu, e quattro tendine che si aprono nella stessa app non possono
+       avere due corpi diversi per lo stesso ruolo. */
+    font-size: var(--fs-md);
+    line-height: var(--lh-ui);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  /* Cursore da tastiera: dice dove sono le frecce, non cosa e' scelto. */
+  .sel-item.focus {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  /* Selezione attiva: secondo uso legittimo del corallo. Dichiarato dopo
+     .focus a parita' di specificita' — la voce scelta resta riconoscibile
+     anche mentre il cursore ci passa sopra. */
+  .sel-item.on {
+    color: var(--accent);
+  }
+
+  .sel-item-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .sel-item-hint {
+    color: var(--text-2);
+    font-size: var(--fs-xs);
+  }
+
+  .sel-empty {
+    padding: var(--sp-5);
+    color: var(--text-2);
+    font-size: var(--fs-sm);
+  }
+
+  /* ---- Selettori di modello ed effort ----
+     Il modello e' un IDENTIFICATORE, non un'etichetta: mono, cifre tabulari,
+     nessuna legatura — un id che cambia non deve far ballare la barra. */
+  .model-select {
+    padding: var(--sp-2) var(--sp-3);
+    border: none;
+    border-radius: var(--r-2);
+    background: var(--surface-sunken);
+    color: var(--text-1);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    letter-spacing: var(--tr-data);
+    cursor: pointer;
+    -webkit-app-region: no-drag;
+  }
+
+  /* Provider senza catalogo: il modello e' un dato in sola lettura. */
+  .model-static {
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    letter-spacing: var(--tr-data);
+  }
+
+  .effort-select {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-2);
+    padding: var(--sp-2) var(--sp-3);
+    border: none;
+    border-radius: var(--r-2);
+    background: var(--surface-sunken);
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-ui);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out);
+    -webkit-app-region: no-drag;
+  }
+
+  .effort-select:hover {
+    background: var(--hover);
+  }
+
+  /* ---- Combobox modelli con ricerca (cataloghi da 300+ voci) ---- */
+  .model-combo {
+    position: relative;
+    display: inline-block;
+  }
+
+  .model-combo-btn {
+    max-width: 28ch;
+    overflow: hidden;
+    font-family: var(--font-mono);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    letter-spacing: var(--tr-data);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .model-combo-pop {
+    position: absolute;
+    top: calc(100% + var(--sp-2));
+    left: 0;
+    z-index: var(--z-overlay);
+    width: 46ch;
+    max-width: 80vw;
+    overflow: hidden;
+    border-radius: var(--r-3);
+    background: var(--surface-overlay);
+    box-shadow: var(--ring);
+    animation: menu-pop-in var(--dur-2) var(--ease-out);
+    -webkit-app-region: no-drag;
+  }
+
+  .model-combo-search {
+    box-sizing: border-box;
+    width: 100%;
+    padding: var(--sp-4) var(--sp-5);
+    border: none;
+    border-bottom: 1px solid var(--line);
+    background: var(--surface-sunken);
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-lg);
+    outline: none;
+  }
+
+  .model-combo-list {
+    max-height: 45vh;
+    overflow-y: auto;
+    padding: var(--sp-2);
+  }
+
+  .model-combo-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    width: 100%;
+    padding: var(--sp-3) var(--sp-4);
+    border: none;
+    border-radius: var(--r-1);
+    background: none;
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    letter-spacing: var(--tr-data);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .model-combo-item:hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  .model-combo-item.on {
+    color: var(--accent);
+  }
+
+  .model-combo-label {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  /* Marchio "free": e' una proprieta' verificata del modello, non decorazione. */
+  .model-free {
+    flex: none;
+    padding: 0 var(--sp-2);
+    border-radius: var(--r-1);
+    background: var(--ok-dim);
+    color: var(--ok);
+    font-family: var(--font-sans);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
+  }
+
+  .model-combo-empty {
+    padding: var(--sp-5);
+    color: var(--text-2);
+    font-size: var(--fs-sm);
+  }
+
+  /* ---- Menu di overflow (il "…" delle barre) ---- */
+  .omenu {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .omenu-pop {
+    position: absolute;
+    top: calc(100% + var(--sp-3));
+    right: 0;
+    z-index: var(--z-overlay);
+    min-width: 28ch;
+    padding: var(--sp-2);
+    border-radius: var(--r-3);
+    background: var(--surface-overlay);
+    box-shadow: var(--ring);
+    animation: menu-pop-in var(--dur-2) var(--ease-out);
+    -webkit-app-region: no-drag;
+  }
+
+  /* Stessa gabbia di .sel-item, .ctx-item e .cpal-item: gap --sp-4 e rientro
+     --sp-3/--sp-4. Erano tre paddings diversi per tre tendine identiche. */
+  .omenu-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    width: 100%;
+    padding: var(--sp-3) var(--sp-4);
+    border: none;
+    border-radius: var(--r-1);
+    background: none;
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    line-height: var(--lh-ui);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .omenu-item:hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  .omenu-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .omenu-on {
+    color: var(--accent);
+  }
+
+  /* ---- Menu Sessione: provider / modello / effort / permessi ---- */
+  .smenu {
+    position: relative;
+    display: inline-flex;
+  }
+
+  .smenu-pop {
+    position: absolute;
+    top: calc(100% + var(--sp-3));
+    left: 50%;
+    z-index: var(--z-overlay);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-5);
+    width: 48ch;
+    max-width: calc(100vw - var(--sp-6));
+    padding: var(--sp-5) var(--sp-6);
+    border-radius: var(--r-3);
+    background: var(--surface-overlay);
+    box-shadow: var(--ring);
+    transform: translateX(-50%);
+    /* Questa tendina e' centrata con un transform proprio: interpolare il
+       transform dentro l'animazione lo cancellerebbe e il menu salterebbe a
+       destra all'apertura. Qui si anima la sola opacita'. */
+    animation: menu-pop-fade var(--dur-2) var(--ease-out);
+    -webkit-app-region: no-drag;
+  }
+
+  .smenu-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding-bottom: var(--sp-3);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .smenu-title {
+    color: var(--text-1);
+    font-size: var(--fs-sm);
+    font-weight: 600;
+  }
+
+  .smenu-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-5);
+  }
+
+  /* Maiuscoletto di servizio: --fs-xs, peso 600, --lh-tight. E' la stessa voce
+     di .rail-section, .cpal-section, .settings-body h3, .todo-title e delle
+     testate di tabella — senza il peso 600 questa era l'unica etichetta magra
+     della famiglia. */
+  .smenu-label {
+    flex: none;
+    width: 9ch;
+    color: var(--text-2);
+    font-size: var(--fs-xs);
+    font-weight: 600;
+    line-height: var(--lh-tight);
+    letter-spacing: var(--tr-label);
+    text-transform: uppercase;
+  }
+
+  /* ---- Segmenti provider / modo permessi ----
+     Un solo valore acceso alla volta: e' un menu a segmenti, non una fila di
+     bottoni. Il pozzo comune e' cio' che lo dice, prima ancora del segmento on. */
+  .provider-toggle {
+    display: inline-flex;
+    gap: var(--sp-1);
+    padding: var(--sp-1);
+    border-radius: var(--r-2);
+    background: var(--surface-sunken);
+  }
+
+  .prov {
+    padding: var(--sp-2) var(--sp-4);
+    border: none;
+    border-radius: var(--r-1);
+    background: none;
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-sm);
+    line-height: var(--lh-ui);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+
+  .prov:hover {
+    color: var(--text-1);
+  }
+
+  /* Dichiarato dopo :hover a parita' di specificita': il segmento scelto non
+     deve retrocedere quando il puntatore ci passa sopra. */
+  .prov.on {
+    background: var(--surface-overlay);
+    color: var(--text-1);
+    font-weight: 600;
+  }
+
+  .smenu-row .provider-toggle {
+    flex-wrap: wrap;
+    min-width: 0;
+  }
+
+  .smenu-row .sel {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .smenu-row .sel-btn {
+    width: 100%;
+    max-width: none;
+    justify-content: space-between;
+  }
+
+  /* ---- Menu contestuale (tasto destro) ----
+     Il velo e' trasparente sul desktop: serve solo a intercettare il click
+     fuori, e oscurare l'app per un menu da tasto destro sarebbe sproporzionato. */
+  .ctx-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-overlay);
+    -webkit-app-region: no-drag;
+  }
+
+  .ctx-menu {
+    position: fixed;
+    z-index: var(--z-modal);
+    display: flex;
+    flex-direction: column;
+    min-width: 26ch;
+    max-width: 40ch;
+    max-height: 80vh;
+    overflow-y: auto;
+    padding: var(--sp-2);
+    border-radius: var(--r-3);
+    background: var(--surface-overlay);
+    box-shadow: var(--ring);
+    animation: menu-pop-in var(--dur-2) var(--ease-out);
+    -webkit-app-region: no-drag;
+  }
+
+  .ctx-item {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-4);
+    padding: var(--sp-3) var(--sp-4);
+    border: none;
+    border-radius: var(--r-1);
+    background: none;
+    color: var(--text-2);
+    font-family: var(--font-sans);
+    font-size: var(--fs-md);
+    line-height: var(--lh-ui);
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .ctx-item:hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  /* Distruttivo: --err e' stato reale, non decorazione. Dichiarato dopo
+     :hover a parita' di specificita', altrimenti passare sopra un "Elimina"
+     lo farebbe tornare del colore di una voce qualsiasi. */
+  .ctx-item.danger {
+    color: var(--err);
+  }
+
+  .ctx-item.danger:hover {
+    background: var(--err-dim);
+    color: var(--err);
+  }
+
+  /* ---- Palette degli slash-command sopra il composer ----
+     Non e' un overlay: vive dentro il composer, quindi niente anello. */
+  .slash-palette {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-2);
+    padding: var(--sp-3) var(--sp-6) 0;
+  }
+
+  .slash-item {
+    padding: var(--sp-2) var(--sp-4);
+    border: none;
+    border-radius: var(--r-1);
+    background: var(--surface-sunken);
+    color: var(--text-2);
+    font-family: var(--font-mono);
+    font-size: var(--fs-data);
+    font-variant-ligatures: none;
+    font-feature-settings: 'tnum' 1, 'zero' 1;
+    letter-spacing: var(--tr-data);
+    cursor: pointer;
+    transition: background var(--dur-1) var(--ease-out), color var(--dur-1) var(--ease-out);
+  }
+
+  .slash-item:hover {
+    background: var(--hover);
+    color: var(--text-1);
+  }
+
+  /* ---- Righe provider nelle impostazioni ----
+     Filo di separazione invece di una scheda con quattro bordi: sono voci di
+     un elenco, non oggetti staccati. */
+  /* Filo TRA le righe, come .fnav-item, .mcp-item, .session-item, .inbox-row e
+     .todos-row: sotto l'ultima riga il filo cadrebbe addosso al bordo della
+     sezione e lo raddoppierebbe. E' --line-faint perche' separa voci di un
+     elenco; --line resta agli stacchi di sezione (.settings-body section). */
+  .prov-row {
+    padding: var(--sp-5) 0;
+  }
+
+  .prov-row + .prov-row {
+    border-top: 1px solid var(--line-faint);
+  }
+
+  .prov-row-head {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-3);
+    margin-bottom: var(--sp-2);
+  }
+
+  .prov-name {
+    flex: 1;
+    min-width: 0;
+    padding: var(--sp-3) var(--sp-4);
+    border: none;
+    border-radius: var(--r-1);
+    background: var(--surface-sunken);
+    color: var(--text-1);
+    font-family: var(--font-sans);
+    font-size: var(--fs-lg);
+    font-weight: 600;
+    outline: none;
+  }
+
+  /* I segmenti dei dischi (.fnav-drives) hanno la stessa FORMA dei segmenti
+     provider qui sopra, ma vivono in filenav.css: sono parte del navigatore
+     file. Erano dichiarati anche qui e, poiche' menu.css e' importato DOPO
+     filenav.css, questa copia vinceva — cioe' rimetteva "C:" e "D:" in
+     grottesco --fs-sm dopo che filenav li aveva messi in mono --fs-data.
+     Una lettera di disco e' un percorso, quindi un DATO: comanda filenav. */
+
+  /* ---- Anello di fuoco da tastiera ----
+     Unico posto in cui il corallo non e' ne' azione primaria ne' selezione: e'
+     il puntatore stesso, l'equivalente da tastiera del cursore del terminale. */
+  .mini:focus-visible,
+  .qa:focus-visible,
+  .rail-add:focus-visible,
+  .provider-toggle .prov:focus-visible,
+  .view-toggle button:focus-visible,
+  .fnav-drives .drive:focus-visible,
+  .perm-actions button:focus-visible,
+  .tab:focus-visible {
+    outline: var(--sp-1) solid var(--accent);
+    outline-offset: var(--sp-1);
+  }
+
+  /* Il no-drag di .cpal-panel sta in palette.css, con il resto del pannello. */
+
+  @keyframes menu-pop-in {
+    from {
+      opacity: 0;
+      transform: translateY(calc(-1 * var(--sp-2)));
+    }
+  }
+
+  @keyframes menu-pop-fade {
+    from {
+      opacity: 0;
+    }
+  }
+
+  /* ---- Bersagli: decisi dal PUNTATORE, non dalla larghezza.
+     Un portatile Windows touch a 1400px ha le stesse dita di un telefono. ---- */
+  @media (pointer: coarse) {
+    .sel-btn,
+    .sel-item,
+    .model-select,
+    .effort-select,
+    .model-combo-item,
+    .omenu-item,
+    .ctx-item,
+    .slash-item,
+    .prov,
+    .sel-search,
+    .model-combo-search,
+    .prov-name {
+      min-height: var(--tap-min);
+    }
+  }
+
+  /* ---- Telefono: layout, non bersagli ---- */
+  @media (max-width: 767px) {
+    /* Un menu posizionato al dito finisce SOTTO il dito: sul telefono diventa
+       un foglio ancorato in basso, dove il pollice arriva davvero. */
+    .ctx-menu {
+      inset: auto 0 0 0;
+      max-width: none;
+      max-height: 70vh;
+      padding: var(--sp-3) var(--sp-3) calc(var(--sp-3) + var(--safe-b));
+      border-radius: var(--r-3) var(--r-3) 0 0;
+      /* ContextMenu.tsx scrive left/top inline e li ricorregge dopo il clamp:
+         una dichiarazione inline batte qualunque regola d'autore. L'origine
+         "animazione" sta sopra l'inline nella cascata ed e' l'unico modo di
+         riportare il foglio in basso senza !important. */
+      animation: ctx-sheet-in var(--dur-3) var(--ease-out) forwards;
+    }
+
+    @keyframes ctx-sheet-in {
+      from {
+        top: auto;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        transform: translateY(100%);
+      }
+
+      to {
+        top: auto;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        transform: none;
+      }
+    }
+
+    /* Con il foglio a tutta larghezza il velo diventa parte del gesto: dice
+       che il resto dell'app e' momentaneamente inerte. */
+    .ctx-backdrop {
+      background: var(--scrim);
+    }
+
+    .sel-btn,
+    .model-combo-btn {
+      max-width: 100%;
+    }
+
+    .sel-pop,
+    .model-combo-pop {
+      width: auto;
+      max-width: calc(100vw - var(--sp-6));
+    }
+
+    .smenu-pop {
+      width: calc(100vw - var(--sp-5));
+    }
+
+    /* Etichetta sopra il controllo: 9ch di colonna fissa piu' una Select
+       lasciano al valore uno spiraglio illeggibile su uno schermo da telefono. */
+    .smenu-row {
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--sp-2);
+    }
+
+    .smenu-label {
+      width: auto;
+    }
+  }
+}

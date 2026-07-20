@@ -106,7 +106,13 @@ const varFallbacks = [];
 for (const file of cssFiles) {
   const rel = relative(ROOT, file);
   const isTokens = /tokens\.css$/.test(rel);
-  const lines = readFileSync(file, 'utf8').split('\n');
+  // I commenti si neutralizzano PRIMA di analizzare, conservando il numero di
+  // righe: altrimenti un commento che spiega "i var() con fallback sono vietati"
+  // viene contato come una violazione. Un guardiano che grida al lupo si smette
+  // di ascoltarlo, ed e' peggio di non averlo.
+  const lines = readFileSync(file, 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
+    .split('\n');
   let layer = 'implicit';
   let depth = 0;
   let selBuf = '';        // accumula i selettori multi-riga (".a,\n.b {")
