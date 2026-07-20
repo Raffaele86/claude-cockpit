@@ -1,10 +1,11 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CockpitClient } from '../ws';
 import { t } from '../strings';
 
 export type MicState = 'idle' | 'recording' | 'busy';
 
 const MAX_RECORD_MS = 60_000;
+const STT_RESPONSE_TIMEOUT_MS = 60_000;
 
 /**
  * Dettatura universale: MediaRecorder → op `stt` (Whisper server-side via engine).
@@ -15,8 +16,16 @@ export function useDictation(getClient: () => CockpitClient | null, onText: (tex
   const [msg, setMsg] = useState<string | null>(null);
   const recRef = useRef<MediaRecorder | null>(null);
   const timerRef = useRef<number | null>(null);
+  const sttTimeoutRef = useRef<number | null>(null);
   const onTextRef = useRef(onText);
   onTextRef.current = onText;
+
+  // Non lasciare il timeout di attesa stt_result orfano se il componente smonta a metà.
+  useEffect(() => {
+    return () => {
+      if (sttTimeoutRef.current) clearTimeout(sttTimeoutRef.current);
+    };
+  }, []);
 
   const toggle = useCallback(async () => {
     setMsg(null);
@@ -62,12 +71,24 @@ export function useDictation(getClient: () => CockpitClient | null, onText: (tex
           }
           const unsub = client.subscribe((m) => {
             if (m.ev !== 'stt_result') return;
+            if (sttTimeoutRef.current) {
+              clearTimeout(sttTimeoutRef.current);
+              sttTimeoutRef.current = null;
+            }
             unsub();
             setState('idle');
             if (m.error) setMsg(m.error);
             else if (m.text) onTextRef.current(m.text);
           });
           client.send({ op: 'stt', audio: b64, mime: blob.type });
+          // Nessun timeout sulla fetch server→provider visto dal client: se stt_result non
+          // arriva mai (rete caduta, provider muto), il mic resterebbe a spinner per sempre.
+          sttTimeoutRef.current = window.setTimeout(() => {
+            sttTimeoutRef.current = null;
+            unsub();
+            setState('idle');
+            setMsg(t('micError')('timeout'));
+          }, STT_RESPONSE_TIMEOUT_MS);
         };
         reader.readAsDataURL(blob);
       };

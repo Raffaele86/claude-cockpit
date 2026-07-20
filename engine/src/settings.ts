@@ -88,13 +88,20 @@ export function applySettings(patch: Partial<CockpitSettings>): { telegram: bool
     // Wildcard vietata: l'engine pilota Claude Code (= shell) dietro un solo token, un bind su
     // tutte le interfacce lo esporrebbe ben oltre la VPN. Si indica un IP specifico su cui restare.
     const hosts = (patch.engine.hosts ?? []).map((h) => h.trim()).filter(Boolean).filter((h) => !WILDCARD_HOSTS.has(h));
-    writeJson(ENGINE_PATH, {
-      hosts: hosts.length ? hosts : ['127.0.0.1'],
-      ...(patch.engine.defaultPermissionMode && patch.engine.defaultPermissionMode !== 'default'
-        ? { defaultPermissionMode: patch.engine.defaultPermissionMode }
-        : {}),
-      ...(patch.engine.autoCheckpoint ? { autoCheckpoint: true } : {}),
-    });
+    // Rilettura del file grezzo: preserva chiavi non gestite qui (es. originHosts, letta solo da server.ts).
+    const cur = readJson<Record<string, unknown>>(ENGINE_PATH, {});
+    const next: Record<string, unknown> = { ...cur, hosts: hosts.length ? hosts : ['127.0.0.1'] };
+    if (patch.engine.defaultPermissionMode && patch.engine.defaultPermissionMode !== 'default') {
+      next.defaultPermissionMode = patch.engine.defaultPermissionMode;
+    } else {
+      delete next.defaultPermissionMode;
+    }
+    if (patch.engine.autoCheckpoint) {
+      next.autoCheckpoint = true;
+    } else {
+      delete next.autoCheckpoint;
+    }
+    writeJson(ENGINE_PATH, next);
     changed.engine = true;
   }
 

@@ -9,6 +9,7 @@ const ENDPOINTS = {
   openai: 'https://api.openai.com/v1/audio/transcriptions',
 };
 const MODELS = { groq: 'whisper-large-v3', openai: 'whisper-1' };
+const TIMEOUT_MS = 60_000;
 
 export async function transcribeAudio(audioB64: string, mime: string): Promise<string> {
   let cfg: { sttApiKey?: string; sttProvider?: 'groq' | 'openai'; sttLanguage?: string };
@@ -29,11 +30,19 @@ export async function transcribeAudio(audioB64: string, mime: string): Promise<s
   // in inglese). 'auto'/assente = auto-rilevamento Whisper, che trascrive senza tradurre.
   if (cfg.sttLanguage && cfg.sttLanguage !== 'auto') form.append('language', cfg.sttLanguage);
 
-  const res = await fetch(ENDPOINTS[provider], {
-    method: 'POST',
-    headers: { authorization: `Bearer ${cfg.sttApiKey}` },
-    body: form,
-  });
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  let res: Response;
+  try {
+    res = await fetch(ENDPOINTS[provider], {
+      method: 'POST',
+      headers: { authorization: `Bearer ${cfg.sttApiKey}` },
+      body: form,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
   if (!res.ok) throw new Error(`STT ${provider}: HTTP ${res.status}`);
   const data = (await res.json()) as { text?: string };
   const text = data.text?.trim();

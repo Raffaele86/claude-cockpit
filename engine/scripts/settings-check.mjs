@@ -9,6 +9,9 @@ import WebSocket from 'ws';
 const dir = mkdtempSync(join(tmpdir(), 'cockpit-settings-'));
 // Segreto pre-esistente: la sentinella mascherata NON deve sovrascriverlo.
 writeFileSync(join(dir, 'telegram.json'), JSON.stringify({ botToken: 'SECRET-ORIGINALE-9999', chatId: 42 }), { mode: 0o600 });
+// Chiave ignota a settings.ts (originHosts, letta solo da server.ts): un settings_set sull'engine
+// non deve cancellarla — regressione B1 (applySettings sovrascriveva engine.json da zero).
+writeFileSync(join(dir, 'engine.json'), JSON.stringify({ hosts: ['127.0.0.1'], originHosts: ['sentinel.example.ts.net'] }));
 
 const engine = spawn('node', [join(import.meta.dirname, '..', 'dist', 'server.js')], {
   env: { ...process.env, COCKPIT_DIR: dir, COCKPIT_PORT: '8131' },
@@ -16,7 +19,7 @@ const engine = spawn('node', [join(import.meta.dirname, '..', 'dist', 'server.js
 });
 engine.stderr.on('data', (d) => process.stderr.write(d));
 
-const st = { masked: false, keepSecret: false, newToken: false, qa: false, mode600: false };
+const st = { masked: false, keepSecret: false, newToken: false, qa: false, mode600: false, originHosts: false };
 const finish = (reason) => {
   console.log('--- ESITO settings ---');
   console.log(st);
@@ -54,6 +57,11 @@ ws.on('message', (raw) => {
   } else if (phase === 'set-new') {
     const onDisk = JSON.parse(readFileSync(join(dir, 'telegram.json'), 'utf8'));
     st.newToken = onDisk.botToken === 'NUOVO-TOKEN-1234' && m.data.telegram.botToken === '••••1234';
+    phase = 'set-engine';
+    send({ op: 'settings_set', patch: { engine: { hosts: ['127.0.0.1'] } } });
+  } else if (phase === 'set-engine') {
+    const onDisk = JSON.parse(readFileSync(join(dir, 'engine.json'), 'utf8'));
+    st.originHosts = JSON.stringify(onDisk.originHosts) === JSON.stringify(['sentinel.example.ts.net']);
     finish('done');
   }
 });

@@ -5,7 +5,10 @@ import { t as tr } from './strings';
 
 if (typeof window !== 'undefined' && !window.cockpit) {
   const KEY = 'cockpit-token';
-  const fromUrl = new URLSearchParams(location.search).get('token');
+  // Il fragment (#token=...) non viene mai inviato al server: preferito alla query string,
+  // che finisce nei log di qualunque reverse proxy davanti all'engine.
+  const fromHash = new URLSearchParams(location.hash.slice(1)).get('token');
+  const fromUrl = fromHash ?? new URLSearchParams(location.search).get('token');
   if (fromUrl) {
     localStorage.setItem(KEY, fromUrl);
     history.replaceState(null, '', location.pathname); // non lasciare il token nella barra URL

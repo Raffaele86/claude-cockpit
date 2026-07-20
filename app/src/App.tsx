@@ -224,6 +224,10 @@ export function App() {
   const projectsRef = useRef<Record<string, ProjectState>>({});
   projectsRef.current = projects;
   const warmed = useRef<Set<string>>(new Set());
+  // Vero se il WS è caduto almeno una volta da quando è stato istanziato: al prossimo
+  // auth_ok bisogna riazzerare lo stato di turno (altrimenti 'busy' resta bloccato per sempre
+  // se il risultato del turno è arrivato mentre eravamo disconnessi).
+  const wasDisconnected = useRef(false);
 
   const updateProject = useCallback((path: string, fn: (s: ProjectState) => ProjectState) => {
     setProjects((prev) => ({ ...prev, [path]: fn(prev[path] ?? emptyProject()) }));
@@ -337,6 +341,21 @@ export function App() {
     (msg: ServerMsg) => {
       switch (msg.ev) {
         case 'auth_ok':
+          if (wasDisconnected.current) {
+            // Resync dopo una riconnessione: lo stato locale dei progetti potrebbe essere
+            // rimasto 'busy' per sempre se il risultato del turno è arrivato a WS chiuso.
+            // Si svuota 'warmed' per rifare open_project/history su ogni progetto e si
+            // azzerano i flag di turno di quelli già in stato locale.
+            warmed.current.clear();
+            setProjects((prev) => {
+              const next: Record<string, ProjectState> = {};
+              for (const [key, s] of Object.entries(prev)) {
+                next[key] = { ...s, busy: false, activeAssistantId: null, thinkingSince: null };
+              }
+              return next;
+            });
+            wasDisconnected.current = false;
+          }
           home.current = msg.home;
           setEngineVersion(msg.engineVersion);
           setEngineError(null);
@@ -687,7 +706,10 @@ export function App() {
   );
 
   useEffect(() => {
-    const c = new CockpitClient(setConn, handle);
+    const c = new CockpitClient((s) => {
+      if (s === 'disconnected') wasDisconnected.current = true;
+      setConn(s);
+    }, handle);
     client.current = c;
     let cancelled = false;
     window.cockpit.getToken().then((token) => {

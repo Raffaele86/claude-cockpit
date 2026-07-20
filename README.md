@@ -90,7 +90,7 @@ Cockpit ships with **no MCP servers** and never connects to anything preconfigur
 ## Security notes
 
 - The engine binds to `127.0.0.1` only, by default. Adding other hosts (LAN/VPN IPs) is opt-in via `engine.json`; the WS is protected by the bearer token, but traffic is plain `ws://` — only expose it on networks you trust (a VPN like Tailscale is the intended path).
-- **HTTPS for mobile (recommended)**: browsers block the microphone (dictation) on plain-http origins. If you use Tailscale, one command puts a valid TLS cert in front of the engine: `tailscale serve --bg http://127.0.0.1:8130` → open `https://<machine>.<tailnet>.ts.net/?token=…` on your phone. WebSocket is proxied too (the UI auto-switches to `wss://`), and the config persists across reboots.
+- **HTTPS for mobile (recommended)**: browsers block the microphone (dictation) on plain-http origins. If you use Tailscale, one command puts a valid TLS cert in front of the engine: `tailscale serve --bg http://127.0.0.1:8130` → open `https://<machine>.<tailnet>.ts.net/#token=…` on your phone. WebSocket is proxied too (the UI auto-switches to `wss://`), and the config persists across reboots.
 - The Telegram gateway answers a single configured chat id and ignores everyone else.
 - Deleting folders from the file explorer only works on empty ones by design.
 

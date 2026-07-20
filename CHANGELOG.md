@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.34.0
+Audit-driven release: fixes the failure modes that show up when the connection drops mid-turn, which is the normal case on a phone. Ships together with 0.33.0, which was committed but never published.
+- Reconnect resync: after the socket drops (phone backgrounded, network change) a re-auth clears the stale per-project turn state and re-opens the active project, instead of leaving the chat stuck on "busy" forever — spinner, Stop button, and every later prompt silently queued instead of sent
+- Foreground wake: `visibilitychange`/`online` force an immediate reconnect with the backoff reset, instead of waiting out the exponential backoff or a TCP timeout — on mobile the OS often kills the socket without a clean FIN, so `onclose` arrives late or never
+- Dictation can no longer hang: a 60s timeout releases the mic with a visible error if `stt_result` never arrives, and the engine aborts the STT request on the same deadline instead of leaving the client waiting forever
+- `settings_set` no longer drops unknown keys from `engine.json`: saving anything at all from Settings used to delete `originHosts`, which silently broke browser/phone access at the next engine restart — days after the save that caused it. New smoke case in `settings-check.mjs` covers it
+- Local PTYs get a concurrency cap (8, matching Windows) and a reaper that closes sessions silent for 6h while no client is connected: closing the PWA with a swipe never sent `pty_kill_project`, so every abandoned tab leaked a ~400 MB `claude` process for good
+- The browser token is read from the URL fragment (`#token=`), which is never sent to the server, instead of the query string where any reverse proxy would log it; `?token=` still works for existing bookmarks
+- Chat: autoscroll only when already near the bottom, so scrolling back during a long answer no longer snaps away; assistant markdown is parsed per-message and memoized instead of re-parsed for the whole conversation on every streamed token
+- Config writes are atomic (temp file + rename, preserving mode): an interrupted write no longer truncates `projects.json` / `sessions.json` / `pty-sessions.json`
+- `open_windows_cli` passes the project path through single-quoted PowerShell, so a directory name containing `$` no longer gets expanded
+- Build: staging directories are pruned before each build — win-unpacked and the mac artifacts had silently regrown to ~1.9 GB
+
 ## 0.33.0
 - Fix: "Copy path" / "Copy path Windows" (and every other copy button) actually reach the clipboard in the desktop app — clipboard writes now go through Electron IPC with browser fallbacks; previously the renderer's clipboard permission was denied and both menu items silently left the old clipboard content in place
 - Open sessions survive updates: an update-triggered restart re-attaches every tab to its live CLI session (scrollback and conversation intact) instead of starting clean

@@ -29,6 +29,8 @@ const PORT = Number(process.env.COCKPIT_PORT) || 8130; // override: solo per gli
 const AUTH_TIMEOUT_MS = 10_000;
 const HISTORY_CAP = 200; // ultimi N messaggi: evita payload WS enormi su sessioni lunghe
 const WIN_PTY_CAP = 8; // sessioni Windows native concorrenti (una = un node.exe+ConPTY su Windows)
+const LINUX_PTY_CAP = 8; // pty locali concorrenti (uno = un processo claude/shell figlio dell'engine)
+const PTY_REAP_IDLE_MS = 6 * 60 * 60_000; // silenzio prima di chiudere un pty locale orfano (nessun client connesso)
 
 // engine.json opzionale: { "hosts": ["127.0.0.1", "<ip-vpn>"], "originHosts": ["<hostname-proxy-tls>"] } —
 // un listener per host, più opzionalmente gli hostname di un reverse proxy TLS (es. tailscale serve)
@@ -135,6 +137,23 @@ setInterval(() => {
       if (ch) latest = Math.max(latest, ch.lastDataAt);
     }
     if (Date.now() - latest > PTY_IDLE_MS) setCliActive(key, false);
+  }
+  // Reaper pty Linux orfani: la PWA chiusa con swipe dal telefono non manda mai pty_kill_project,
+  // quindi il processo claude/shell resta figlio dell'engine a tempo indefinito. Il broadcast pty
+  // raggiunge TUTTI i client autenticati (nessun tracking per-scheda) → "nessuno collegato"
+  // (authed vuoto) è l'unico segnale reale di "nessuno guarda"; combinato col silenzio prolungato
+  // su lastDataAt (un turno attivo produce output) evita di uccidere una sessione al lavoro.
+  if (authed.size === 0) {
+    const now = Date.now();
+    for (const [mapKey, id] of ptyByKey) {
+      const ch = ptys.get(id);
+      if (!(ch instanceof PtyChannel)) continue;
+      const last = ch.lastDataAt || ch.startedAt;
+      if (now - last > PTY_REAP_IDLE_MS) {
+        console.log(`[engine] pty reaper: chiudo ${mapKey} (silenzio ${Math.round((now - last) / 60_000)}min, nessun client connesso)`);
+        ch.kill();
+      }
+    }
   }
 }, 2_000).unref();
 const providerByProject = new Map<string, import('./protocol.js').ProviderName>(); // default 'claude'
@@ -852,7 +871,12 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
         // Path pieno da win-agent.json quando c'è: 'claude' nudo fallirebbe muto se non è nel PATH
         // Windows (la finestra -NoExit resta comunque aperta a mostrare l'eventuale errore).
         const claude = (loadWinAgent()?.claude ?? 'claude').replace(/'/g, "''");
-        const launcher = `Start-Process powershell.exe -ArgumentList @('-NoExit','-NoProfile','-Command',"Set-Location -LiteralPath '${dir}'; & '${claude}'")`;
+        // Apici singoli anche per il -Command interno (mai doppi): dentro le doppie, PowerShell
+        // espanderebbe un '$' letterale nel path (es. una cartella "prezzi$(iva)") prima ancora
+        // di lanciare la finestra. Raddoppio ulteriore degli apici perché ora è nidificato in un
+        // altro apice singolo (quello dell'-ArgumentList esterno).
+        const inner = `Set-Location -LiteralPath '${dir}'; & '${claude}'`.replace(/'/g, "''");
+        const launcher = `Start-Process powershell.exe -ArgumentList @('-NoExit','-NoProfile','-Command','${inner}')`;
         spawn('powershell.exe', ['-NoProfile', '-Command', launcher], { detached: true, stdio: 'ignore' }).unref();
       } catch (err) {
         send(ws, { ev: 'error', message: `open_windows_cli: ${String(err)}` });
@@ -1211,6 +1235,13 @@ async function handleMessage(ws: WebSocket, msg: ClientMsg): Promise<void> {
             const sessionId = randomUUID();
             launchOpts = { extraArgs: ['--session-id', sessionId], sessionId };
           }
+        }
+        // Ogni pty Linux = un processo claude/shell figlio dell'engine: cap per non accumularli
+        // se il client sparisce senza pty_kill_project (es. swipe da telefono, li raccoglie il reaper).
+        const ptyCount = [...ptys.values()].filter((c) => c instanceof PtyChannel).length;
+        if (ptyCount >= LINUX_PTY_CAP) {
+          send(ws, { ev: 'error', message: `Troppe sessioni attive (${ptyCount}/${LINUX_PTY_CAP}): chiudi una scheda prima di aprirne altre.` });
+          break;
         }
         // Pty nuovo, persistente: sopravvive al detach (reload/cambio scheda); muore solo
         // a pty_kill o all'uscita del processo.

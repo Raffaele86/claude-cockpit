@@ -19,6 +19,7 @@ export class CockpitClient {
   private token: string | null = null;
   private backoff = 500;
   private stopped = false;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly listeners = new Set<(m: ServerMsg) => void>();
 
   constructor(
@@ -35,14 +36,38 @@ export class CockpitClient {
   start(token: string): void {
     this.token = token;
     this.stopped = false;
+    document.addEventListener('visibilitychange', this.onForeground);
+    window.addEventListener('online', this.onForeground);
     this.connect();
   }
 
   stop(): void {
     this.stopped = true;
+    document.removeEventListener('visibilitychange', this.onForeground);
+    window.removeEventListener('online', this.onForeground);
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.ws?.close();
     this.ws = null;
   }
+
+  // Su mobile l'OS può uccidere la socket in background senza FIN pulito: onclose arriva
+  // solo al timeout TCP. Al ritorno in foreground (o al recupero rete) forziamo una
+  // riconnessione immediata invece di aspettare il backoff pendente.
+  private readonly onForeground = (): void => {
+    if (this.stopped) return;
+    if (document.visibilityState !== 'visible') return;
+    if (this.ws?.readyState === WebSocket.OPEN) return;
+    if (this.ws?.readyState === WebSocket.CONNECTING) return;
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.backoff = 500;
+    this.connect();
+  };
 
   send(msg: ClientMsg): void {
     if (this.ws?.readyState === WebSocket.OPEN) this.ws.send(JSON.stringify(msg));
@@ -79,7 +104,10 @@ export class CockpitClient {
       this.onState('disconnected');
       const delay = this.backoff;
       this.backoff = Math.min(this.backoff * 2, MAX_BACKOFF_MS);
-      setTimeout(() => this.connect(), delay);
+      this.reconnectTimer = setTimeout(() => {
+        this.reconnectTimer = null;
+        this.connect();
+      }, delay);
     };
 
     ws.onerror = () => ws.close();

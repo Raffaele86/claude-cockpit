@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import type { Item } from '../model';
 import { renderMarkdown } from '../md';
 import { copyText } from '../copy';
@@ -23,35 +23,22 @@ function CopyButton({ getText, label = t('copy') }: { getText: () => string; lab
   );
 }
 
-function ThinkingChip({ since }: { since: number }) {
-  const [, tick] = useState(0);
-  useEffect(() => {
-    const id = setInterval(() => tick((n) => n + 1), 1000);
-    return () => clearInterval(id);
-  }, []);
-  const secs = Math.max(0, Math.round((Date.now() - since) / 1000));
-  return <div className="thinking-chip"><Icon name="thought" size={12} /> {t('thinkingChip')(secs)}</div>;
-}
-
-export function ChatView({
-  items,
-  thinkingSince,
+// Prosa dell'assistente: markdown parsato/sanificato solo quando il testo di QUESTO messaggio
+// cambia (non a ogni render dell'intera conversazione), e memoizzata così i turni già chiusi
+// non vengono ri-renderizzati durante lo streaming di un turno successivo.
+const AssistantMessage = memo(function AssistantMessage({
+  text,
   onOpenFile,
 }: {
-  items: Item[];
-  thinkingSince: number | null;
+  text: string;
   onOpenFile: (path: string) => void;
 }) {
-  const endRef = useRef<HTMLDivElement>(null);
-  const chatRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, [items, thinkingSince]);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const html = useMemo(() => renderMarkdown(text || '…'), [text]);
 
   // Inietta un pulsante "copia" su ogni blocco di codice renderizzato da marked.
   useEffect(() => {
-    const root = chatRef.current;
+    const root = bodyRef.current;
     if (!root) return;
     root.querySelectorAll('pre').forEach((pre) => {
       if (pre.querySelector('.code-copy')) return;
@@ -76,7 +63,38 @@ export function ChatView({
       (code as HTMLElement).title = t('openInReader');
       (code as HTMLElement).onclick = () => onOpenFile(txt);
     });
-  }, [items, onOpenFile]);
+  }, [html, onOpenFile]);
+
+  return <div ref={bodyRef} className="asst-body md" dangerouslySetInnerHTML={{ __html: html }} />;
+});
+
+function ThinkingChip({ since }: { since: number }) {
+  const [, tick] = useState(0);
+  useEffect(() => {
+    const id = setInterval(() => tick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+  const secs = Math.max(0, Math.round((Date.now() - since) / 1000));
+  return <div className="thinking-chip"><Icon name="thought" size={12} /> {t('thinkingChip')(secs)}</div>;
+}
+
+export function ChatView({
+  items,
+  thinkingSince,
+  onOpenFile,
+}: {
+  items: Item[];
+  thinkingSince: number | null;
+  onOpenFile: (path: string) => void;
+}) {
+  const endRef = useRef<HTMLDivElement>(null);
+  const chatRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const el = chatRef.current;
+    const near = !el || el.scrollHeight - el.scrollTop - el.clientHeight < 120;
+    if (near) endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+  }, [items, thinkingSince]);
 
   return (
     <div className="chat" ref={chatRef}>
@@ -106,7 +124,7 @@ export function ChatView({
         return (
           <div key={it.id} className="turn assistant">
             <span className="asst-mark"><Icon name="sparkle" size={13} /></span>
-            <div className="asst-body md" dangerouslySetInnerHTML={{ __html: renderMarkdown(it.text || '…') }} />
+            <AssistantMessage text={it.text} onOpenFile={onOpenFile} />
             <CopyButton getText={() => it.text} />
           </div>
         );

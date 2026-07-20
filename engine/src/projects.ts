@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { COCKPIT_DIR } from './auth.js';
@@ -22,7 +22,19 @@ export function readJson<T>(path: string, fallback: T): T {
 }
 
 export function writeJson(path: string, value: unknown): void {
-  writeFileSync(path, JSON.stringify(value, null, 2) + '\n');
+  // Scrittura atomica: tmp accanto al target + rename (atomico su ext4). Un OOM-kill a metà
+  // scrittura non lascia mai il file finale troncato. Il rename mantiene i permessi del file
+  // temporaneo, quindi se il target esiste già li si preserva esplicitamente sul tmp (alcuni
+  // file scritti con questa utility possono essere 0600).
+  const tmp = path + '.tmp';
+  let mode: number | undefined;
+  try {
+    mode = statSync(path).mode & 0o777;
+  } catch {
+    /* file non ancora esistente: permessi di default */
+  }
+  writeFileSync(tmp, JSON.stringify(value, null, 2) + '\n', mode !== undefined ? { mode } : undefined);
+  renameSync(tmp, path);
 }
 
 /** Seed neutro al primo avvio: solo la home. I progetti si aggiungono dalla UI (rail / navigator). */
