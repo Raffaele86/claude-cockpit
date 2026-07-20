@@ -7,6 +7,8 @@
   "main": "electron/main.cjs",
   "scripts": {
     "sync-protocol": "cp ../engine/src/protocol.ts src/protocol.ts",
+    "css:audit": "node scripts/css-audit.mjs",
+    "css:baseline": "node scripts/css-audit.mjs --css src/theme.css --baseline",
     "dev:vite": "vite",
     "build:renderer": "vite build",
     "dist:win": "vite build && electron-builder --win --config electron-builder.yml",

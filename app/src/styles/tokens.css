@@ -1,0 +1,260 @@
+/* Design system "Strumentazione" (piano 2026-07-20) — tema unico, scuro.
+ *
+ * Il Cockpit e' un pannello di strumenti: mono per i DATI, grottesco per le
+ * ETICHETTE, serif solo per la PROSA di Claude. Fili sottili invece di riquadri.
+ * Niente ombre: l'elevazione e' data dal valore della superficie piu' un filo.
+ * Il colore e' SEMANTICO — verde/ambra/rosso/viola significano stato reale e mai
+ * decorazione — e il corallo e' riservato all'azione primaria e alla selezione.
+ *
+ * DUE LIVELLI, e l'invariante che li tiene in piedi:
+ *   1. rampa grezza  --n-*   : i neutri caldi, dichiarati SOLO qui
+ *   2. alias semantici       : tutto il resto del CSS usa solo questi
+ * Nessun file di componente puo' riferire un --n-*. E' verificato da
+ * `npm run css:audit` (cancello 4) ed e' cio' che rende un eventuale tema
+ * chiaro, domani, un blocco solo invece di una riscrittura.
+ *
+ * Vietati i fallback nei var(): oggi var(--bg-soft, ...) compare in 7 punti con
+ * un token MAI definito, e cinque di quei punti rendono un grigio neutro che nel
+ * tema caldo non esiste. Se il token c'e', il fallback e' rumore; se non c'e',
+ * si vuole una rottura visibile, non un colore plausibile e sbagliato.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* ---- 1. RAMPA GREZZA — neutri caldi, tinta ~38 gradi, croma bassissima ---- */
+  --n-1000: #100f0e;
+  --n-950: #161513;
+  --n-900: #1c1b19;
+  --n-850: #232220;
+  --n-800: #2b2a27;
+  --n-750: #34322f;
+  --n-700: #3d3b37;
+  --n-600: #55524c;
+  --n-500: #6e6b64;
+  --n-400: #87847b;
+  --n-300: #a6a39a;
+  --n-200: #c9c6bd;
+  --n-100: #e6e3da;
+  --n-50: #f5f2ea;
+  --n-0: #ece9e1;
+}
+
+:root,
+[data-theme='dark'] {
+  /* ---- 2a. SUPERFICI ----
+     L'input e' SUNKEN, non raised: oggi --bg-input == --surface, cioe' un campo
+     di testo ha lo stesso valore del pannello che lo contiene, ed e' per questo
+     che tutto ha bisogno di un bordo per essere leggibile. In un pannello di
+     strumenti un campo e' un pozzo in cui si scrive. E' questo che permette di
+     togliere i bordi dagli input senza perderli di vista. */
+  --surface-sunken: var(--n-950); /* terminale, blocchi codice, input */
+  --surface-base: var(--n-900); /* fondo app */
+  --surface-raised: var(--n-850); /* topbar, rail, composer, statusline */
+  --surface-overlay: var(--n-800); /* finestre flottanti, popover, menu */
+  --surface-user: var(--n-800); /* turno utente in chat */
+
+  /* ---- 2b. FILI —— tre pesi, perche' "fili invece di riquadri" senza un
+     vocabolario finisce con un unico bordo usato per tre lavori diversi ---- */
+  --line-faint: rgba(255, 255, 255, 0.045); /* righe di lista, righe di tabella */
+  --line: rgba(255, 255, 255, 0.075); /* divisori strutturali */
+  --line-strong: rgba(255, 255, 255, 0.14); /* bordo dei controlli, anello overlay */
+  --hover: rgba(255, 255, 255, 0.045);
+  --press: rgba(255, 255, 255, 0.08);
+
+  /* ---- 2c. TESTO —— rapporti calcolati su --surface-base #1c1b19 ---- */
+  --text-1: var(--n-0); /* 14.2:1 */
+  --text-2: var(--n-300); /* 6.8:1 */
+  --text-3: var(--n-400); /* 5.1:1 — l'attuale #6e6b64 faceva 3.2:1, sotto AA */
+  --text-faint: #5c5952; /* 2.6:1 — DECORATIVO: disabilitati, separatori, ghost.
+                            Mai un'etichetta che porta informazione. */
+
+  /* ---- 2d. STATO —— cinque, un significato ciascuno.
+     E' qui che si cura l'incoerenza: ogni colore deve avere una ragione. ---- */
+  --ok: #6fb98a; /* 7.4:1 — sano, connesso, passato, riga aggiunta */
+  --warn: #d9a441; /* 7.7:1 — attenzione NON fallimento: ctx alto, servizio degradato */
+  --err: #e2685c; /* 5.2:1 — fallito, disconnesso, distruttivo, riga rimossa */
+  --info: #6aa9d8; /* 6.8:1 — avviso neutro, link, categoria sessione */
+  --busy: #a78bda; /* 6.0:1 — IN VOLO: thinking, running, tool in esecuzione */
+
+  /* --busy viola e' cio' che rende applicabile la regola sull'accento: oggi
+     "in esecuzione" e' espresso col corallo, e se occupato e' corallo il corallo
+     smette di voler dire "premi qui". */
+
+  --ok-dim: color-mix(in srgb, var(--ok) 14%, transparent);
+  --ok-line: color-mix(in srgb, var(--ok) 38%, transparent);
+  --warn-dim: color-mix(in srgb, var(--warn) 14%, transparent);
+  --warn-line: color-mix(in srgb, var(--warn) 38%, transparent);
+  --err-dim: color-mix(in srgb, var(--err) 14%, transparent);
+  --err-line: color-mix(in srgb, var(--err) 38%, transparent);
+  --info-dim: color-mix(in srgb, var(--info) 14%, transparent);
+  --info-line: color-mix(in srgb, var(--info) 38%, transparent);
+  --busy-dim: color-mix(in srgb, var(--busy) 14%, transparent);
+  --busy-line: color-mix(in srgb, var(--busy) 38%, transparent);
+
+  /* ---- 2e. ACCENTO —— solo azione primaria e selezione attiva ---- */
+  --accent: #d97757;
+  --accent-hi: #e58a6b; /* solo hover */
+  --accent-wash: color-mix(in srgb, var(--accent) 16%, transparent);
+  --accent-line: color-mix(in srgb, var(--accent) 45%, transparent);
+  --on-accent: #211008; /* 5.9:1 sul corallo. Sostituisce #14110c (7 usi) E
+                           #1c130e (1 uso): due valori per lo stesso lavoro. */
+
+  /* ---- 2f. DIFF —— oggi 6 letterali senza token ---- */
+  --diff-add-bg: color-mix(in srgb, var(--ok) 12%, transparent);
+  --diff-add-fg: #a8d9bb;
+  --diff-del-bg: color-mix(in srgb, var(--err) 12%, transparent);
+  --diff-del-fg: #eaa9a1;
+  --diff-gutter: var(--text-faint);
+
+  /* ---- 2g. BANNER ---- */
+  --banner-err-bg: var(--err-dim);
+  --banner-err-fg: #f0b5b5;
+  --banner-err-line: var(--err-line);
+
+  /* ---- 2h. TINTE DI SERVIZIO —— i due orfani di PROJECT_COLORS, promossi ---- */
+  --hue-pink: #d883a6;
+  --hue-teal: #55b3a8; /* fa anche da --term-cyan: il pallino teal di un progetto
+                          e' letteralmente lo stesso colore del ciano del terminale */
+
+  /* ---- 3. TIPOGRAFIA ---- */
+  --font-sans: 'Inter', -apple-system, 'Segoe UI', system-ui, Roboto, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-serif: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+
+  /* Scala cresciuta di ~1px: 11-17px erano misure da desktop, non da telefono.
+     Il caso peggiore era l'etichetta maiuscoletta a 11px con spaziatura, cioe'
+     il costrutto meno leggibile alla dimensione piu' piccola. */
+  --fs-micro: 11px; /* SOLO desktop: chip da tastiera, contatori. Mai testo. */
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-md: 14px; /* default UI */
+  --fs-lg: 16px; /* prosa, composer, terminale */
+  --fs-xl: 19px; /* titoli dei pannelli */
+  --fs-data: 13px; /* il mono rende otticamente grande: uno scalino sotto il contesto */
+  --term-fs: 14px;
+
+  --lh-tight: 1.2;
+  --lh-ui: 1.35;
+  --lh-prose: 1.65;
+  --lh-mono: 1.45;
+  --tr-label: 0.06em; /* solo micro-etichette maiuscole */
+  --tr-data: 0; /* il mono non si spazia mai */
+
+  /* ---- 4. FORMA —— raggi piccoli: strumento, non scheda ---- */
+  --r-1: 3px; /* chip, input, celle */
+  --r-2: 5px; /* bottoni, schede */
+  --r-3: 8px; /* finestre flottanti, popover */
+  --r-full: 999px; /* SOLO pallini di stato e FAB del microfono */
+
+  /* Niente ombre. Separazione per anello + velo. */
+  --ring: 0 0 0 1px var(--line-strong);
+  --scrim: rgba(8, 7, 6, 0.62);
+
+  /* ---- 5. SPAZIO —— dieci scalini, non quattro: e' per questo che oggi
+     nel file compaiono letterali come 18px, 22px, 26px, 30px ---- */
+  --sp-1: 2px;
+  --sp-2: 4px;
+  --sp-3: 6px;
+  --sp-4: 8px;
+  --sp-5: 12px;
+  --sp-6: 16px;
+  --sp-7: 20px;
+  --sp-8: 24px;
+  --sp-9: 32px;
+  --sp-10: 48px;
+
+  /* ---- 6. MOTO ---- */
+  --dur-1: 90ms; /* cambio di stato */
+  --dur-2: 160ms; /* entrata/uscita di superfici piccole */
+  --dur-3: 240ms; /* cassetti, fogli */
+  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+
+  /* ---- 7. LAYOUT ---- */
+  --bp-md: 768px; /* sotto = telefono. 768 e non 840: 840 farebbe cadere
+                     l'iPad in verticale (834px) nel layout telefono. */
+  --bp-lg: 1100px; /* sopra = desktop pieno */
+  --h-bar: 44px;
+  --h-bar-touch: 52px;
+  --tap-min: 44px; /* pavimento bersagli — legato a (pointer: coarse),
+                      NON alla larghezza: un portatile touch a 1400px oggi ha
+                      bersagli da 17px e con il solo asse larghezza li terrebbe. */
+  --rail-w: 200px;
+  --col-prose: 78ch;
+
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-r: env(safe-area-inset-right, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --safe-l: env(safe-area-inset-left, 0px);
+
+  /* ---- 8. PIANI —— sostituisce il 5/30/40 ad hoc di oggi ---- */
+  --z-sticky: 10;
+  --z-drawer: 30;
+  --z-scrim: 40;
+  --z-overlay: 50;
+  --z-modal: 60;
+  --z-toast: 70;
+
+  /* ---- 9. TERMINALE ——
+     xterm NON legge il CSS: riceve un oggetto JS costruito leggendo questi
+     token a runtime. Devono quindi essere ESADECIMALI LETTERALI:
+     getComputedStyle restituisce un color-mix() non risolto, che xterm non sa
+     interpretare. Sono gli stessi colori degli stati semantici, cosi' un rosso
+     nel terminale e un rosso in un banner sono lo stesso rosso. ---- */
+  --term-bg: #161513; /* = --surface-sunken */
+  --term-fg: #ece9e1; /* = --text-1 */
+  --term-cursor: #d97757; /* = --accent — il cursore E' il punto attivo:
+                             e' il secondo uso legittimo del corallo */
+  --term-cursor-accent: #161513;
+  --term-selection-bg: rgba(217, 119, 87, 0.28);
+
+  --term-black: #2b2a27; /* NON #000: una CLI che stampa \e[30m su fondo scuro
+                            sarebbe invisibile. Mappato su --surface-overlay. */
+  --term-red: #e2685c;
+  --term-green: #6fb98a;
+  --term-yellow: #d9a441;
+  --term-blue: #6aa9d8;
+  --term-magenta: #a78bda;
+  --term-cyan: #55b3a8;
+  --term-white: #c9c6bd;
+
+  /* bright-black e' la voce piu' importante: Claude Code e quasi tutte le CLI
+     rendono i suggerimenti con \e[90m (lo fa anche Terminal.tsx:58 per
+     "[processo terminato]"). Al default di xterm sarebbe #666 su fondo scuro,
+     circa 2.4:1. Qui e' ~3.3:1 — basso di proposito, perche' quello E' testo
+     secondario; alzarlo ancora smetterebbe di leggersi come tale. */
+  --term-bright-black: #55524c;
+  --term-bright-red: #f0897d;
+  --term-bright-green: #8fd0a6;
+  --term-bright-yellow: #eabf6b;
+  --term-bright-blue: #8ec2e6;
+  --term-bright-magenta: #c1a8ea;
+  --term-bright-cyan: #74ccc1;
+  --term-bright-white: #f5f2ea;
+}
+
+/* Un blocco solo ridimensiona tutta l'interfaccia sul telefono, al posto degli
+   override per-selettore sparsi di oggi. Regola dura che sopravvive: ogni
+   input/textarea sta a --fs-lg, cioe' >=16px su entrambi i breakpoint —
+   sotto i 16px Android e iOS zoomano il viewport al focus. */
+@media (max-width: 767px) {
+  :root,
+  [data-theme='dark'] {
+    --fs-micro: 12px;
+    --fs-xs: 13px;
+    --fs-sm: 14px;
+    --fs-md: 15px;
+    --fs-lg: 17px;
+    --fs-xl: 20px;
+    --fs-data: 14px;
+    --term-fs: 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-1: 0ms;
+    --dur-2: 0ms;
+    --dur-3: 0ms;
+  }
+}

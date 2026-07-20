@@ -1,50 +1,52 @@
-/* Design system v0.28 "Linear-warm": palette calda Claude a livelli di superficie,
-   scala tipografica e raggi FISSI, accent corallo usato col contagocce (primary/attivo).
-   La prosa delle risposte resta in serif (Tiempos) come su claude.ai; la UI in grottesco. */
+@import './styles/fonts.css';
+@import './styles/tokens.css';
+
+/* TRANSITORIO — tappa 1 del piano "Strumentazione" (2026-07-20).
+ *
+ * Il sistema di design vive in styles/tokens.css. Questo file conserva ancora
+ * tutte le sue regole (verranno riscritte per strati nella tappa 3), ma il suo
+ * :root non dichiara piu' nessun colore: e' solo un PONTE che mappa i nomi
+ * storici sui token nuovi. Cosi' l'app intera cambia colore e tipografia in un
+ * commit solo, restando funzionante e verificabile.
+ *
+ * Quando styles/ sara' completo questo blocco sparisce insieme al resto del file.
+ */
 :root {
-  /* Superfici: fondo app → superficie → elevata (popover/finestre) */
-  --bg: #1f1e1c;
-  --surface: #262624;
-  --elev: #2d2c29;
-  --border: rgba(255, 255, 255, 0.06);
-  --hover: rgba(255, 255, 255, 0.04);
-  --active: rgba(255, 255, 255, 0.07);
-  /* Testo, 3 livelli */
-  --text: #f0eee6;
-  --text-2: #a6a39a;
-  --text-3: #6e6b64;
-  /* Accent */
-  --accent: #d97757;
-  --accent-hover: #e08a6d;
-  /* Scala tipografica (5 taglie, niente mezzi pixel) */
-  --fs-xs: 11px;
-  --fs-sm: 12px;
-  --fs-md: 13px;
-  --fs-lg: 15px;
-  --fs-xl: 17px;
-  /* Raggi */
-  --r-sm: 6px;
-  --r-md: 8px;
-  --r-lg: 12px;
-  --r-pill: 999px;
-  /* Ombre morbide, 2 livelli */
-  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-2: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.4);
-  /* Spacing base */
-  --sp-1: 4px;
-  --sp-2: 8px;
-  --sp-3: 12px;
-  --sp-4: 16px;
-  /* Alias legacy (classi esistenti): stesso valore dei token nuovi */
-  --bg-elev: var(--elev);
-  --bg-input: var(--surface);
+  --bg: var(--surface-base);
+  --surface: var(--surface-raised);
+  --elev: var(--surface-overlay);
+  --border: var(--line);
+  --active: var(--press);
+  --text: var(--text-1);
+  --accent-hover: var(--accent-hi);
+
+  --r-sm: var(--r-2);
+  --r-md: var(--r-2);
+  --r-lg: var(--r-3);
+  --r-pill: var(--r-full);
+
+  /* Le ombre escono di scena: l'elevazione e' superficie + filo. Resta un solo
+     rilievo per le finestre davvero staccate, altrimenti un pannello sopra il
+     terminale non si distingue dal terminale. */
+  --shadow-1: none;
+  --shadow-2: 0 16px 40px rgba(8, 7, 6, 0.7);
+
+  --bg-elev: var(--surface-raised);
+  --bg-input: var(--surface-sunken); /* l'input e' un pozzo, non un rilievo */
   --text-dim: var(--text-2);
-  --user: #34322e;
-  --green: #7fbf7f;
-  --red: #e07a6a;
-  --amber: #d9a94a;
-  --serif: 'Tiempos Text', 'Source Serif 4', Georgia, 'Times New Roman', serif;
-  font-family: 'Styrene B', -apple-system, 'Segoe UI', system-ui, Roboto, sans-serif;
+  --user: var(--surface-user);
+  --green: var(--ok);
+  --red: var(--err);
+  --amber: var(--warn);
+  --serif: var(--font-serif);
+
+  /* --bg-soft non e' MAI stato definito: i 7 usi in questo file stavano rendendo
+     il loro fallback, e cinque di essi un grigio neutro estraneo alla palette
+     (pannello Sistema, hover dell'Inbox, badge progetto). Definirlo li ripara
+     subito; i fallback spariranno con la riscrittura. */
+  --bg-soft: var(--hover);
+
+  font-family: var(--font-sans);
 }
 
 * {
